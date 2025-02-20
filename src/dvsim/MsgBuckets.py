@@ -12,8 +12,9 @@ import logging as log
 from pathlib import Path
 
 import hjson
-from MsgBucket import MsgBucket
-from utils import print_msg_list
+
+from dvsim.MsgBucket import MsgBucket
+from dvsim.utils import print_msg_list
 
 
 class MsgBuckets:

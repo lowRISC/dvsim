@@ -7,9 +7,10 @@ import logging as log
 from pathlib import Path
 
 import hjson
-from OneShotCfg import OneShotCfg
 from tabulate import tabulate
-from utils import print_msg_list, subst_wildcards
+
+from dvsim.OneShotCfg import OneShotCfg
+from dvsim.utils import print_msg_list, subst_wildcards
 
 
 class SynCfg(OneShotCfg):
@@ -40,80 +41,80 @@ class SynCfg(OneShotCfg):
         return self.results_summary_md
 
     def _gen_results(self, results):
-        # '''
-        # The function is called after the regression has completed. It looks
-        # for a regr_results.hjson file with aggregated results from the
-        # synthesis run. The hjson needs to have the following (potentially
-        # empty) fields
-        #
-        # results = {
-        #     "tool": "dc",
-        #     "top" : <name of toplevel>,
-        #
-        #     "messages": {
-        #         "flow_errors"      : [],
-        #         "flow_warnings"    : [],
-        #         "analyze_errors"   : [],
-        #         "analyze_warnings" : [],
-        #         "elab_errors"      : [],
-        #         "elab_warnings"    : [],
-        #         "compile_errors"   : [],
-        #         "compile_warnings" : [],
-        #     },
-        #
-        #     "timing": {
-        #         # per timing group (usually a clock domain)
-        #         # in nano seconds
-        #         <group>  : {
-        #             "tns"    : <value>,
-        #             "wns"    : <value>,
-        #             "period" : <value>,
-        #         ...
-        #         }
-        #     },
-        #
-        #     "area": {
-        #         # gate equivalent of a NAND2 gate
-        #         "ge"     : <value>,
-        #
-        #         # summary report, in GE
-        #         "comb"   : <value>,
-        #         "buf"    : <value>,
-        #         "reg"    : <value>,
-        #         "macro"  : <value>,
-        #         "total"  : <value>,
-        #
-        #         # hierarchical report of first submodule level
-        #         "instances" : {
-        #             <name> : {
-        #               "comb"  : <value>,
-        #               "buf"   : <value>,
-        #               "reg"   : <value>,
-        #               "macro" : <value>,
-        #               "total" : <value>,
-        #             },
-        #             ...
-        #         },
-        #     },
-        #
-        #     "power": {
-        #         "net"  : <value>,
-        #         "int"  : <value>,
-        #         "leak" : <value>,
-        #     },
-        #
-        #     "units": {
-        #         "voltage"     : <value>,
-        #         "capacitance" : <value>,
-        #         "time"        : <value>,
-        #         "dynamic"     : <value>,
-        #         "static"      : <value>,
-        #     }
-        # }
-        #
-        # note that if this is a primary config, the results will
-        # be generated using the _gen_results_summary function
-        # '''
+        """The function is called after the regression has completed.
+
+        It looks for a regr_results.hjson file with aggregated results from the
+        synthesis run. The hjson needs to have the following (potentially
+        empty) fields.
+
+        results = {
+            "tool": "dc",
+            "top" : <name of toplevel>,
+
+            "messages": {
+                "flow_errors"      : [],
+                "flow_warnings"    : [],
+                "analyze_errors"   : [],
+                "analyze_warnings" : [],
+                "elab_errors"      : [],
+                "elab_warnings"    : [],
+                "compile_errors"   : [],
+                "compile_warnings" : [],
+            },
+
+            "timing": {
+                # per timing group (usually a clock domain)
+                # in nano seconds
+                <group>  : {
+                    "tns"    : <value>,
+                    "wns"    : <value>,
+                    "period" : <value>,
+                ...
+                }
+            },
+
+            "area": {
+                # gate equivalent of a NAND2 gate
+                "ge"     : <value>,
+
+                # summary report, in GE
+                "comb"   : <value>,
+                "buf"    : <value>,
+                "reg"    : <value>,
+                "macro"  : <value>,
+                "total"  : <value>,
+
+                # hierarchical report of first submodule level
+                "instances" : {
+                    <name> : {
+                      "comb"  : <value>,
+                      "buf"   : <value>,
+                      "reg"   : <value>,
+                      "macro" : <value>,
+                      "total" : <value>,
+                    },
+                    ...
+                },
+            },
+
+            "power": {
+                "net"  : <value>,
+                "int"  : <value>,
+                "leak" : <value>,
+            },
+
+            "units": {
+                "voltage"     : <value>,
+                "capacitance" : <value>,
+                "time"        : <value>,
+                "dynamic"     : <value>,
+                "static"      : <value>,
+            }
+        }
+
+        note that if this is a primary config, the results will
+        be generated using the _gen_results_summary function
+        """
 
         def _create_entry(val, norm=1.0, total=None, perctag="%"):
             """Create normalized entry with an optional

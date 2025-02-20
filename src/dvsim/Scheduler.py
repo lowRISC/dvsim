@@ -7,10 +7,10 @@ import logging as log
 import threading
 from signal import SIGINT, SIGTERM, signal
 
-from Launcher import LauncherBusy, LauncherError
-from StatusPrinter import get_status_printer
-from Timer import Timer
-from utils import VERBOSE
+from dvsim.Launcher import LauncherBusy, LauncherError
+from dvsim.StatusPrinter import get_status_printer
+from dvsim.Timer import Timer
+from dvsim.utils import VERBOSE
 
 
 # Sum of lengths of all lists in the given dict.

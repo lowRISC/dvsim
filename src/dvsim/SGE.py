@@ -12,7 +12,7 @@ import re
 import subprocess
 import time
 
-from qsubopts import qsubOptions
+from dvsim.qsubopts import qsubOptions
 
 sgeJob_t = qsubOptions()
 

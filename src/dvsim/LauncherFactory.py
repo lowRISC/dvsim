@@ -5,12 +5,12 @@
 import logging as log
 import os
 
-from Launcher import Launcher
-from LocalLauncher import LocalLauncher
-from LsfLauncher import LsfLauncher
-from NcLauncher import NcLauncher
-from SgeLauncher import SgeLauncher
-from SlurmLauncher import SlurmLauncher
+from dvsim.Launcher import Launcher
+from dvsim.LocalLauncher import LocalLauncher
+from dvsim.LsfLauncher import LsfLauncher
+from dvsim.NcLauncher import NcLauncher
+from dvsim.SgeLauncher import SgeLauncher
+from dvsim.SlurmLauncher import SlurmLauncher
 
 try:
     from edacloudlauncher.EdaCloudLauncher import EdaCloudLauncher

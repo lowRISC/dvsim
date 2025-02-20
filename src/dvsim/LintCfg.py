@@ -6,10 +6,11 @@ r"""Class describing lint configuration object."""
 import logging as log
 from pathlib import Path
 
-from MsgBuckets import MsgBuckets
-from OneShotCfg import OneShotCfg
 from tabulate import tabulate
-from utils import check_bool, subst_wildcards
+
+from dvsim.MsgBuckets import MsgBuckets
+from dvsim.OneShotCfg import OneShotCfg
+from dvsim.utils import check_bool, subst_wildcards
 
 
 class LintCfg(OneShotCfg):

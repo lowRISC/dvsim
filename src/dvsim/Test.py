@@ -6,7 +6,7 @@ import logging as log
 import sys
 from copy import deepcopy
 
-from modes import RunMode, find_mode, find_mode_list
+from dvsim.modes import RunMode, find_mode, find_mode_list
 
 
 class Test(RunMode):

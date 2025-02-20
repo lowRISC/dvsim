@@ -14,16 +14,17 @@ from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from Deploy import CompileSim, CovAnalyze, CovMerge, CovReport, CovUnr, RunTest
-from FlowCfg import FlowCfg
-from modes import BuildMode, Mode, RunMode, find_mode
-from Regression import Regression
-from results_server import ResultsServer
-from SimResults import SimResults
 from tabulate import tabulate
-from Test import Test
-from Testplan import Testplan
-from utils import TS_FORMAT, rm_path
+
+from dvsim.Deploy import CompileSim, CovAnalyze, CovMerge, CovReport, CovUnr, RunTest
+from dvsim.FlowCfg import FlowCfg
+from dvsim.modes import BuildMode, Mode, RunMode, find_mode
+from dvsim.Regression import Regression
+from dvsim.results_server import ResultsServer
+from dvsim.SimResults import SimResults
+from dvsim.Test import Test
+from dvsim.Testplan import Testplan
+from dvsim.utils import TS_FORMAT, rm_path
 
 # This affects the bucketizer failure report.
 _MAX_UNIQUE_TESTS = 5

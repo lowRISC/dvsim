@@ -8,11 +8,18 @@ import random
 import shlex
 from pathlib import Path
 
-from JobTime import JobTime
-from LauncherFactory import get_launcher
-from sim_utils import get_cov_summary_table, get_job_runtime, get_simulated_time
 from tabulate import tabulate
-from utils import VERBOSE, clean_odirs, find_and_substitute_wildcards, rm_path, subst_wildcards
+
+from dvsim.JobTime import JobTime
+from dvsim.LauncherFactory import get_launcher
+from dvsim.sim_utils import get_cov_summary_table, get_job_runtime, get_simulated_time
+from dvsim.utils import (
+    VERBOSE,
+    clean_odirs,
+    find_and_substitute_wildcards,
+    rm_path,
+    subst_wildcards,
+)
 
 
 class Deploy:

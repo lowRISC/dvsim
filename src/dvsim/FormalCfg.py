@@ -6,10 +6,11 @@ import logging as log
 from pathlib import Path
 
 import hjson
-from OneShotCfg import OneShotCfg
-from results_server import ResultsServer
 from tabulate import tabulate
-from utils import subst_wildcards
+
+from dvsim.OneShotCfg import OneShotCfg
+from dvsim.results_server import ResultsServer
+from dvsim.utils import subst_wildcards
 
 
 class FormalCfg(OneShotCfg):

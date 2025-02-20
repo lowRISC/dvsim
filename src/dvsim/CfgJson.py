@@ -4,7 +4,7 @@
 
 """A wrapper for loading hjson files as used by dvsim's FlowCfg."""
 
-from utils import parse_hjson, subst_wildcards
+from dvsim.utils import parse_hjson, subst_wildcards
 
 # A set of fields that can be overridden on the command line and shouldn't be
 # loaded from the hjson in that case.

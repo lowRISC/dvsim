@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
@@ -30,17 +29,17 @@ import sys
 import textwrap
 from pathlib import Path
 
-import Launcher
-import LauncherFactory
-import LocalLauncher
-import LsfLauncher
-import NcLauncher
-import SgeLauncher
-import SlurmLauncher
-from CfgFactory import make_cfg
-from Deploy import RunTest
-from Timer import Timer
-from utils import TS_FORMAT, TS_FORMAT_LONG, VERBOSE, rm_path, run_cmd_with_timeout
+from dvsim.CfgFactory import make_cfg
+from dvsim.Deploy import RunTest
+from dvsim.Launcher import Launcher
+from dvsim.LauncherFactory import set_launcher_type
+from dvsim.LocalLauncher import LocalLauncher
+from dvsim.LsfLauncher import LsfLauncher
+from dvsim.NcLauncher import NcLauncher
+from dvsim.SgeLauncher import SgeLauncher
+from dvsim.SlurmLauncher import SlurmLauncher
+from dvsim.Timer import Timer
+from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, VERBOSE, rm_path, run_cmd_with_timeout
 
 # TODO: add dvsim_cfg.hjson to retrieve this info
 version = 0.1
@@ -869,13 +868,13 @@ def main() -> None:
 
     # Register the common deploy settings.
     Timer.print_interval = args.print_interval
-    LocalLauncher.LocalLauncher.max_parallel = args.max_parallel
-    SlurmLauncher.SlurmLauncher.max_parallel = args.max_parallel
-    SgeLauncher.SgeLauncher.max_parallel = args.max_parallel
-    LsfLauncher.LsfLauncher.max_parallel = args.max_parallel
-    NcLauncher.NcLauncher.max_parallel = args.max_parallel
-    Launcher.Launcher.max_odirs = args.max_odirs
-    LauncherFactory.set_launcher_type(args.local)
+    LocalLauncher.max_parallel = args.max_parallel
+    SlurmLauncher.max_parallel = args.max_parallel
+    SgeLauncher.max_parallel = args.max_parallel
+    LsfLauncher.max_parallel = args.max_parallel
+    NcLauncher.max_parallel = args.max_parallel
+    Launcher.max_odirs = args.max_odirs
+    set_launcher_type(args.local)
 
     # Build infrastructure from hjson file and create the list of items to
     # be deployed.

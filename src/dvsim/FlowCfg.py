@@ -12,11 +12,12 @@ from pathlib import Path
 from shutil import which
 
 import hjson
-from CfgJson import set_target_attribute
-from LauncherFactory import get_launcher_cls
-from results_server import NoGCPError, ResultsServer
-from Scheduler import Scheduler
-from utils import (
+
+from dvsim.CfgJson import set_target_attribute
+from dvsim.LauncherFactory import get_launcher_cls
+from dvsim.results_server import NoGCPError, ResultsServer
+from dvsim.Scheduler import Scheduler
+from dvsim.utils import (
     VERBOSE,
     clean_odirs,
     find_and_substitute_wildcards,

@@ -7,10 +7,10 @@ import logging as log
 import os
 from collections import OrderedDict
 
-from Deploy import CompileOneShot
-from FlowCfg import FlowCfg
-from modes import BuildMode, Mode
-from utils import rm_path
+from dvsim.Deploy import CompileOneShot
+from dvsim.FlowCfg import FlowCfg
+from dvsim.modes import BuildMode, Mode
+from dvsim.utils import rm_path
 
 
 class OneShotCfg(FlowCfg):

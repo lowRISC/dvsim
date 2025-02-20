@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 r"""Class describing lint configuration object."""
 
-from LintCfg import LintCfg
+from dvsim.LintCfg import LintCfg
 
 
 class CdcCfg(LintCfg):

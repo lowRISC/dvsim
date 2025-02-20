@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 r"""RDC Configuration Class."""
 
-from LintCfg import LintCfg
+from dvsim.LintCfg import LintCfg
 
 
 class RdcCfg(LintCfg):

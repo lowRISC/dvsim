@@ -9,8 +9,8 @@ import subprocess
 import tarfile
 from pathlib import Path
 
-from Launcher import ErrorMessage, Launcher, LauncherError
-from utils import VERBOSE, clean_odirs
+from dvsim.Launcher import ErrorMessage, Launcher, LauncherError
+from dvsim.utils import VERBOSE, clean_odirs
 
 
 class LsfLauncher(Launcher):

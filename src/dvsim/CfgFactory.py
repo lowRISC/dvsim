@@ -6,13 +6,13 @@ import logging as log
 import os
 import sys
 
-import CdcCfg
-import FormalCfg
-import LintCfg
-import RdcCfg
-import SimCfg
-import SynCfg
-from CfgJson import load_hjson
+from dvsim.CdcCfg import CdcCfg
+from dvsim.CfgJson import load_hjson
+from dvsim.FormalCfg import FormalCfg
+from dvsim.LintCfg import LintCfg
+from dvsim.RdcCfg import RdcCfg
+from dvsim.SimCfg import SimCfg
+from dvsim.SynCfg import SynCfg
 
 
 def _load_cfg(path, initial_values):
@@ -45,12 +45,12 @@ def _load_cfg(path, initial_values):
         )
 
     classes = [
-        RdcCfg.RdcCfg,
-        CdcCfg.CdcCfg,
-        LintCfg.LintCfg,
-        SynCfg.SynCfg,
-        FormalCfg.FormalCfg,
-        SimCfg.SimCfg,
+        RdcCfg,
+        CdcCfg,
+        LintCfg,
+        SynCfg,
+        FormalCfg,
+        SimCfg,
     ]
     found_cls = None
     known_types = []
