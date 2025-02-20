@@ -1,0 +1,40 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+    -   id: check-yaml
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+
+- repo: local
+  hooks:
+    - id: ruff
+      name: ruff
+      entry: ruff check --config=pyproject.toml
+      args: ["--fix"]
+      language: system
+      always_run: true
+      require_serial: true
+      pass_filenames: false
+      types_or: [python, pyi, jupyter]
+    - id: ruff-format
+      name: ruff-format
+      entry: ruff format
+      language: system
+      always_run: true
+      require_serial: true
+      pass_filenames: false
+      types_or: [python, pyi, jupyter]
+      # - id: pyright
+      #   name: pyright
+      #   entry: pyright
+      #   language: system
+      #   require_serial: true
+      #   types_or: [python]
+    - id: pytest
+      name: pytest
+      entry: pytest
+      pass_filenames: false
+      always_run: true
+      language: system
+      types_or: [python, pyi, jupyter]
