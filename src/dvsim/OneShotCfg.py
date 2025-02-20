@@ -1,9 +1,7 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-r"""
-Class describing a one-shot build configuration object
-"""
+r"""Class describing a one-shot build configuration object."""
 
 import logging as log
 import os
@@ -20,10 +18,9 @@ class OneShotCfg(FlowCfg):
     linting, synthesis and FPV.
     """
 
-    ignored_wildcards = (FlowCfg.ignored_wildcards +
-                         ['build_mode', 'index', 'test'])
+    ignored_wildcards = [*FlowCfg.ignored_wildcards, "build_mode", "index", "test"]
 
-    def __init__(self, flow_cfg_file, hjson_data, args, mk_config):
+    def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
         # Options set from command line
         self.tool = args.tool
         self.verbose = args.verbose
@@ -76,19 +73,18 @@ class OneShotCfg(FlowCfg):
 
         super().__init__(flow_cfg_file, hjson_data, args, mk_config)
 
-    def _merge_hjson(self, hjson_data):
+    def _merge_hjson(self, hjson_data) -> None:
         # If build_unique is set, then add current timestamp to uniquify it
         if self.build_unique:
             self.build_dir += "_" + self.timestamp
 
         super()._merge_hjson(hjson_data)
 
-    def _expand(self):
+    def _expand(self) -> None:
         super()._expand()
 
         # Stuff below only pertains to individual cfg (not primary cfg).
-        if not self.is_primary_cfg and (not self.select_cfgs or
-                                        self.name in self.select_cfgs):
+        if not self.is_primary_cfg and (not self.select_cfgs or self.name in self.select_cfgs):
             # Print scratch_path at the start:
             log.info("[scratch_path]: [%s] [%s]", self.name, self.scratch_path)
 
@@ -97,35 +93,34 @@ class OneShotCfg(FlowCfg):
                 "D": self.scratch_path + "/" + "dispatched",
                 "P": self.scratch_path + "/" + "passed",
                 "F": self.scratch_path + "/" + "failed",
-                "K": self.scratch_path + "/" + "killed"
+                "K": self.scratch_path + "/" + "killed",
             }
 
             # Use the default build mode for tests that do not specify it
             if not hasattr(self, "build_mode"):
-                setattr(self, "build_mode", "default")
+                self.build_mode = "default"
 
             # Create objects from raw dicts - build_modes, sim_modes, run_modes,
             # tests and regressions, only if not a primary cfg obj
             self._create_objects()
 
     # Purge the output directories. This operates on self.
-    def _purge(self):
+    def _purge(self) -> None:
         assert self.scratch_path
         log.info("Purging scratch path %s", self.scratch_path)
         rm_path(self.scratch_path)
 
-    def _create_objects(self):
+    def _create_objects(self) -> None:
         # Create build and run modes objects
-        build_modes = Mode.create_modes(BuildMode,
-                                        getattr(self, "build_modes"))
-        setattr(self, "build_modes", build_modes)
+        build_modes = Mode.create_modes(BuildMode, self.build_modes)
+        self.build_modes = build_modes
 
         # All defined build modes are being built, h
         # ence extend all with the global opts.
         for build_mode in build_modes:
             build_mode.build_opts.extend(self.build_opts)
 
-    def _print_list(self):
+    def _print_list(self) -> None:
         for list_item in self.list_items:
             log.info("---- List of %s in %s ----", list_item, self.name)
             if hasattr(self, list_item):
@@ -135,16 +130,14 @@ class OneShotCfg(FlowCfg):
             else:
                 log.error("Item %s does not exist!", list_item)
 
-    def _create_dirs(self):
-        '''Create initial set of directories
-        '''
-        for link in self.links.keys():
+    def _create_dirs(self) -> None:
+        """Create initial set of directories."""
+        for link in self.links:
             rm_path(self.links[link])
             os.makedirs(self.links[link])
 
-    def _create_deploy_objects(self):
-        '''Create deploy objects from build modes
-        '''
+    def _create_deploy_objects(self) -> None:
+        """Create deploy objects from build modes."""
         builds = []
         for build in self.build_modes:
             item = CompileOneShot(build, self)

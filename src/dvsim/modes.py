@@ -4,7 +4,6 @@
 
 import logging as log
 import sys
-from typing import List, Optional
 
 
 class Mode:
@@ -14,40 +13,43 @@ class Mode:
     or a regression.
     """
 
-    def __init__(self, type_name: str, mdict):
+    def __init__(self, type_name: str, mdict) -> None:
         keys = mdict.keys()
         attrs = self.__dict__.keys()
 
-        if 'name' not in keys:
-            log.error("Key \"name\" missing in mode %s", mdict)
+        if "name" not in keys:
+            log.error('Key "name" missing in mode %s', mdict)
             sys.exit(1)
 
         for key in keys:
             if key not in attrs:
-                log.error(f"Key {key} in {mdict} is invalid. Supported "
-                          f"attributes for a {type_name} are {attrs}")
+                log.error(
+                    f"Key {key} in {mdict} is invalid. Supported "
+                    f"attributes for a {type_name} are {attrs}",
+                )
                 sys.exit(1)
             setattr(self, key, mdict[key])
 
-    def get_sub_modes(self) -> List[str]:
+    def get_sub_modes(self) -> list[str]:
         # Default behaviour is not to have sub-modes
         return []
 
-    def set_sub_modes(self, sub_modes: List[str]) -> None:
+    def set_sub_modes(self, sub_modes: list[str]) -> None:
         # Default behaviour is not to have sub-modes
         return None
 
-    def merge_mode(self, mode: 'Mode') -> None:
-        '''Update this object by merging it with mode.'''
-
+    def merge_mode(self, mode: "Mode") -> None:
+        """Update this object by merging it with mode."""
         sub_modes = self.get_sub_modes()
         is_sub_mode = mode.name in sub_modes
 
         # If the mode to be merged in is not known as a sub-mode of this mode
         # then something has gone wrong. Generate an error.
         if mode.name != self.name and not is_sub_mode:
-            log.error(f"Cannot merge mode {self.name} with {mode.name}: "
-                      f"it is not a sub-mode and they are not equal.")
+            log.error(
+                f"Cannot merge mode {self.name} with {mode.name}: "
+                f"it is not a sub-mode and they are not equal.",
+            )
             sys.exit(1)
 
         # Merge attributes in self with attributes in mode arg, since they are
@@ -56,7 +58,7 @@ class Mode:
             mode_attr_val = getattr(mode, attr, None)
 
             # If sub-mode, skip the name: it could differ.
-            if is_sub_mode and attr == 'name':
+            if is_sub_mode and attr == "name":
                 continue
 
             # If the incoming  value is None, then nothing to do here.
@@ -75,9 +77,11 @@ class Mode:
             # If we have genuine types (because neither value is None), check
             # that the values are compatible.
             if not isinstance(mode_attr_val, type(self_attr_val)):
-                log.error(f"Cannot merge {self.name} with mode {mode.name}: "
-                          f"the incoming values for attribute {attr} are not "
-                          f"of the same type.")
+                log.error(
+                    f"Cannot merge {self.name} with mode {mode.name}: "
+                    f"the incoming values for attribute {attr} are not "
+                    f"of the same type.",
+                )
                 sys.exit(1)
 
             # If the current value is a list, the incoming one must be as well.
@@ -107,9 +111,11 @@ class Mode:
             # If we get to here then neither value is the default value and
             # they are not equal. Raise an error because we don't know how to
             # merge them.
-            log.error(f"Cannot merge mode {mode.name} into {self.name} "
-                      f"because they have conflicting values for attribute "
-                      f"{attr}: {mode_attr_val} and {self_attr_val}.")
+            log.error(
+                f"Cannot merge mode {mode.name} into {self.name} "
+                f"because they have conflicting values for attribute "
+                f"{attr}: {mode_attr_val} and {self_attr_val}.",
+            )
             sys.exit(1)
 
         # Check newly appended sub_modes, remove 'self' and duplicates
@@ -125,13 +131,12 @@ class Mode:
 
     @staticmethod
     def create_modes(ModeType, mdicts):
-        '''
-        Create modes of type ModeType from a given list of raw dicts
+        """Create modes of type ModeType from a given list of raw dicts
         Process dependencies.
         Return a list of modes objects.
-        '''
+        """
 
-        def merge_sub_modes(mode, parent, objs):
+        def merge_sub_modes(mode, parent, objs) -> None:
             # Check if there are modes available to merge
             sub_modes = mode.get_sub_modes()
             if sub_modes == []:
@@ -140,11 +145,9 @@ class Mode:
             # Set parent if it is None. If not, check cyclic dependency
             if parent is None:
                 parent = mode
-            else:
-                if mode.name == parent.name:
-                    log.error("Cyclic dependency when processing mode \"%s\"",
-                              mode.name)
-                    sys.exit(1)
+            elif mode.name == parent.name:
+                log.error('Cyclic dependency when processing mode "%s"', mode.name)
+                sys.exit(1)
 
             for sub_mode in sub_modes:
                 # Find the sub_mode obj from str
@@ -160,8 +163,10 @@ class Mode:
                         break
                 if not found:
                     log.error(
-                        "Sub mode \"%s\" added to mode \"%s\" was not found!",
-                        sub_mode, mode.name)
+                        'Sub mode "%s" added to mode "%s" was not found!',
+                        sub_mode,
+                        mode.name,
+                    )
                     sys.exit(1)
 
         modes_objs = []
@@ -196,29 +201,30 @@ class Mode:
         return modes_objs
 
     @staticmethod
-    def get_default_mode(ModeType):
+    def get_default_mode(ModeType) -> None:
         return None
 
 
-def find_mode(mode_name: str, modes: List[Mode]) -> Optional[Mode]:
-    '''Search through a list of modes and return the one with the given name.
+def find_mode(mode_name: str, modes: list[Mode]) -> Mode | None:
+    """Search through a list of modes and return the one with the given name.
 
     Return None if nothing was found.
-    '''
+    """
     for mode in modes:
         if mode_name == mode.name:
             return mode
     return None
 
 
-def find_mode_list(mode_names: List[str], modes: List[Mode]) -> List[Mode]:
-    '''Find modes matching a list of names.'''
+def find_mode_list(mode_names: list[str], modes: list[Mode]) -> list[Mode]:
+    """Find modes matching a list of names."""
     found_list = []
     for mode_name in mode_names:
         mode = find_mode(mode_name, modes)
         if mode is None:
-            log.error("Cannot find requested mode ({}) in list. Known names: {}"
-                      .format(mode_name, [m.name for m in modes]))
+            log.error(
+                f"Cannot find requested mode ({mode_name}) in list. Known names: {[m.name for m in modes]}",
+            )
             sys.exit(1)
 
         found_list.append(mode)
@@ -227,14 +233,12 @@ def find_mode_list(mode_names: List[str], modes: List[Mode]) -> List[Mode]:
 
 
 class BuildMode(Mode):
-    """
-    Build modes.
-    """
+    """Build modes."""
 
     # Maintain a list of build_modes str
     item_names = []
 
-    def __init__(self, bdict):
+    def __init__(self, bdict) -> None:
         self.name = ""
         self.is_sim_mode = 0
         self.pre_build_cmds = []
@@ -251,10 +255,10 @@ class BuildMode(Mode):
         super().__init__("build mode", bdict)
         self.en_build_modes = list(set(self.en_build_modes))
 
-    def get_sub_modes(self) -> List[str]:
+    def get_sub_modes(self) -> list[str]:
         return self.en_build_modes
 
-    def set_sub_modes(self, sub_modes: List[str]) -> None:
+    def set_sub_modes(self, sub_modes: list[str]) -> None:
         self.en_build_modes = sub_modes
 
     @staticmethod
@@ -268,7 +272,7 @@ class RunMode(Mode):
     # Maintain a list of run_modes str
     item_names = []
 
-    def __init__(self, rdict):
+    def __init__(self, rdict) -> None:
         self.name = ""
         self.reseed = None
         self.pre_run_cmds = []
@@ -287,12 +291,12 @@ class RunMode(Mode):
         super().__init__("run mode", rdict)
         self.en_run_modes = list(set(self.en_run_modes))
 
-    def get_sub_modes(self) -> List[str]:
+    def get_sub_modes(self) -> list[str]:
         return self.en_run_modes
 
-    def set_sub_modes(self, sub_modes: List[str]) -> None:
+    def set_sub_modes(self, sub_modes: list[str]) -> None:
         self.en_run_modes = sub_modes
 
     @staticmethod
-    def get_default_mode():
+    def get_default_mode() -> None:
         return None

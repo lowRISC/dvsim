@@ -1,14 +1,10 @@
-#!/usr/bin/env python3
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-"""
-This script provides common DV simulation specific utilities.
-"""
+"""This script provides common DV simulation specific utilities."""
 
 import re
 from collections import OrderedDict
-from typing import List, Tuple
 
 
 # Capture the summary results as a list of lists.
@@ -20,12 +16,13 @@ from typing import List, Tuple
 #
 # Raises the appropriate exception if the coverage summary extraction fails.
 def get_cov_summary_table(cov_report_txt, tool):
-    with open(cov_report_txt, 'r') as f:
-        if tool == 'xcelium':
+    with open(cov_report_txt) as f:
+        if tool == "xcelium":
             return xcelium_cov_summary_table(f)
-        if tool == 'vcs':
+        if tool == "vcs":
             return vcs_cov_summary_table(f)
-        raise NotImplementedError(f"{tool} is unsupported for cov extraction.")
+        msg = f"{tool} is unsupported for cov extraction."
+        raise NotImplementedError(msg)
 
 
 # Same desc as above, but specific to Xcelium and takes an opened input stream.
@@ -35,14 +32,14 @@ def xcelium_cov_summary_table(buf):
             # Strip the line and remove the unwanted "* Covered" string.
             metrics = line.strip().replace("* Covered", "").split()
             # Change first item to 'Score'.
-            metrics[0] = 'Score'
+            metrics[0] = "Score"
 
             # Gather the list of metrics.
             items = OrderedDict()
             for metric in metrics:
                 items[metric] = {}
-                items[metric]['covered'] = 0
-                items[metric]['total'] = 0
+                items[metric]["covered"] = 0
+                items[metric]["total"] = 0
 
             # Next line is a separator.
             line = buf.readline()
@@ -55,27 +52,27 @@ def xcelium_cov_summary_table(buf):
                     value = value.strip()
                     m = re.search(r"\((\d+)/(\d+).*\)", value)
                     if m:
-                        items[metrics[i]]['covered'] += int(m.group(1))
-                        items[metrics[i]]['total'] += int(m.group(2))
-                        items['Score']['covered'] += int(m.group(1))
-                        items['Score']['total'] += int(m.group(2))
+                        items[metrics[i]]["covered"] += int(m.group(1))
+                        items[metrics[i]]["total"] += int(m.group(2))
+                        items["Score"]["covered"] += int(m.group(1))
+                        items["Score"]["total"] += int(m.group(2))
             # Capture the percentages and the aggregate.
             values = []
             cov_total = None
-            for metric in items.keys():
-                if items[metric]['total'] == 0:
+            for metric in items:
+                if items[metric]["total"] == 0:
                     values.append("-- %")
                 else:
-                    value = items[metric]['covered'] / items[metric][
-                        'total'] * 100
-                    value = "{0:.2f} %".format(round(value, 2))
+                    value = items[metric]["covered"] / items[metric]["total"] * 100
+                    value = f"{round(value, 2):.2f} %"
                     values.append(value)
-                    if metric == 'Score':
+                    if metric == "Score":
                         cov_total = value
             return [items.keys(), values], cov_total
 
     # If we reached here, then we were unable to extract the coverage.
-    raise SyntaxError(f"Coverage data not found in {buf.name}!")
+    msg = f"Coverage data not found in {buf.name}!"
+    raise SyntaxError(msg)
 
 
 # Same desc as above, but specific to VCS and takes an opened input stream.
@@ -99,10 +96,11 @@ def vcs_cov_summary_table(buf):
             return [metrics, values], cov_total
 
     # If we reached here, then we were unable to extract the coverage.
-    raise SyntaxError(f"Coverage data not found in {buf.name}!")
+    msg = f"Coverage data not found in {buf.name}!"
+    raise SyntaxError(msg)
 
 
-def get_job_runtime(log_text: List, tool: str) -> Tuple[float, str]:
+def get_job_runtime(log_text: list, tool: str) -> tuple[float, str]:
     """Returns the job runtime (wall clock time) along with its units.
 
     EDA tools indicate how long the job ran in terms of CPU time in the log
@@ -115,16 +113,15 @@ def get_job_runtime(log_text: List, tool: str) -> Tuple[float, str]:
     Returns the runtime, units as a tuple.
     Raises NotImplementedError exception if the EDA tool is not supported.
     """
-    if tool == 'xcelium':
+    if tool == "xcelium":
         return xcelium_job_runtime(log_text)
-    elif tool == 'vcs':
+    if tool == "vcs":
         return vcs_job_runtime(log_text)
-    else:
-        raise NotImplementedError(f"{tool} is unsupported for job runtime "
-                                  "extraction.")
+    msg = f"{tool} is unsupported for job runtime extraction."
+    raise NotImplementedError(msg)
 
 
-def vcs_job_runtime(log_text: List) -> Tuple[float, str]:
+def vcs_job_runtime(log_text: list) -> tuple[float, str]:
     """Returns the VCS job runtime (wall clock time) along with its units.
 
     Search pattern example:
@@ -140,10 +137,11 @@ def vcs_job_runtime(log_text: List) -> Tuple[float, str]:
         m = re.search(pattern, line)
         if m:
             return float(m.group(1)), m.group(2)[0]
-    raise RuntimeError("Job runtime not found in the log.")
+    msg = "Job runtime not found in the log."
+    raise RuntimeError(msg)
 
 
-def xcelium_job_runtime(log_text: List) -> Tuple[float, str]:
+def xcelium_job_runtime(log_text: list) -> tuple[float, str]:
     """Returns the Xcelium job runtime (wall clock time) along with its units.
 
     Search pattern example:
@@ -153,17 +151,17 @@ def xcelium_job_runtime(log_text: List) -> Tuple[float, str]:
     Returns the runtime, units as a tuple.
     Raises RuntimeError exception if the search pattern is not found.
     """
-    pattern = (r"^TOOL:\s*xrun.*: Exiting on .*\(total:\s*(\d+):(\d+):(\d+)\)"
-               r"\s*$")
+    pattern = r"^TOOL:\s*xrun.*: Exiting on .*\(total:\s*(\d+):(\d+):(\d+)\)\s*$"
     for line in reversed(log_text):
         m = re.search(pattern, line)
         if m:
             t = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
             return t, "s"
-    raise RuntimeError("Job runtime not found in the log.")
+    msg = "Job runtime not found in the log."
+    raise RuntimeError(msg)
 
 
-def get_simulated_time(log_text: List, tool: str) -> Tuple[float, str]:
+def get_simulated_time(log_text: list, tool: str) -> tuple[float, str]:
     """Returns the simulated time along with its units.
 
     EDA tools indicate how long the design was simulated for in the log file.
@@ -176,16 +174,15 @@ def get_simulated_time(log_text: List, tool: str) -> Tuple[float, str]:
     Returns the simulated, units as a tuple.
     Raises NotImplementedError exception if the EDA tool is not supported.
     """
-    if tool == 'xcelium':
+    if tool == "xcelium":
         return xcelium_simulated_time(log_text)
-    elif tool == 'vcs':
+    if tool == "vcs":
         return vcs_simulated_time(log_text)
-    else:
-        raise NotImplementedError(f"{tool} is unsupported for simulated time "
-                                  "extraction.")
+    msg = f"{tool} is unsupported for simulated time extraction."
+    raise NotImplementedError(msg)
 
 
-def xcelium_simulated_time(log_text: List) -> Tuple[float, str]:
+def xcelium_simulated_time(log_text: list) -> tuple[float, str]:
     """Returns the Xcelium simulated time along with its units.
 
     Search pattern example:
@@ -199,10 +196,11 @@ def xcelium_simulated_time(log_text: List) -> Tuple[float, str]:
         m = re.search(pattern, line)
         if m:
             return float(m.group(1)), m.group(2).lower()
-    raise RuntimeError("Simulated time not found in the log.")
+    msg = "Simulated time not found in the log."
+    raise RuntimeError(msg)
 
 
-def vcs_simulated_time(log_text: List) -> Tuple[float, str]:
+def vcs_simulated_time(log_text: list) -> tuple[float, str]:
     """Returns the VCS simulated time along with its units.
 
     Search pattern example:
@@ -220,4 +218,5 @@ def vcs_simulated_time(log_text: List) -> Tuple[float, str]:
             if m:
                 return float(m.group(1)), m.group(2).lower()
         next_line = line
-    raise RuntimeError("Simulated time not found in the log.")
+    msg = "Simulated time not found in the log."
+    raise RuntimeError(msg)

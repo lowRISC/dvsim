@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import logging as log
 import threading
 from signal import SIGINT, SIGTERM, signal
@@ -17,7 +18,7 @@ def sum_dict_lists(d):
     """Given a dict whose key values are lists, return sum of lengths of
     these lists.
     """
-    return sum([len(d[k]) for k in d])
+    return sum(len(d[k]) for k in d)
 
 
 def get_next_item(arr, index):
@@ -41,7 +42,8 @@ def get_next_item(arr, index):
         try:
             item = arr[index]
         except IndexError:
-            raise IndexError("List is empty!")
+            msg = "List is empty!"
+            raise IndexError(msg)
 
     return item, index
 
@@ -49,7 +51,7 @@ def get_next_item(arr, index):
 class Scheduler:
     """An object that runs one or more Deploy items."""
 
-    def __init__(self, items, launcher_cls, interactive):
+    def __init__(self, items, launcher_cls, interactive) -> None:
         self.items = items
 
         # 'scheduled[target][cfg]' is a list of Deploy objects for the chosen
@@ -132,7 +134,7 @@ class Scheduler:
         stop_now = threading.Event()
         old_handler = None
 
-        def on_signal(signal_received, frame):
+        def on_signal(signal_received, frame) -> None:
             log.info(
                 "Received signal %s. Exiting gracefully.",
                 signal_received,
@@ -167,9 +169,8 @@ class Scheduler:
                 hms = timer.hms()
                 changed = self._poll(hms) or timer.check_time()
                 self._dispatch(hms)
-                if changed:
-                    if self._check_if_done(hms):
-                        break
+                if changed and self._check_if_done(hms):
+                    break
 
                 # This is essentially sleep(1) to wait a second between each
                 # polling loop. But we do it with a bounded wait on stop_now so
@@ -186,7 +187,7 @@ class Scheduler:
         # We got to the end without anything exploding. Return the results.
         return self.item_to_status
 
-    def add_to_scheduled(self, items):
+    def add_to_scheduled(self, items) -> None:
         """Add items to the list of _scheduled.
 
         'items' is a list of Deploy objects.
@@ -197,7 +198,7 @@ class Scheduler:
             if item not in cfg_list:
                 cfg_list.append(item)
 
-    def _remove_from_scheduled(self, item):
+    def _remove_from_scheduled(self, item) -> None:
         """Removes the item from _scheduled[target][cfg] list.
 
         When all items in _scheduled[target][cfg] are finally removed, the cfg
@@ -206,10 +207,8 @@ class Scheduler:
         target_dict = self._scheduled[item.target]
         cfg_list = target_dict.get(item.sim_cfg)
         if cfg_list is not None:
-            try:
+            with contextlib.suppress(ValueError):
                 cfg_list.remove(item)
-            except ValueError:
-                pass
             if not cfg_list:
                 del target_dict[item.sim_cfg]
 
@@ -237,7 +236,7 @@ class Scheduler:
 
         return target
 
-    def _enqueue_successors(self, item=None):
+    def _enqueue_successors(self, item=None) -> None:
         """Move an item's successors from _scheduled to _queued.
 
         'item' is the recently run job that has completed. If None, then we
@@ -252,7 +251,7 @@ class Scheduler:
             self._queued[next_item.target].append(next_item)
             self._remove_from_scheduled(next_item)
 
-    def _cancel_successors(self, item):
+    def _cancel_successors(self, item) -> None:
         """Cancel an item's successors recursively by moving them from
         _scheduled or _queued to _killed.
         """
@@ -302,7 +301,7 @@ class Scheduler:
 
         return successors
 
-    def _ok_to_enqueue(self, item):
+    def _ok_to_enqueue(self, item) -> bool:
         """Returns true if ALL dependencies of item are complete."""
         for dep in item.dependencies:
             # Ignore dependencies that were not scheduled to run.
@@ -345,7 +344,7 @@ class Scheduler:
         return item.needs_all_dependencies_passing
 
     def _poll(self, hms):
-        """Check for running items that have finished
+        """Check for running items that have finished.
 
         Returns True if something changed.
         """
@@ -414,7 +413,7 @@ class Scheduler:
 
         return changed
 
-    def _dispatch(self, hms):
+    def _dispatch(self, hms) -> None:
         """Dispatch some queued items if possible."""
         slots = self.launcher_cls.max_parallel - sum_dict_lists(self._running)
         if slots <= 0:
@@ -486,7 +485,7 @@ class Scheduler:
                     self._kill_item(item)
 
                 except LauncherBusy as err:
-                    log.error("Launcher busy: %s", err)
+                    log.exception("Launcher busy: %s", err)
 
                     self._queued[target].append(item)
 
@@ -502,18 +501,18 @@ class Scheduler:
                 self._running[target].append(item)
                 self.item_to_status[item] = "D"
 
-    def _kill(self):
-        """Kill any running items and cancel any that are waiting"""
+    def _kill(self) -> None:
+        """Kill any running items and cancel any that are waiting."""
         # Cancel any waiting items. We take a copy of self._queued to avoid
         # iterating over the set as we modify it.
         for target in self._queued:
-            for item in [item for item in self._queued[target]]:
+            for item in list(self._queued[target]):
                 self._cancel_item(item)
 
         # Kill any running items. Again, take a copy of the set to avoid
         # modifying it while iterating over it.
         for target in self._running:
-            for item in [item for item in self._running[target]]:
+            for item in list(self._running[target]):
                 self._kill_item(item)
 
     def _check_if_done(self, hms):
@@ -558,7 +557,7 @@ class Scheduler:
             )
         return done
 
-    def _cancel_item(self, item, cancel_successors=True):
+    def _cancel_item(self, item, cancel_successors=True) -> None:
         """Cancel an item and optionally all of its successors.
 
         Supplied item may be in _scheduled list or the _queued list. From
@@ -574,7 +573,7 @@ class Scheduler:
         if cancel_successors:
             self._cancel_successors(item)
 
-    def _kill_item(self, item):
+    def _kill_item(self, item) -> None:
         """Kill a running item and cancel all of its successors."""
         item.launcher.kill()
         self.item_to_status[item] = "K"

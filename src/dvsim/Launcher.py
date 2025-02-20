@@ -9,7 +9,6 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Union
 
 from utils import VERBOSE, clean_odirs, mk_symlink, rm_path
 
@@ -20,7 +19,7 @@ class LauncherError(Exception):
 
 
 class LauncherBusy(Exception):
-    def __init__(self, msg):
+    def __init__(self, msg) -> None:
         self.msg = msg
 
 
@@ -225,7 +224,7 @@ class Launcher:
         self._pre_launch()
         self._do_launch()
 
-    def poll(self) -> Union[str, None]:
+    def poll(self) -> str | None:
         """Poll the launched job for completion.
 
         Invokes _check_status() and _post_finish() when the job completes.

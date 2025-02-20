@@ -1,36 +1,29 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-r"""
-Class describing synthesis configuration object
-"""
+r"""Class describing synthesis configuration object."""
 
 import logging as log
 from pathlib import Path
 
 import hjson
-from tabulate import tabulate
-
 from OneShotCfg import OneShotCfg
+from tabulate import tabulate
 from utils import print_msg_list, subst_wildcards
 
 
 class SynCfg(OneShotCfg):
-    """Derivative class for synthesis purposes.
-    """
+    """Derivative class for synthesis purposes."""
 
-    flow = 'syn'
+    flow = "syn"
 
-    def __init__(self, flow_cfg_file, hjson_data, args, mk_config):
+    def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
         super().__init__(flow_cfg_file, hjson_data, args, mk_config)
         # Set the title for synthesis results.
         self.results_title = self.name.upper() + " Synthesis Results"
 
     def gen_results_summary(self):
-        '''
-        Gathers the aggregated results from all sub configs
-        '''
-
+        """Gathers the aggregated results from all sub configs."""
         # Generate results table for runs.
         log.info("Create summary of synthesis results")
 
@@ -42,8 +35,6 @@ class SynCfg(OneShotCfg):
         results_str += "\n"
 
         self.results_summary_md = results_str + "\nNot supported yet.\n"
-
-        print(self.results_summary_md)
 
         # Return only the tables
         return self.results_summary_md
@@ -125,8 +116,7 @@ class SynCfg(OneShotCfg):
         # '''
 
         def _create_entry(val, norm=1.0, total=None, perctag="%"):
-            """
-            Create normalized entry with an optional
+            """Create normalized entry with an optional
             percentage appended in brackets.
             """
             if val is not None and norm is not None:
@@ -135,13 +125,10 @@ class SynCfg(OneShotCfg):
                         entry = "--"
                     else:
                         perc = float(val) / float(total) * 100.0
-                        entry = "%2.1f %s" % (perc, perctag)
+                        entry = f"{perc:2.1f} {perctag}"
                 else:
                     value = float(val) / norm
-                    if value < 1.0:
-                        entry = "%2.2f" % (value)
-                    else:
-                        entry = "%2.1f" % (value)
+                    entry = f"{value:2.2f}" if value < 1.0 else f"{value:2.1f}"
 
             else:
                 entry = "--"
@@ -160,22 +147,21 @@ class SynCfg(OneShotCfg):
 
         # TODO: extend this to support multiple build modes
         for mode in self.build_modes:
-
             # results_str += "## Build Mode: " + mode.name + "\n\n"
 
             result_data = Path(
-                subst_wildcards(self.build_dir, {"build_mode": mode.name}) +
-                '/results.hjson')
+                subst_wildcards(self.build_dir, {"build_mode": mode.name}) + "/results.hjson",
+            )
             log.info("looking for result data file at %s", result_data)
 
             try:
                 with result_data.open() as results_file:
                     self.result = hjson.load(results_file, use_decimal=True)
-            except IOError as err:
+            except OSError as err:
                 log.warning("%s", err)
                 self.result = {
                     "messages": {
-                        "flow_errors": ["IOError: %s" % err],
+                        "flow_errors": [f"IOError: {err}"],
                         "flow_warnings": None,
                         "analyze_errors": None,
                         "analyze_warnings": None,
@@ -189,13 +175,18 @@ class SynCfg(OneShotCfg):
             # Message summary
             # results_str += "### Tool Message Summary\n\n"
             if "messages" in self.result:
-
                 header = [
-                    "Build Mode", "Flow Warnings", "Flow Errors",
-                    "Analyze Warnings", "Analyze Errors", "Elab Warnings",
-                    "Elab Errors", "Compile Warnings", "Compile Errors"
+                    "Build Mode",
+                    "Flow Warnings",
+                    "Flow Errors",
+                    "Analyze Warnings",
+                    "Analyze Errors",
+                    "Elab Warnings",
+                    "Elab Errors",
+                    "Compile Warnings",
+                    "Compile Errors",
                 ]
-                colalign = ("left", ) + ("center", ) * (len(header) - 1)
+                colalign = ("left",) + ("center",) * (len(header) - 1)
                 table = [header]
 
                 msg_list = [
@@ -214,16 +205,15 @@ class SynCfg(OneShotCfg):
                     if self.result["messages"][key] is None:
                         msgs.append("--")
                     else:
-                        msgs.append(str(len(
-                            self.result["messages"][key])) + sev)
+                        msgs.append(str(len(self.result["messages"][key])) + sev)
 
                 table.append(msgs)
 
                 if len(table) > 1:
-                    results_str += tabulate(table,
-                                            headers="firstrow",
-                                            tablefmt="pipe",
-                                            colalign=colalign) + "\n\n"
+                    results_str += (
+                        tabulate(table, headers="firstrow", tablefmt="pipe", colalign=colalign)
+                        + "\n\n"
+                    )
                 else:
                     results_str += "No messages found\n\n"
             else:
@@ -232,12 +222,19 @@ class SynCfg(OneShotCfg):
             # Hierarchical Area report
             results_str += "### Circuit Complexity in [kGE]\n\n"
             if "area" in self.result:
-
                 header = [
-                    "Instance", "Comb ", "Buf/Inv", "Regs", "Logic", "Macros", "Total",
-                    "Logic [%]", "Macro [%]", "Total [%]"
+                    "Instance",
+                    "Comb ",
+                    "Buf/Inv",
+                    "Regs",
+                    "Logic",
+                    "Macros",
+                    "Total",
+                    "Logic [%]",
+                    "Macro [%]",
+                    "Total [%]",
                 ]
-                colalign = ("left", ) + ("center", ) * (len(header) - 1)
+                colalign = ("left",) + ("center",) * (len(header) - 1)
                 table = [header]
 
                 try:
@@ -246,15 +243,16 @@ class SynCfg(OneShotCfg):
                     # go through submodules. this assumes that the top-level
                     # is listed before any other modules
                     totals = [0] * 3
-                    for name in self.result["area"]["instances"].keys():
+                    for name in self.result["area"]["instances"]:
                         row = []
-                        is_top = (self.result["area"]["instances"][name]["depth"] == 0)
+                        is_top = self.result["area"]["instances"][name]["depth"] == 0
                         row = ["**" + name + "**"] if is_top else [name]
 
                         for field in ["comb", "buf", "reg", "logic", "macro", "total"]:
                             entry = _create_entry(
-                                self.result["area"]["instances"][name]
-                                [field], kge)
+                                self.result["area"]["instances"][name][field],
+                                kge,
+                            )
                             entry = "**" + entry + "**" if is_top else entry
                             row.append(entry)
 
@@ -266,7 +264,10 @@ class SynCfg(OneShotCfg):
                                 row.append(
                                     _create_entry(
                                         self.result["area"]["instances"][name][field],
-                                        kge, totals[k], "%u")
+                                        kge,
+                                        totals[k],
+                                        "%u",
+                                    ),
                                 )
 
                         table.append(row)
@@ -275,10 +276,10 @@ class SynCfg(OneShotCfg):
                     results_str += "Gate equivalent is not properly defined\n\n"
 
                 if len(table) > 1:
-                    results_str += tabulate(table,
-                                            headers="firstrow",
-                                            tablefmt="pipe",
-                                            colalign=colalign) + "\n\n"
+                    results_str += (
+                        tabulate(table, headers="firstrow", tablefmt="pipe", colalign=colalign)
+                        + "\n\n"
+                    )
                 else:
                     results_str += "No area report found\n\n"
             else:
@@ -287,31 +288,35 @@ class SynCfg(OneShotCfg):
             # Timing report
             results_str += "### Timing in [ns]\n\n"
             if "timing" in self.result and "units" in self.result:
-
                 header = ["Path Group", "Period", "WNS", "TNS"]
-                colalign = ("left", ) + ("center", ) * (len(header) - 1)
+                colalign = ("left",) + ("center",) * (len(header) - 1)
                 table = [header]
 
-                for clock in self.result["timing"].keys():
+                for clock in self.result["timing"]:
                     row = [clock]
                     row += [
                         _create_entry(
                             self.result["timing"][clock]["period"],
-                            1.0E-09 / float(self.result["units"]["time"])),
+                            1.0e-09 / float(self.result["units"]["time"]),
+                        ),
                         _create_entry(
-                            self.result["timing"][clock]["wns"], 1.0E-09 /
-                            float(self.result["units"]["time"])) + " EN",
+                            self.result["timing"][clock]["wns"],
+                            1.0e-09 / float(self.result["units"]["time"]),
+                        )
+                        + " EN",
                         _create_entry(
-                            self.result["timing"][clock]["tns"], 1.0E-09 /
-                            float(self.result["units"]["time"])) + " EN"
+                            self.result["timing"][clock]["tns"],
+                            1.0e-09 / float(self.result["units"]["time"]),
+                        )
+                        + " EN",
                     ]
                     table.append(row)
 
                 if len(table) > 1:
-                    results_str += tabulate(table,
-                                            headers="firstrow",
-                                            tablefmt="pipe",
-                                            colalign=colalign) + "\n\n"
+                    results_str += (
+                        tabulate(table, headers="firstrow", tablefmt="pipe", colalign=colalign)
+                        + "\n\n"
+                    )
                 else:
                     results_str += "No timing report found\n\n"
             else:
@@ -320,32 +325,33 @@ class SynCfg(OneShotCfg):
             # Power report
             results_str += "### Power Estimates in [mW]\n\n"
             if "power" in self.result and "units" in self.result:
-
                 header = ["Network", "Internal", "Leakage", "Total"]
-                colalign = ("center", ) * len(header)
+                colalign = ("center",) * len(header)
                 table = [header]
 
                 try:
                     self.result["power"]["net"]
 
                     power = [
-                        float(self.result["power"]["net"]) *
-                        float(self.result["units"]["dynamic"]),
-                        float(self.result["power"]["int"]) *
-                        float(self.result["units"]["dynamic"]),
-                        float(self.result["power"]["leak"]) *
-                        float(self.result["units"]["static"])
+                        float(self.result["power"]["net"]) * float(self.result["units"]["dynamic"]),
+                        float(self.result["power"]["int"]) * float(self.result["units"]["dynamic"]),
+                        float(self.result["power"]["leak"]) * float(self.result["units"]["static"]),
                     ]
 
                     total_power = sum(power)
 
-                    row = [_create_entry(power[0], 1.0E-3) + " / " +
-                           _create_entry(power[0], 1.0E-3, total_power),
-                           _create_entry(power[1], 1.0E-3) + " / " +
-                           _create_entry(power[1], 1.0E-3, total_power),
-                           _create_entry(power[2], 1.0E-3) + " / " +
-                           _create_entry(power[2], 1.0E-3, total_power),
-                           _create_entry(total_power, 1.0E-3)]
+                    row = [
+                        _create_entry(power[0], 1.0e-3)
+                        + " / "
+                        + _create_entry(power[0], 1.0e-3, total_power),
+                        _create_entry(power[1], 1.0e-3)
+                        + " / "
+                        + _create_entry(power[1], 1.0e-3, total_power),
+                        _create_entry(power[2], 1.0e-3)
+                        + " / "
+                        + _create_entry(power[2], 1.0e-3, total_power),
+                        _create_entry(total_power, 1.0e-3),
+                    ]
 
                     table.append(row)
                 # in case fp values are NoneType
@@ -353,23 +359,25 @@ class SynCfg(OneShotCfg):
                     results_str += "No power report found\n\n"
 
                 if len(table) > 1:
-                    results_str += tabulate(table,
-                                            headers="firstrow",
-                                            tablefmt="pipe",
-                                            colalign=colalign) + "\n\n"
+                    results_str += (
+                        tabulate(table, headers="firstrow", tablefmt="pipe", colalign=colalign)
+                        + "\n\n"
+                    )
             else:
                 results_str += "No power report found\n\n"
 
             # Append detailed messages if they exist
             # Note that these messages are omitted in publication mode
-            hdr_key_pairs = [("Flow Warnings", "flow_warnings", False),
-                             ("Flow Errors", "flow_errors", True),
-                             ("Analyze Warnings", "analyze_warnings", False),
-                             ("Analyze Errors", "analyze_errors", True),
-                             ("Elab Warnings", "elab_warnings", False),
-                             ("Elab Errors", "elab_errors", True),
-                             ("Compile Warnings", "compile_warnings", False),
-                             ("Compile Errors", "compile_errors", True)]
+            hdr_key_pairs = [
+                ("Flow Warnings", "flow_warnings", False),
+                ("Flow Errors", "flow_errors", True),
+                ("Analyze Warnings", "analyze_warnings", False),
+                ("Analyze Errors", "analyze_errors", True),
+                ("Elab Warnings", "elab_warnings", False),
+                ("Elab Errors", "elab_errors", True),
+                ("Compile Warnings", "compile_warnings", False),
+                ("Compile Errors", "compile_errors", True),
+            ]
 
             # helper function
             def _getlen(x):
@@ -380,15 +388,15 @@ class SynCfg(OneShotCfg):
             msgs_seen = 0
             fail_msgs = ""
             for _, key, fail in hdr_key_pairs:
-                if key in self.result['messages']:
-                    num_msgs = _getlen(self.result['messages'][key])
+                if key in self.result["messages"]:
+                    num_msgs = _getlen(self.result["messages"][key])
                     msgs_seen += num_msgs
                     self.errors_seen += num_msgs if fail else 0
 
             if msgs_seen > 0:
                 fail_msgs += "\n### Errors and Warnings for Build Mode `'" + mode.name + "'`\n"
                 for hdr, key, _ in hdr_key_pairs:
-                    msgs = self.result['messages'].get(key)
+                    msgs = self.result["messages"].get(key)
                     fail_msgs += print_msg_list("#### " + hdr, msgs, self.max_msg_count)
 
             # Th published report will default to self.results_md if they are

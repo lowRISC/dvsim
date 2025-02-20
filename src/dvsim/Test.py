@@ -2,16 +2,15 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-from copy import deepcopy
 import logging as log
 import sys
+from copy import deepcopy
 
 from modes import RunMode, find_mode, find_mode_list
 
 
 class Test(RunMode):
-    """
-    Abstraction for a test. The RunMode abstraction can be reused here with a few
+    """Abstraction for a test. The RunMode abstraction can be reused here with a few
     modifications.
     """
 
@@ -28,17 +27,16 @@ class Test(RunMode):
         "sw_build_device": "",
         "sw_build_opts": [],
         "run_timeout_mins": None,
-        "run_timeout_multiplier": None
+        "run_timeout_multiplier": None,
     }
 
     @staticmethod
     def create_tests(tdicts, sim_cfg):
-        '''
-        Create Test objects from a given list of raw dicts.
+        """Create Test objects from a given list of raw dicts.
         TODO: enhance the raw dict to include file scoped defaults.
         Process enabled run modes and the set build mode.
         Return a list of test objects.
-        '''
+        """
         tests_objs = []
         # Pass 1: Create unique set of tests by merging tests with the same name
         for tdict in tdicts:
@@ -67,8 +65,9 @@ class Test(RunMode):
 
             # Get the list of names of run modes that are needed for this test
             # but aren't also enabled globally.
-            local_run_mode_names = [name for name in test_obj.en_run_modes
-                                    if name not in sim_cfg.en_run_modes]
+            local_run_mode_names = [
+                name for name in test_obj.en_run_modes if name not in sim_cfg.en_run_modes
+            ]
 
             # Look up the modes with these names then merge each of these modes
             # into test_obj
@@ -78,7 +77,7 @@ class Test(RunMode):
             # Find and set the missing attributes from sim_cfg
             # If not found in sim_cfg either, then throw a warning
             # TODO: These should be file-scoped
-            for attr in attrs.keys():
+            for attr in attrs:
                 # Check if attr value is default
                 val = getattr(test_obj, attr)
                 default_val = attrs[attr]
@@ -88,7 +87,6 @@ class Test(RunMode):
                     # value across to the test object.
                     global_val = getattr(sim_cfg, attr, None)
                     if global_val is not None and global_val != default_val:
-
                         # TODO: This is a workaround for a memory usage bug
                         # that triggered issue #20550. It's a pretty hacky
                         # solution! We should probably tidy this up properly.
@@ -101,8 +99,10 @@ class Test(RunMode):
             # Error if set build mode is actually a sim mode
             if test_obj.build_mode.is_sim_mode is True:
                 log.error(
-                    "Test \"%s\" uses build_mode %s which is actually a sim mode",
-                    test_obj.name, test_obj.build_mode.name)
+                    'Test "%s" uses build_mode %s which is actually a sim mode',
+                    test_obj.name,
+                    test_obj.build_mode.name,
+                )
                 sys.exit(1)
 
             # Merge build_mode's params with self
@@ -116,10 +116,17 @@ class Test(RunMode):
         return tests_objs
 
     @staticmethod
-    def merge_global_opts(tests, global_pre_build_cmds, global_post_build_cmds,
-                          global_build_opts, global_pre_run_cmds,
-                          global_post_run_cmds, global_run_opts,
-                          global_sw_images, global_sw_build_opts):
+    def merge_global_opts(
+        tests,
+        global_pre_build_cmds,
+        global_post_build_cmds,
+        global_build_opts,
+        global_pre_run_cmds,
+        global_post_run_cmds,
+        global_run_opts,
+        global_sw_images,
+        global_sw_build_opts,
+    ) -> None:
         processed_build_modes = set()
         for test in tests:
             if test.build_mode.name not in processed_build_modes:

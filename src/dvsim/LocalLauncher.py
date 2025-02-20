@@ -8,7 +8,6 @@ import os
 import shlex
 import subprocess
 from pathlib import Path
-from typing import Union
 
 from Launcher import ErrorMessage, Launcher, LauncherBusy, LauncherError
 
@@ -65,10 +64,12 @@ class LocalLauncher(Launcher):
                 )
 
             except BlockingIOError as e:
-                raise LauncherBusy(f"Failed to launch job: {e}") from e
+                msg = f"Failed to launch job: {e}"
+                raise LauncherBusy(msg) from e
 
             except subprocess.SubprocessError as e:
-                raise LauncherError(f"IO Error: {e}\nSee {log_path}") from e
+                msg = f"IO Error: {e}\nSee {log_path}"
+                raise LauncherError(msg) from e
 
             finally:
                 self._close_job_log_file()
@@ -78,8 +79,6 @@ class LocalLauncher(Launcher):
 
             # Interactive. stdin / stdout are transparent
             # no timeout and blocking op as user controls the flow
-            print("Interactive mode is not supported yet.")
-            print(f"Cmd : {self.deploy.cmd}")
             self._process = subprocess.Popen(
                 shlex.split(self.deploy.cmd),
                 stdin=None,
@@ -95,7 +94,7 @@ class LocalLauncher(Launcher):
 
         self._link_odir("D")
 
-    def poll(self) -> Union[str, None]:
+    def poll(self) -> str | None:
         """Check status of the running process.
 
         This returns 'D', 'P', 'F', or 'K'. If 'D', the job is still running.
@@ -113,8 +112,8 @@ class LocalLauncher(Launcher):
         if self._process.poll() is None:
             if (
                 self.timeout_secs
-                and (self.job_runtime_secs > self.timeout_secs)  # noqa: W503
-                and not (self.deploy.gui)  # noqa: W503
+                and (self.job_runtime_secs > self.timeout_secs)
+                and not (self.deploy.gui)
             ):
                 self._kill()
                 timeout_mins = self.deploy.get_timeout_mins()
@@ -165,7 +164,7 @@ class LocalLauncher(Launcher):
             ErrorMessage(line_number=None, message="Job killed!", context=[]),
         )
 
-    def _post_finish(self, status: str, err_msg: Union[ErrorMessage, None]) -> None:
+    def _post_finish(self, status: str, err_msg: ErrorMessage | None) -> None:
         self._close_job_log_file()
         self._process = None
         super()._post_finish(status, err_msg)

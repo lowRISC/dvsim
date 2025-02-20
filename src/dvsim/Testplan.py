@@ -1,15 +1,14 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-r"""Testpoint and Testplan classes for maintaining the testplan
-"""
+r"""Testpoint and Testplan classes for maintaining the testplan."""
 
 import os
 import re
 import sys
-from typing import TextIO
 from collections import defaultdict
 from pathlib import Path
+from typing import TextIO
 
 import hjson
 import mistletoe
@@ -17,14 +16,9 @@ from tabulate import tabulate
 
 
 class Result:
-    '''The results for a single test'''
+    """The results for a single test."""
 
-    def __init__(self,
-                 name,
-                 passing=0,
-                 total=0,
-                 job_runtime=None,
-                 simulated_time=None):
+    def __init__(self, name, passing=0, total=0, job_runtime=None, simulated_time=None) -> None:
         self.name = name
         self.passing = passing
         self.total = total
@@ -33,18 +27,19 @@ class Result:
         self.mapped = False
 
 
-class Element():
+class Element:
     """An element of the testplan.
 
     This is either a testpoint or a covergroup.
     """
+
     # Type of the testplan element. Must be set by the extended class.
     kind = "none"
 
     # Mandatory fields in a testplan element.
     fields = ["name", "desc"]
 
-    def __init__(self, raw_dict):
+    def __init__(self, raw_dict) -> None:
         """Initialize the testplan element.
 
         raw_dict is the dictionary parsed from the HJSon file.
@@ -56,9 +51,14 @@ class Element():
             try:
                 setattr(self, field, raw_dict.pop(field))
             except KeyError as e:
-                raise KeyError(f"Error: {self.kind} does not contain all of "
-                               f"the required fields:\n{raw_dict}\nRequired:\n"
-                               f"{self.fields}\n{e}")
+                msg = (
+                    f"Error: {self.kind} does not contain all of "
+                    f"the required fields:\n{raw_dict}\nRequired:\n"
+                    f"{self.fields}\n{e}"
+                )
+                raise KeyError(
+                    msg,
+                )
 
         # Set the remaining k-v pairs in raw_dict as instance attributes.
         for k, v in raw_dict.items():
@@ -67,22 +67,21 @@ class Element():
         # Verify things are in order.
         self._validate()
 
-    def __str__(self):
+    def __str__(self) -> str:
         # Reindent the multiline desc with 4 spaces.
-        desc = "\n".join(
-            ["    " + line.lstrip() for line in self.desc.split("\n")])
-        return (f"  {self.kind.capitalize()}: {self.name}\n"
-                f"  Description:\n{desc}\n")
+        desc = "\n".join(["    " + line.lstrip() for line in self.desc.split("\n")])
+        return f"  {self.kind.capitalize()}: {self.name}\n  Description:\n{desc}\n"
 
-    def _validate(self):
+    def _validate(self) -> None:
         """Runs some basic consistency checks."""
         if not self.name:
-            raise ValueError(f"Error: {self.kind.capitalize()} name cannot "
-                             f"be empty:\n{self}")
+            msg = f"Error: {self.kind.capitalize()} name cannot be empty:\n{self}"
+            raise ValueError(msg)
 
         # "tags", if updated key must be list.
         if not isinstance(self.tags, list):
-            raise ValueError(f"'tags' key in {self} is not a list.")
+            msg = f"'tags' key in {self} is not a list."
+            raise ValueError(msg)
 
     def has_tags(self, tags: set) -> bool:
         """Checks if the provided tags match the tags originally set.
@@ -100,9 +99,8 @@ class Element():
             if tag.startswith("-"):
                 if tag[1:] in self.tags:
                     return False
-            else:
-                if tag not in self.tags:
-                    return False
+            elif tag not in self.tags:
+                return False
 
         return True
 
@@ -115,13 +113,16 @@ class Covergroup(Element):
     description describing what functionality is covered. It is recommended to
     include individual coverpoints and crosses in the description.
     """
+
     kind = "covergroup"
 
-    def _validate(self):
+    def _validate(self) -> None:
         super()._validate()
         if not self.name.endswith("_cg"):
-            raise ValueError(f"Error: Covergroup name {self.name} needs to "
-                             "end with suffix \"_cg\".")
+            msg = f'Error: Covergroup name {self.name} needs to end with suffix "_cg".'
+            raise ValueError(
+                msg,
+            )
 
 
 class Testpoint(Element):
@@ -134,13 +135,14 @@ class Testpoint(Element):
     - the targeted stage
     - the list of actual developed tests that verify it
     """
+
     kind = "testpoint"
-    fields = Element.fields + ["stage", "tests"]
+    fields = [*Element.fields, "stage", "tests"]
 
     # Verification stages.
     stages = ("N.A.", "V1", "V2", "V2S", "V3")
 
-    def __init__(self, raw_dict):
+    def __init__(self, raw_dict) -> None:
         super().__init__(raw_dict)
 
         # List of Result objects indicating test results mapped to this
@@ -153,30 +155,33 @@ class Testpoint(Element):
         if self.tests == ["N/A"]:
             self.not_mapped = True
 
-    def __str__(self):
-        return super().__str__() + (f"  Stage: {self.stage}\n"
-                                    f"  Tests: {self.tests}\n")
+    def __str__(self) -> str:
+        return super().__str__() + (f"  Stage: {self.stage}\n  Tests: {self.tests}\n")
 
-    def _validate(self):
+    def _validate(self) -> None:
         super()._validate()
         if self.stage not in Testpoint.stages:
-            raise ValueError(f"Testpoint stage {self.stage} is "
-                             f"invalid:\n{self}\nLegal values: "
-                             f"Testpoint.stages")
+            msg = (
+                f"Testpoint stage {self.stage} is invalid:\n{self}\nLegal values: Testpoint.stages"
+            )
+            raise ValueError(
+                msg,
+            )
 
         # "tests" key must be list.
         if not isinstance(self.tests, list):
-            raise ValueError(f"'tests' key in {self} is not a list.")
+            msg = f"'tests' key in {self} is not a list."
+            raise ValueError(msg)
 
-    def do_substitutions(self, substitutions):
-        '''Substitute {wildcards} in tests
+    def do_substitutions(self, substitutions) -> None:
+        """Substitute {wildcards} in tests.
 
         If tests have {wildcards}, they are substituted with the 'correct'
         values using the key=value pairs provided by the substitutions arg.
         Wildcards with no substitution arg are replaced by an empty string.
 
         substitutions is a dictionary of wildcard-replacement pairs.
-        '''
+        """
         resolved_tests = []
         for test in self.tests:
             match = re.findall(r"{([A-Za-z0-9\_]+)}", test)
@@ -191,15 +196,12 @@ class Testpoint(Element):
             resolved = [test]
             for item, value in subst.items():
                 values = value if isinstance(value, list) else [value]
-                resolved = [
-                    t.replace(f"{{{item}}}", v) for t in resolved
-                    for v in values
-                ]
+                resolved = [t.replace(f"{{{item}}}", v) for t in resolved for v in values]
             resolved_tests.extend(resolved)
 
         self.tests = resolved_tests
 
-    def map_test_results(self, test_results):
+    def map_test_results(self, test_results) -> None:
         """Map test results to tests against this testpoint.
 
         Given a list of test results find the ones that match the tests listed
@@ -233,23 +235,23 @@ class Testpoint(Element):
 
 
 class Testplan:
-    """The full testplan
+    """The full testplan.
 
     The list of Testpoints and Covergroups make up the testplan.
     """
 
     rsvd_keywords = ["import_testplans", "testpoints", "covergroups"]
-    element_cls = {'testpoint': Testpoint, 'covergroup': Covergroup}
+    element_cls = {"testpoint": Testpoint, "covergroup": Covergroup}
 
     @staticmethod
     def _parse_hjson(filename):
         """Parses an input file with HJson and returns a dict."""
         try:
-            return hjson.load(open(filename, 'r'))
-        except IOError as e:
-            print(f"IO Error when opening file {filename}\n{e}")
-        except hjson.scanner.HjsonDecodeError as e:
-            print(f"Error: Unable to decode HJSON with file {filename}:\n{e}")
+            return hjson.load(open(filename))
+        except OSError:
+            pass
+        except hjson.scanner.HjsonDecodeError:
+            pass
         sys.exit(1)
 
     @staticmethod
@@ -264,16 +266,12 @@ class Testplan:
         for dict_entry in raw_dicts_list:
             try:
                 item = Testplan.element_cls[kind](dict_entry)
-            except KeyError as e:
-                print(f"Error: {kind} arg is invalid.\n{e}")
+            except KeyError:
                 sys.exit(1)
-            except ValueError as e:
-                print(f"{kind}\n{dict_entry}\n{e}")
+            except ValueError:
                 sys.exit(1)
 
             if item.name in item_names:
-                print(f"Error: Duplicate {kind} item found with name: "
-                      f"{item.name}")
                 sys.exit(1)
 
             # Filter out the item by tags if provided.
@@ -283,32 +281,34 @@ class Testplan:
         return items
 
     @staticmethod
-    def _get_percentage(value, total):
+    def _get_percentage(value, total) -> str:
         """Returns a string representing percentage upto 2 decimal places."""
         if total == 0:
             return "-- %"
         perc = value / total * 100 * 1.0
-        return "{0:.2f} %".format(round(perc, 2))
+        return f"{round(perc, 2):.2f} %"
 
     @staticmethod
-    def get_dv_style_css():
+    def get_dv_style_css() -> str:
         """Returns text with HTML CSS style for a table."""
-        return ("<style>\n"
-                "table.dv {\n"
-                "    border: 1px solid black;\n"
-                "    border-collapse: collapse;\n"
-                "    width: 100%;\n"
-                "    text-align: left;\n"
-                "    vertical-align: middle;\n"
-                "    display: table;\n"
-                "    font-size: smaller;\n"
-                "}\n"
-                "table.dv th, td {\n"
-                "    border: 1px solid black;\n"
-                "}\n"
-                "</style>\n")
+        return (
+            "<style>\n"
+            "table.dv {\n"
+            "    border: 1px solid black;\n"
+            "    border-collapse: collapse;\n"
+            "    width: 100%;\n"
+            "    text-align: left;\n"
+            "    vertical-align: middle;\n"
+            "    display: table;\n"
+            "    font-size: smaller;\n"
+            "}\n"
+            "table.dv th, td {\n"
+            "    border: 1px solid black;\n"
+            "}\n"
+            "</style>\n"
+        )
 
-    def __str__(self):
+    def __str__(self) -> str:
         lines = [f"Name: {self.name}\n"]
         lines += ["Testpoints:"]
         lines += [f"{t}" for t in self.testpoints]
@@ -316,7 +316,7 @@ class Testplan:
         lines += [f"{c}" for c in self.covergroups]
         return "\n".join(lines)
 
-    def __init__(self, filename, repo_top=None, name=None):
+    def __init__(self, filename, repo_top=None, name=None) -> None:
         """Initialize the testplan.
 
         filename is the HJson file that captures the testplan. It may be
@@ -344,7 +344,6 @@ class Testplan:
             self.name = name
 
         if not self.name:
-            print("Error: the testplan 'name' is not set!")
             sys.exit(1)
 
         # Represents current progress towards each stage. Stage = N.A.
@@ -359,10 +358,12 @@ class Testplan:
             }
 
     @staticmethod
-    def _get_imported_testplan_paths(parent_testplan: Path,
-                                     imported_testplans: list,
-                                     repo_top: Path) -> list:
-        '''Parse imported testplans with correctly set paths.
+    def _get_imported_testplan_paths(
+        parent_testplan: Path,
+        imported_testplans: list,
+        repo_top: Path,
+    ) -> list:
+        """Parse imported testplans with correctly set paths.
 
         Paths of the imported testplans can be set relative to repo_top
         or relative to the parent testplan importing it. Path anchored to
@@ -379,7 +380,7 @@ class Testplan:
         Returns a list of imported testplans with correctly set paths.
         Raises FileNotFoundError if the relative path to the testplan is
         not anchored to repo_top or the parent testplan.
-        '''
+        """
         result = []
         for testplan in imported_testplans:
             path = repo_top / testplan
@@ -399,20 +400,22 @@ class Testplan:
                 result.append(path)
                 continue
 
-            raise FileNotFoundError(f"Testplan {testplan} imported by "
-                                    f"{parent_testplan} does not exist.")
+            msg = f"Testplan {testplan} imported by {parent_testplan} does not exist."
+            raise FileNotFoundError(
+                msg,
+            )
 
         return result
 
-    def _parse_testplan(self, filename: Path, tags: set, repo_top=None):
-        '''Parse testplan Hjson file and create the testplan elements.
+    def _parse_testplan(self, filename: Path, tags: set, repo_top=None) -> None:
+        """Parse testplan Hjson file and create the testplan elements.
 
         It creates the list of testpoints and covergroups extracted from the
         file.
 
         filename is the path to the testplan file written in HJson format.
         repo_top is an optional argument indicating the path to repo top.
-        '''
+        """
         if repo_top is None:
             # Assume dvsim's original location: $REPO_TOP/util/dvsim.
             repo_top = Path(__file__).parent.parent.parent.resolve()
@@ -422,48 +425,46 @@ class Testplan:
         parsed = set()
         parent_testplan = Path(filename)
         imported_testplans = self._get_imported_testplan_paths(
-            parent_testplan, obj.get("import_testplans", []), repo_top)
+            parent_testplan,
+            obj.get("import_testplans", []),
+            repo_top,
+        )
 
         while imported_testplans:
             testplan = imported_testplans.pop(0)
             if testplan in parsed:
-                print(f"Error: encountered the testplan {testplan} again, "
-                      "which was already parsed. Please check for circular "
-                      "dependencies.")
                 sys.exit(1)
             parsed.add(testplan)
             data = self._parse_hjson(os.path.join(repo_top, testplan))
             imported_testplans.extend(
                 self._get_imported_testplan_paths(
-                    testplan, data.get("import_testplans", []), repo_top))
+                    testplan,
+                    data.get("import_testplans", []),
+                    repo_top,
+                ),
+            )
             obj = _merge_dicts(obj, data)
 
         self.name = obj.get("name")
 
         testpoints = obj.get("testpoints", [])
-        self.testpoints = self._create_testplan_elements(
-            'testpoint', testpoints, tags)
+        self.testpoints = self._create_testplan_elements("testpoint", testpoints, tags)
 
         covergroups = obj.get("covergroups", [])
-        self.covergroups = self._create_testplan_elements(
-            'covergroup', covergroups, set())
+        self.covergroups = self._create_testplan_elements("covergroup", covergroups, set())
 
         if not testpoints and not covergroups:
-            print(f"Error: No testpoints or covergroups found in {filename}")
             sys.exit(1)
 
         # Any variable in the testplan that is not a recognized HJson field can
         # be used as a substitution variable.
-        substitutions = {
-            k: v
-            for k, v in obj.items() if k not in self.rsvd_keywords
-        }
+        substitutions = {k: v for k, v in obj.items() if k not in self.rsvd_keywords}
         for tp in self.testpoints:
             tp.do_substitutions(substitutions)
 
         self._sort()
 
-    def _sort(self):
+    def _sort(self) -> None:
         """Sort testpoints by stage and covergroups by name."""
         self.testpoints.sort(key=lambda x: x.stage)
         self.covergroups.sort(key=lambda x: x.name)
@@ -477,20 +478,16 @@ class Testplan:
                 regressions[tp.stage].update({t for t in tp.tests if t})
 
         # Build regressions dict into a hjson like data structure
-        return [{
-            "name": ms,
-            "tests": list(regressions[ms])
-        } for ms in regressions]
+        return [{"name": ms, "tests": list(regressions[ms])} for ms in regressions]
 
     def write_testplan_doc(self, output: TextIO) -> None:
         """Write testplan documentation in markdown from the hjson testplan."""
-
         stages = {}
         for tp in self.testpoints:
-            stages.setdefault(tp.stage, list()).append(tp)
+            stages.setdefault(tp.stage, []).append(tp)
 
         output.write("# Testplan\n\n## Testpoints\n\n")
-        for (stage, testpoints) in stages.items():
+        for stage, testpoints in stages.items():
             output.write(f"### Stage {stage} Testpoints\n\n")
             for tp in testpoints:
                 output.write(f"#### `{tp.name}`\n\n")
@@ -509,12 +506,12 @@ class Testplan:
             for covergroup in self.covergroups:
                 output.write(f"### {covergroup.name}\n\n{covergroup.desc.strip()}\n\n")
 
-    def map_test_results(self, test_results):
+    def map_test_results(self, test_results) -> None:
         """Map test results to testpoints."""
         # Maintain a list of tests we already counted.
         tests_seen = set()
 
-        def _process_testpoint(testpoint, totals):
+        def _process_testpoint(testpoint, totals) -> None:
             """Computes the testplan progress and the sim footprint.
 
             totals is a list of Testpoint items that represent the total number
@@ -596,12 +593,11 @@ class Testplan:
                 self.progress.pop(ms)
                 continue
 
-            stat["progress"] = self._get_percentage(stat["passing"],
-                                                    stat["total"])
+            stat["progress"] = self._get_percentage(stat["passing"], stat["total"])
 
         self.test_results_mapped = True
 
-    def map_covergroups(self, cgs_found):
+    def map_covergroups(self, cgs_found) -> None:
         """Map the covergroups found from simulation to the testplan.
 
         For now, this does nothing more than 'check off' the covergroup
@@ -611,7 +607,6 @@ class Testplan:
         cgs_found is a list of covergroup names extracted from the coverage
         database after the simulation is run with coverage enabled.
         """
-
         if not self.covergroups:
             return
 
@@ -631,13 +626,18 @@ class Testplan:
 
     def get_test_results_table(self, map_full_testplan=True):
         """Return the mapped test results into a markdown table."""
-
         assert self.test_results_mapped, "Have you invoked map_test_results()?"
         header = [
-            "Stage", "Name", "Tests", "Max Job Runtime", "Simulated Time",
-            "Passing", "Total", "Pass Rate"
+            "Stage",
+            "Name",
+            "Tests",
+            "Max Job Runtime",
+            "Simulated Time",
+            "Passing",
+            "Total",
+            "Pass Rate",
         ]
-        colalign = ('center', ) * 2 + ('left', ) + ('center', ) * 5
+        colalign = ("center",) * 2 + ("left",) + ("center",) * 5
         table = []
         for tp in self.testpoints:
             stage = "" if tp.stage == "N.A." else tp.stage
@@ -647,45 +647,44 @@ class Testplan:
                     continue
                 pass_rate = self._get_percentage(tr.passing, tr.total)
 
-                job_runtime = "" if tr.job_runtime is None else str(
-                    tr.job_runtime)
-                simulated_time = "" if tr.simulated_time is None else str(
-                    tr.simulated_time)
+                job_runtime = "" if tr.job_runtime is None else str(tr.job_runtime)
+                simulated_time = "" if tr.simulated_time is None else str(tr.simulated_time)
 
-                table.append([
-                    stage, tp_name, tr.name, job_runtime, simulated_time,
-                    tr.passing, tr.total, pass_rate
-                ])
+                table.append(
+                    [
+                        stage,
+                        tp_name,
+                        tr.name,
+                        job_runtime,
+                        simulated_time,
+                        tr.passing,
+                        tr.total,
+                        pass_rate,
+                    ],
+                )
                 stage = ""
                 tp_name = ""
 
         text = "\n### Test Results\n"
-        text += tabulate(table,
-                         headers=header,
-                         tablefmt="pipe",
-                         colalign=colalign)
+        text += tabulate(table, headers=header, tablefmt="pipe", colalign=colalign)
         text += "\n"
         return text
 
     def get_progress_table(self):
         """Returns the current progress of the effort towards the testplan."""
-
         assert self.test_results_mapped, "Have you invoked map_test_results()?"
         header = []
         table = []
         for key in self.progress:
             stat = self.progress[key]
-            values = [v for v in stat.values()]
+            values = list(stat.values())
             if not header:
                 header = ["Items"] + [k.capitalize() for k in stat]
-            table.append([key] + values)
+            table.append([key, *values])
 
         text = "\n### Testplan Progress\n"
-        colalign = (("center", ) * len(header))
-        text += tabulate(table,
-                         headers=header,
-                         tablefmt="pipe",
-                         colalign=colalign)
+        colalign = ("center",) * len(header)
+        text += tabulate(table, headers=header, tablefmt="pipe", colalign=colalign)
         text += "\n"
         return text
 
@@ -695,23 +694,18 @@ class Testplan:
         cov_results is a list of dicts with name and result keys, representing
         the name of the coverage metric and the result in decimal / fp value.
         """
-
         if not cov_results:
             return ""
 
         try:
             cov_header = [c["name"].capitalize() for c in cov_results]
             cov_values = [c["result"] for c in cov_results]
-        except KeyError as e:
-            print(f"Malformed cov_results:\n{cov_results}\n{e}")
+        except KeyError:
             sys.exit(1)
 
-        colalign = (("center", ) * len(cov_header))
+        colalign = ("center",) * len(cov_header)
         text = "\n### Coverage Results\n"
-        text += tabulate([cov_values],
-                         headers=cov_header,
-                         tablefmt="pipe",
-                         colalign=colalign)
+        text += tabulate([cov_values], headers=cov_header, tablefmt="pipe", colalign=colalign)
         text += "\n"
         return text
 
@@ -751,8 +745,7 @@ class Testplan:
             try:
                 tr = Result(item["name"], item["passing"], item["total"])
                 test_results.append(tr)
-            except KeyError as e:
-                print(f"Error: data in {sim_results_file} is malformed!\n{e}")
+            except KeyError:
                 sys.exit(1)
 
         self.map_test_results(test_results)
@@ -768,12 +761,12 @@ class Testplan:
 
         if fmt == "html":
             text = self.get_dv_style_css() + mistletoe.markdown(text)
-            text = text.replace("<table>", "<table class=\"dv\">")
+            text = text.replace("<table>", '<table class="dv">')
         return text
 
 
 def _merge_dicts(list1, list2, use_list1_for_defaults=True):
-    '''Merge 2 dicts into one
+    """Merge 2 dicts into one.
 
     This function takes 2 dicts as args list1 and list2. It recursively merges
     list2 into list1 and returns list1. The recursion happens when the
@@ -781,7 +774,7 @@ def _merge_dicts(list1, list2, use_list1_for_defaults=True):
     both lists (at the same tree level) are of dissimilar type, then there is a
     conflict and an error is thrown. If they are of the same scalar type, then
     the third arg "use_list1_for_defaults" is used to pick the final one.
-    '''
+    """
     for key, item2 in list2.items():
         item1 = list1.get(key)
         if item1 is None:
@@ -806,9 +799,6 @@ def _merge_dicts(list1, list2, use_list1_for_defaults=True):
             continue
 
         # Oh no! We can't merge this.
-        print("ERROR: Cannot merge dictionaries at key {!r} because items "
-              "have conflicting types ({} in 1st; {} in 2nd).".format(
-                  key, type(item1), type(item2)))
         sys.exit(1)
 
     return list1

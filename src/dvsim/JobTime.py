@@ -1,23 +1,25 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-r"""An abstraction for maintaining job runtime and its units.
-"""
+r"""An abstraction for maintaining job runtime and its units."""
 
-from copy import copy
-from typing import Tuple
 import unittest
+from copy import copy
 
 
 class JobTime:
     # Possible units.
     units = ["h", "m", "s", "ms", "us", "ns", "ps", "fs"]
-    dividers = [60.0, ] * 3 + [1000.0, ] * 5
+    dividers = [
+        60.0,
+    ] * 3 + [
+        1000.0,
+    ] * 5
 
-    def __init__(self, time: float = 0.0, unit: str = "s", normalize: bool = True):
+    def __init__(self, time: float = 0.0, unit: str = "s", normalize: bool = True) -> None:
         self.set(time, unit, normalize)
 
-    def set(self, time: float, unit: str, normalize: bool = True):
+    def set(self, time: float, unit: str, normalize: bool = True) -> None:
         """Public API to set the instance variables time, unit."""
         self.__time = time
         self.__unit = unit
@@ -25,7 +27,7 @@ class JobTime:
         if normalize:
             self._normalize()
 
-    def get(self) -> Tuple[float, str]:
+    def get(self) -> tuple[float, str]:
         """Returns the time and unit as a tuple."""
         return self.__time, self.__unit
 
@@ -49,7 +51,7 @@ class JobTime:
             jt.__unit = self.units[index]
         return jt
 
-    def _normalize(self):
+    def _normalize(self) -> None:
         """Brings the time and its units to a more meaningful magnitude.
 
         If the time is very large with a lower magnitude, this method divides
@@ -72,7 +74,7 @@ class JobTime:
         self.__time = normalized_time
         self.__unit = self.units[index]
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Indicates <time><unit> as string.
 
         The time value is truncated to 3 decimal places.
@@ -80,8 +82,7 @@ class JobTime:
         """
         if self.__time == 0:
             return ""
-        else:
-            return f"{self.__time:.3f}{self.__unit}"
+        return f"{self.__time:.3f}{self.__unit}"
 
     def __eq__(self, other) -> bool:
         assert isinstance(other, JobTime)
@@ -101,30 +102,27 @@ class JobTime:
         oidx = JobTime.units.index(other_unit)
         if sidx < oidx:
             return True
-        elif sidx > oidx:
+        if sidx > oidx:
             return False
-        else:
-            return self.__time > other_time
+        return self.__time > other_time
 
 
 class TestJobTimeMethods(unittest.TestCase):
-
-    def test_with_unit(self):
+    def test_with_unit(self) -> None:
         # First data set
-        h = JobTime(6, 'h', normalize=False)
-        m = JobTime(360, 'm', normalize=False)
-        s = JobTime(21600, 's', normalize=False)
-        ms = JobTime(21600000, 'ms', normalize=False)
+        h = JobTime(6, "h", normalize=False)
+        m = JobTime(360, "m", normalize=False)
+        s = JobTime(21600, "s", normalize=False)
+        ms = JobTime(21600000, "ms", normalize=False)
         for src in [h, m, s, ms]:
-            for unit, dst in [('h', h), ('m', m), ('s', s), ('ms', ms)]:
-                self.assertEqual(src.with_unit(unit), dst)
+            for unit, dst in [("h", h), ("m", m), ("s", s), ("ms", ms)]:
+                assert src.with_unit(unit) == dst
         # Second data set
-        fs = JobTime(123456000000, 'fs', normalize=False)
-        ps = JobTime(123456000, 'ps', normalize=False)
-        ns = JobTime(123456, 'ns', normalize=False)
-        us = JobTime(123.456, 'us', normalize=False)
-        ms = JobTime(0.123456, 'ms', normalize=False)
+        fs = JobTime(123456000000, "fs", normalize=False)
+        ps = JobTime(123456000, "ps", normalize=False)
+        ns = JobTime(123456, "ns", normalize=False)
+        us = JobTime(123.456, "us", normalize=False)
+        ms = JobTime(0.123456, "ms", normalize=False)
         for src in [fs, ps, ns, us, ms]:
-            for unit, dst in [('fs', fs), ('ps', ps), ('ns', ns), ('us', us),
-                              ('ms', ms)]:
-                self.assertEqual(src.with_unit(unit), dst)
+            for unit, dst in [("fs", fs), ("ps", ps), ("ns", ns), ("us", us), ("ms", ms)]:
+                assert src.with_unit(unit) == dst

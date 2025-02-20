@@ -6,40 +6,40 @@ import time
 
 
 class Timer:
-    '''A timer to keep track of how long jobs have been running
+    """A timer to keep track of how long jobs have been running.
 
     This has a notion of start time (the time when the object was constructed),
     together with a time when the results should next be printed.
 
-    '''
+    """
 
     print_interval = 5
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.start = time.monotonic()
         self.next_print = self.start + Timer.print_interval
         self.first_print = True
 
     def period(self):
-        '''Return the float time in seconds since start'''
+        """Return the float time in seconds since start."""
         return time.monotonic() - self.start
 
-    def hms(self):
-        '''Get the time since start in hh:mm:ss'''
+    def hms(self) -> str:
+        """Get the time since start in hh:mm:ss."""
         period = self.period()
         secs = int(period + 0.5)
         mins = secs // 60
         hours = mins // 60
-        return '{:02}:{:02}:{:02}'.format(hours, mins % 60, secs % 60)
+        return f"{hours:02}:{mins % 60:02}:{secs % 60:02}"
 
-    def check_time(self):
-        '''Return true if we have passed next_print.
+    def check_time(self) -> bool:
+        """Return true if we have passed next_print.
 
         If so, increment next_print by print_interval unless the result would
         be in the past, in which case set it to the current time plus
         print_interval.
 
-        '''
+        """
         now = time.monotonic()
 
         if self.first_print:
