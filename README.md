@@ -1,5 +1,10 @@
 # DVSim
 
+<!--
+# SPDX-FileCopyrightText: lowRISC contributors (OpenTitan project).
+# SPDX-License-Identifier: Apache-2.0
+-->
+
 **Note**: *this version of DVSim is an experimental version.
 While we have taken steps to try and ensure functional compatibility with the version in the OpenTitan repo.
 There will be some differences, mainly to the CLI interface and also to how the working files are managed.*

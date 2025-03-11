@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: lowRISC contributors (OpenTitan project).
+# SPDX-License-Identifier: Apache-2.0
 {
   description = "DVSim development environment";
 
@@ -135,6 +137,7 @@
             pkgs.uv
             pkgs-unstable.ruff
             pkgs.pyright
+            pkgs.reuse
           ];
           env =
             {

@@ -1,5 +1,10 @@
 # DVSim design doc
 
+<!--
+# SPDX-FileCopyrightText: lowRISC contributors (OpenTitan project).
+# SPDX-License-Identifier: Apache-2.0
+-->
+
 An industry-grade EDA tool flow manager / build and run system that strives to achieve a bug-free Silicon must support several [usecases](#goals).
 The terminology used in this document is covered in the [glossary](./glossary.md).
 

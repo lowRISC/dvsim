@@ -1,5 +1,10 @@
 # DVSim
 
+<!--
+# SPDX-FileCopyrightText: lowRISC contributors (OpenTitan project).
+# SPDX-License-Identifier: Apache-2.0
+-->
+
 DVSim is a build and run system written in Python that runs a variety of EDA tool flows.
 There are multiple steps involved in running EDA tool flows.
 DVSim encapsulates them all to provide a single, standardized command-line interface to launch them.

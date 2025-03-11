@@ -1,5 +1,10 @@
 # DVSIM Testplanner tool
 
+<!--
+# SPDX-FileCopyrightText: lowRISC contributors (OpenTitan project).
+# SPDX-License-Identifier: Apache-2.0
+-->
+
 `testplanner` is a Python based tool for parsing testplans written in Hjson format into a data structure that can be used for:
 * Expanding the testplan inline within the DV document as a table;
 * Annotating the simulation results with testplan entries for a document driven DV execution;

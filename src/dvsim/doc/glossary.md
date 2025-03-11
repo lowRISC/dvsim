@@ -1,5 +1,10 @@
 # Glossary of Terms
 
+<!--
+# SPDX-FileCopyrightText: lowRISC contributors (OpenTitan project).
+# SPDX-License-Identifier: Apache-2.0
+-->
+
 ## Build
 
 "Build" refers to the invocation of the EDA tool to compile and elaborate the provided top levels which results in the generation of an executable / database and all of its pre-requisites.

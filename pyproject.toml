@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: lowRISC contributors (OpenTitan project).
+# SPDX-License-Identifier: Apache-2.0
+
 [project]
 name = "dvsim"
 version = "0.1.0"
