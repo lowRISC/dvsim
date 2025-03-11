@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: lowRISC contributors (OpenTitan project).
+# SPDX-License-Identifier: Apache-2.0
+version = 1
+
+[[annotations]]
+path = [
+    # Auto generated lock files
+    "flake.lock",
+    "uv.lock",
+    # Files that can't take a header
+    ".python-version",
+    "**.png"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "lowRISC contributors (OpenTitan project)."
+SPDX-License-Identifier = "Apache-2.0"
