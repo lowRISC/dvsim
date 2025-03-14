@@ -12,7 +12,7 @@ from dvsim.flow.formal import FormalCfg
 from dvsim.flow.lint import LintCfg
 from dvsim.flow.rdc import RdcCfg
 from dvsim.flow.sim import SimCfg
-from dvsim.SynCfg import SynCfg
+from dvsim.flow.syn import SynCfg
 
 
 def _load_cfg(path, initial_values):
