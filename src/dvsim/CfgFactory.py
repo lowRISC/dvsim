@@ -6,8 +6,8 @@ import logging as log
 import os
 import sys
 
-from dvsim.CdcCfg import CdcCfg
 from dvsim.CfgJson import load_hjson
+from dvsim.flow.cdc import CdcCfg
 from dvsim.flow.formal import FormalCfg
 from dvsim.flow.lint import LintCfg
 from dvsim.flow.sim import SimCfg
