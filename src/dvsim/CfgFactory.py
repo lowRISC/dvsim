@@ -9,7 +9,7 @@ import sys
 from dvsim.CdcCfg import CdcCfg
 from dvsim.CfgJson import load_hjson
 from dvsim.flow.formal import FormalCfg
-from dvsim.LintCfg import LintCfg
+from dvsim.flow.lint import LintCfg
 from dvsim.RdcCfg import RdcCfg
 from dvsim.SimCfg import SimCfg
 from dvsim.SynCfg import SynCfg
