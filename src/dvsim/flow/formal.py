@@ -8,7 +8,7 @@ from pathlib import Path
 import hjson
 from tabulate import tabulate
 
-from dvsim.OneShotCfg import OneShotCfg
+from dvsim.flow.one_shot import OneShotCfg
 from dvsim.results_server import ResultsServer
 from dvsim.utils import subst_wildcards
 

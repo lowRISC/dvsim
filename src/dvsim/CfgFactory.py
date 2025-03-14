@@ -10,8 +10,8 @@ from dvsim.CfgJson import load_hjson
 from dvsim.flow.cdc import CdcCfg
 from dvsim.flow.formal import FormalCfg
 from dvsim.flow.lint import LintCfg
+from dvsim.flow.rdc import RdcCfg
 from dvsim.flow.sim import SimCfg
-from dvsim.RdcCfg import RdcCfg
 from dvsim.SynCfg import SynCfg
 
 

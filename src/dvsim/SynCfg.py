@@ -9,7 +9,7 @@ from pathlib import Path
 import hjson
 from tabulate import tabulate
 
-from dvsim.OneShotCfg import OneShotCfg
+from dvsim.flow.one_shot import OneShotCfg
 from dvsim.utils import print_msg_list, subst_wildcards
 
 
