@@ -8,7 +8,7 @@ import os
 from collections import OrderedDict
 
 from dvsim.Deploy import CompileOneShot
-from dvsim.FlowCfg import FlowCfg
+from dvsim.flow.base import FlowCfg
 from dvsim.modes import BuildMode, Mode
 from dvsim.utils import rm_path
 
