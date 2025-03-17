@@ -32,7 +32,7 @@ from pathlib import Path
 from dvsim.Deploy import RunTest
 from dvsim.flow.factory import make_cfg
 from dvsim.Launcher import Launcher
-from dvsim.LauncherFactory import set_launcher_type
+from dvsim.launcher.factory import set_launcher_type
 from dvsim.LocalLauncher import LocalLauncher
 from dvsim.LsfLauncher import LsfLauncher
 from dvsim.NcLauncher import NcLauncher

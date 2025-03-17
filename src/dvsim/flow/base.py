@@ -14,7 +14,7 @@ from shutil import which
 import hjson
 
 from dvsim.CfgJson import set_target_attribute
-from dvsim.LauncherFactory import get_launcher_cls
+from dvsim.launcher.factory import get_launcher_cls
 from dvsim.results_server import NoGCPError, ResultsServer
 from dvsim.Scheduler import Scheduler
 from dvsim.utils import (
