@@ -33,7 +33,7 @@ from dvsim.Deploy import RunTest
 from dvsim.flow.factory import make_cfg
 from dvsim.launcher.base import Launcher
 from dvsim.launcher.factory import set_launcher_type
-from dvsim.LocalLauncher import LocalLauncher
+from dvsim.launcher.local import LocalLauncher
 from dvsim.LsfLauncher import LsfLauncher
 from dvsim.NcLauncher import NcLauncher
 from dvsim.SgeLauncher import SgeLauncher

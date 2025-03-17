@@ -6,7 +6,7 @@ import logging as log
 import os
 
 from dvsim.launcher.base import Launcher
-from dvsim.LocalLauncher import LocalLauncher
+from dvsim.launcher.local import LocalLauncher
 from dvsim.LsfLauncher import LsfLauncher
 from dvsim.NcLauncher import NcLauncher
 from dvsim.SgeLauncher import SgeLauncher
