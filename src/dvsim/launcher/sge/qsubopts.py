@@ -1,10 +1,9 @@
-#!/usr/bin/env python
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 # -*- coding: utf-8 -*-
 # ----------------------------------
-# qsubOptions Class
+# QSubOptions Class
 # ----------------------------------
 """A helper class designed to handle the management of options and
 positional arguments to qsub and related Grid Engine executables.
@@ -16,7 +15,7 @@ to the command line or to a script file.
 import argparse
 
 
-class qsubOptions:
+class QSubOptions:
     """A data type meant to collect qsub options. See man qsub for information."""
 
     def __init__(self, optstring="", prog="qsub") -> None:
@@ -1966,7 +1965,7 @@ class qsubOptions:
 
 
 if __name__ == "__main__":
-    o = qsubOptions()
+    o = QSubOptions()
     o.parse_args()
     o.args.t = "1-1000"
     o.write_qsub_script("/dev/null", echo=True)

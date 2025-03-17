@@ -12,9 +12,9 @@ import re
 import subprocess
 import time
 
-from dvsim.qsubopts import qsubOptions
+from dvsim.launcher.sge.qsubopts import QSubOptions
 
-sgeJob_t = qsubOptions()
+sgeJob_t = QSubOptions()
 
 
 class _JobData:

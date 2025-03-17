@@ -9,7 +9,7 @@ import subprocess
 from subprocess import PIPE, Popen
 
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
-from dvsim.SGE import *  # noqa: F403
+from dvsim.launcher.sge.engine import *  # noqa: F403
 
 global job_name
 
@@ -48,7 +48,7 @@ class SgeLauncher(Launcher):
             f.write(f"[Executing]:\n{self.deploy.cmd}\n\n")
             f.flush()
             # ---------- prepare SGE job struct -----
-            sgeJob = SGE.qsubOptions()  # noqa: F405
+            sgeJob = SGE.QSubOptions()  # noqa: F405
             sgeJob.args.N = "VCS_RUN_" + str(pid)  # Name of Grid Engine job
             if "build.log" in self.deploy.get_log_path():
                 sgeJob.args.N = "VCS_BUILD_" + str(pid)  # Name of Grid Engine job
