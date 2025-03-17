@@ -10,7 +10,7 @@ from dvsim.launcher.local import LocalLauncher
 from dvsim.launcher.lsf import LsfLauncher
 from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
-from dvsim.SlurmLauncher import SlurmLauncher
+from dvsim.launcher.slurm import SlurmLauncher
 
 try:
     from edacloudlauncher.EdaCloudLauncher import EdaCloudLauncher

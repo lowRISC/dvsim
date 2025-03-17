@@ -37,7 +37,7 @@ from dvsim.launcher.local import LocalLauncher
 from dvsim.launcher.lsf import LsfLauncher
 from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
-from dvsim.SlurmLauncher import SlurmLauncher
+from dvsim.launcher.slurm import SlurmLauncher
 from dvsim.Timer import Timer
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, VERBOSE, rm_path, run_cmd_with_timeout
 
