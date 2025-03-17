@@ -8,7 +8,7 @@ import shlex
 import subprocess
 from subprocess import PIPE, Popen
 
-from dvsim.Launcher import ErrorMessage, Launcher, LauncherError
+from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
 from dvsim.SGE import *  # noqa: F403
 
 global job_name

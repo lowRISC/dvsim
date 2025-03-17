@@ -9,7 +9,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from dvsim.Launcher import ErrorMessage, Launcher, LauncherBusy, LauncherError
+from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusy, LauncherError
 
 
 class LocalLauncher(Launcher):

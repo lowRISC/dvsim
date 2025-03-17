@@ -9,7 +9,7 @@ import subprocess
 import tarfile
 from pathlib import Path
 
-from dvsim.Launcher import ErrorMessage, Launcher, LauncherError
+from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
 from dvsim.utils import VERBOSE, clean_odirs
 
 

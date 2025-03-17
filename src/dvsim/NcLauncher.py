@@ -8,7 +8,7 @@ import os
 import subprocess
 import sys
 
-from dvsim.Launcher import ErrorMessage, Launcher, LauncherError
+from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
 from dvsim.utils import VERBOSE, rm_path
 
 
