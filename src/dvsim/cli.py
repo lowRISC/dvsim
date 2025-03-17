@@ -35,7 +35,7 @@ from dvsim.launcher.base import Launcher
 from dvsim.launcher.factory import set_launcher_type
 from dvsim.launcher.local import LocalLauncher
 from dvsim.launcher.lsf import LsfLauncher
-from dvsim.NcLauncher import NcLauncher
+from dvsim.launcher.nc import NcLauncher
 from dvsim.SgeLauncher import SgeLauncher
 from dvsim.SlurmLauncher import SlurmLauncher
 from dvsim.Timer import Timer
