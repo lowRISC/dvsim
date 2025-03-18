@@ -4,53 +4,85 @@
 
 """An abstraction for maintaining job runtime and its units."""
 
-import unittest
-from copy import copy
+__all__ = ("JobTime",)
+
+# Supported time units and the divisor required to convert the value in the
+# current unit to the next largest unit.
+TIME_UNITS = ["h", "m", "s", "ms", "us", "ns", "ps", "fs"]
+TIME_DIVIDERS = [60.0] * 3 + [1000.0] * 5
 
 
-class JobTime:
-    # Possible units.
-    units = ["h", "m", "s", "ms", "us", "ns", "ps", "fs"]
-    dividers = [
-        60.0,
-    ] * 3 + [
-        1000.0,
-    ] * 5
+# TODO: Migrate to Time instead of a custom implementation
+class JobTime:  # noqa: PLW1641 # Muitable object should not implement __hash__
+    """Job runtime."""
 
-    def __init__(self, time: float = 0.0, unit: str = "s", normalize: bool = True) -> None:
-        self.set(time, unit, normalize)
+    def __init__(self, time: float = 0.0, unit: str = "s", *, normalize: bool = True) -> None:
+        """Initialise."""
+        self._time: float = time
+        self._unit: str = unit
 
-    def set(self, time: float, unit: str, normalize: bool = True) -> None:
+        self.set(
+            time=time,
+            unit=unit,
+            normalize=normalize,
+        )
+
+    @property
+    def time(self) -> float:
+        """Get time."""
+        return self._time
+
+    @property
+    def unit(self) -> str:
+        """Get unit."""
+        return self._unit
+
+    @staticmethod
+    def _check_valid_unit(unit: str) -> None:
+        """Assert unit is valid."""
+        if unit not in TIME_UNITS:
+            msg = f"unit '{unit}' is not a supported time unit: {TIME_UNITS}"
+            raise KeyError(msg)
+
+    def set(self, time: float, unit: str, *, normalize: bool = True) -> None:
         """Public API to set the instance variables time, unit."""
-        self.__time = time
-        self.__unit = unit
-        assert self.__unit in self.units
+        self._check_valid_unit(unit=unit)
+
+        self._time = time
+        self._unit = unit
+
         if normalize:
             self._normalize()
 
     def get(self) -> tuple[float, str]:
-        """Returns the time and unit as a tuple."""
-        return self.__time, self.__unit
+        """Return the time and unit as a tuple."""
+        return self._time, self._unit
 
-    def with_unit(self, unit: str):
-        """Return a copy of this object that has a specific unit and a value
-        scaled accordingly.
+    def with_unit(self, unit: str) -> "JobTime":
+        """Return a copy with the given unit.
 
         Note that the scaling may not be lossless due to rounding errors and
         limited precision.
         """
-        target_index = self.units.index(unit)
-        index = self.units.index(self.__unit)
-        jt = copy(self)
+        self._check_valid_unit(unit=unit)
+
+        target_index = TIME_UNITS.index(unit)
+        index = TIME_UNITS.index(self._unit)
+
+        new_time = self._time
         while index < target_index:
             index += 1
-            jt.__time *= self.dividers[index]
-            jt.__unit = self.units[index]
+            new_time *= TIME_DIVIDERS[index]
+
         while index > target_index:
-            jt.__time /= self.dividers[index]
+            new_time /= TIME_DIVIDERS[index]
             index -= 1
-            jt.__unit = self.units[index]
-        return jt
+
+        return JobTime(
+            time=new_time,
+            unit=unit,
+            normalize=False,
+        )
 
     def _normalize(self) -> None:
         """Brings the time and its units to a more meaningful magnitude.
@@ -62,68 +94,81 @@ class JobTime:
           23434s -> 6.509h
 
         The supported magnitudes and their associated divider values are
-        provided by JobTime.units and JobTime.dividers.
+        provided by TIME_UNITS and TIME_DIVIDERS.
         """
-        if self.__time == 0:
+        if self._time == 0:
             return
 
-        index = self.units.index(self.__unit)
-        normalized_time = self.__time
-        while index > 0 and normalized_time >= self.dividers[index]:
-            normalized_time = normalized_time / self.dividers[index]
+        index = TIME_UNITS.index(self._unit)
+        normalized_time = self._time
+
+        while index > 0 and normalized_time >= TIME_DIVIDERS[index]:
+            normalized_time = normalized_time / TIME_DIVIDERS[index]
             index = index - 1
-        self.__time = normalized_time
-        self.__unit = self.units[index]
+
+        self._time = normalized_time
+        self._unit = TIME_UNITS[index]
+
+    def _with_common_units(self, other: "JobTime") -> tuple[float, float]:
+        """Convert times to common units for relative comparison.
+
+        Returns:
+            tuple of both times as floats in the smallest unit to be
+        used for comparison.
+
+        """
+        stime = self._time
+        otime = other.time
+
+        sidx = TIME_UNITS.index(self._unit)
+        oidx = TIME_UNITS.index(other.unit)
+
+        # If the time units are not the same
+        if sidx != oidx:
+            # Pick the smallest unit and standardise on that unit. This means
+            # the comparison is less likely to be lossy.
+            if sidx < oidx:
+                stime = self.with_unit(other.unit).time
+            else:
+                otime = other.with_unit(self.unit).time
+
+        return stime, otime
 
     def __str__(self) -> str:
-        """Indicates <time><unit> as string.
+        """Time as a string <time><unit>.
 
         The time value is truncated to 3 decimal places.
         Returns an empty string if the __time is set to 0.
         """
-        if self.__time == 0:
+        if self._time == 0:
             return ""
-        return f"{self.__time:.3f}{self.__unit}"
+        return f"{self._time:.3f}{self._unit}"
 
-    def __eq__(self, other) -> bool:
-        assert isinstance(other, JobTime)
-        other_time, other_unit = other.get()
-        return self.__unit == other_unit and self.__time == other_time
-
-    def __gt__(self, other) -> bool:
-        if self.__time == 0:
+    def __eq__(self, other: object) -> bool:
+        """Check equality."""
+        if not isinstance(other, JobTime):
             return False
 
-        assert isinstance(other, JobTime)
-        other_time, other_unit = other.get()
-        if other_time == 0:
-            return True
+        stime, otime = self._with_common_units(other=other)
 
-        sidx = JobTime.units.index(self.__unit)
-        oidx = JobTime.units.index(other_unit)
-        if sidx < oidx:
-            return True
-        if sidx > oidx:
-            return False
-        return self.__time > other_time
+        return stime == otime
 
+    def __gt__(self, other: object) -> bool:
+        """Check time is greater than."""
+        if not isinstance(other, JobTime):
+            msg = f"Can't compare {self} with {other}"
+            raise TypeError(msg)
 
-class TestJobTimeMethods(unittest.TestCase):
-    def test_with_unit(self) -> None:
-        # First data set
-        h = JobTime(6, "h", normalize=False)
-        m = JobTime(360, "m", normalize=False)
-        s = JobTime(21600, "s", normalize=False)
-        ms = JobTime(21600000, "ms", normalize=False)
-        for src in [h, m, s, ms]:
-            for unit, dst in [("h", h), ("m", m), ("s", s), ("ms", ms)]:
-                assert src.with_unit(unit) == dst
-        # Second data set
-        fs = JobTime(123456000000, "fs", normalize=False)
-        ps = JobTime(123456000, "ps", normalize=False)
-        ns = JobTime(123456, "ns", normalize=False)
-        us = JobTime(123.456, "us", normalize=False)
-        ms = JobTime(0.123456, "ms", normalize=False)
-        for src in [fs, ps, ns, us, ms]:
-            for unit, dst in [("fs", fs), ("ps", ps), ("ns", ns), ("us", us), ("ms", ms)]:
-                assert src.with_unit(unit) == dst
+        stime, otime = self._with_common_units(other=other)
+
+        return stime > otime
+
+    def __ge__(self, other: object) -> bool:
+        """Check time is greater than or equal to."""
+        if not isinstance(other, JobTime):
+            msg = f"Can't compare {self} with {other}"
+            raise TypeError(msg)
+
+        stime, otime = self._with_common_units(other=other)
+
+        return stime >= otime
