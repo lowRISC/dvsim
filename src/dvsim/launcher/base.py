@@ -10,7 +10,8 @@ import re
 import sys
 from pathlib import Path
 
-from dvsim.utils import VERBOSE, clean_odirs, mk_symlink, rm_path
+from dvsim.logging import VERBOSE
+from dvsim.utils import clean_odirs, mk_symlink, rm_path
 
 
 class LauncherError(Exception):

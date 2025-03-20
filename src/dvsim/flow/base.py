@@ -15,10 +15,10 @@ import hjson
 
 from dvsim.flow.hjson import set_target_attribute
 from dvsim.launcher.factory import get_launcher_cls
+from dvsim.logging import VERBOSE
 from dvsim.results_server import NoGCPError, ResultsServer
 from dvsim.scheduler import Scheduler
 from dvsim.utils import (
-    VERBOSE,
     clean_odirs,
     find_and_substitute_wildcards,
     md_results_to_html,

@@ -5,9 +5,9 @@
 import logging as log
 import sys
 
+from dvsim.logging import VERBOSE
 from dvsim.modes import Mode, find_mode, find_mode_list
 from dvsim.test import Test
-from dvsim.utils import VERBOSE
 
 
 class Regression(Mode):

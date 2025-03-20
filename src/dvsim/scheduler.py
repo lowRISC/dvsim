@@ -8,7 +8,7 @@ import threading
 from signal import SIGINT, SIGTERM, signal
 
 from dvsim.launcher.base import LauncherBusyError, LauncherError
-from dvsim.utils import VERBOSE
+from dvsim.logging import VERBOSE
 from dvsim.utils.status_printer import get_status_printer
 from dvsim.utils.timer import Timer
 

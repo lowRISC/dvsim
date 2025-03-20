@@ -10,7 +10,8 @@ import tarfile
 from pathlib import Path
 
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
-from dvsim.utils import VERBOSE, clean_odirs
+from dvsim.logging import VERBOSE
+from dvsim.utils import clean_odirs
 
 
 class LsfLauncher(Launcher):

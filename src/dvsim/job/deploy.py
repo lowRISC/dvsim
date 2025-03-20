@@ -12,9 +12,9 @@ from tabulate import tabulate
 
 from dvsim.job.time import JobTime
 from dvsim.launcher.factory import get_launcher
+from dvsim.logging import VERBOSE
 from dvsim.sim_utils import get_cov_summary_table, get_job_runtime, get_simulated_time
 from dvsim.utils import (
-    VERBOSE,
     clean_odirs,
     find_and_substitute_wildcards,
     rm_path,

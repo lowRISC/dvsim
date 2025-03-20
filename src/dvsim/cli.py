@@ -40,6 +40,7 @@ from dvsim.launcher.lsf import LsfLauncher
 from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
 from dvsim.launcher.slurm import SlurmLauncher
+from dvsim.logging import VERBOSE, configure_logging
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, VERBOSE, Timer, rm_path, run_cmd_with_timeout
 
 # TODO: add dvsim_cfg.hjson to retrieve this info
@@ -818,18 +819,13 @@ def parse_args():
 
 
 def main() -> None:
+    """DVSim CLI entry point."""
     args = parse_args()
 
-    # Add log level 'VERBOSE' between INFO and DEBUG
-    log.addLevelName(VERBOSE, "VERBOSE")
-
-    log_format = "%(levelname)s: [%(module)s] %(message)s"
-    log_level = log.INFO
-    if args.verbose == "default":
-        log_level = VERBOSE
-    elif args.verbose == "debug":
-        log_level = log.DEBUG
-    log.basicConfig(format=log_format, level=log_level)
+    configure_logging(
+        verbose=args.verbose is not None,
+        debug=args.verbose == "debug",
+    )
 
     if not Path(args.cfg).exists():
         log.fatal("Path to config file %s appears to be invalid.", args.cfg)

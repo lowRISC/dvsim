@@ -10,7 +10,8 @@ import subprocess
 import sys
 
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
-from dvsim.utils import VERBOSE, rm_path
+from dvsim.logging import VERBOSE
+from dvsim.utils import rm_path
 
 
 class NcLauncher(Launcher):
