@@ -2,20 +2,18 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-import json
+"""Flow config base class."""
+
 import os
 import pprint
-import subprocess
 import sys
 from pathlib import Path
-from shutil import which
 
 import hjson
 
 from dvsim.flow.hjson import set_target_attribute
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
-from dvsim.results_server import NoGCPError, ResultsServer
 from dvsim.scheduler import Scheduler
 from dvsim.utils import (
     clean_odirs,
@@ -99,17 +97,11 @@ class FlowCfg:
         self.rel_path = ""
         self.results_title = ""
         self.revision = ""
-        self.results_server_prefix = ""
-        self.results_server_cmd = ""
         self.css_file = os.path.join(Path(os.path.realpath(__file__)).parent, "style.css")
         # `self.results_*` below will be updated after `self.rel_path` and
         # `self.scratch_base_root` variables are updated.
         self.results_dir = ""
         self.results_page = ""
-        self.results_server_path = ""
-        self.results_server_dir = ""
-        self.results_server_page = ""
-        self.results_server_url = ""
         self.results_html_name = ""
 
         # Full results in md text
@@ -152,10 +144,6 @@ class FlowCfg:
         # Construct the path variables after variable expansion.
         self.results_dir = Path(self.scratch_base_path) / "reports" / self.rel_path
         self.results_page = self.results_dir / self.results_html_name
-
-        tmp_path = self.results_server + "/" + self.rel_path + "/latest/" + self.results_html_name
-        self.results_server_page = self.results_server_prefix + tmp_path
-        self.results_server_url = "https://" + tmp_path
 
         # Run any final checks
         self._post_init()
@@ -476,159 +464,6 @@ class FlowCfg:
         link_text = link_text if link_text else self.name.upper()
         relative_link = os.path.relpath(self.results_page, relative_to)
         return f"[{link_text}]({relative_link})"
-
-    def _publish_results(self, results_server: ResultsServer) -> None:
-        """Publish results to the opentitan web server.
-
-        Results are uploaded to {results_server_page}. If the 'latest'
-        directory exists, then it is renamed to its 'timestamp' directory.
-        Links to the last 7 regression results are appended at the end if the
-        results page.
-        """
-        # Timeformat for moving the dir
-        tf = "%Y.%m.%d_%H.%M.%S"
-
-        # Maximum number of links to add to previous results pages at the
-        # bottom of the page that we're generating.
-        max_old_page_links = 7
-
-        # We're going to try to put things in a directory called "latest". But
-        # there's probably something with that name already. If so, we want to
-        # move the thing that's there already to be at a path based on its
-        # creation time.
-
-        # Try to get the creation time of any existing "latest/report.html"
-        latest_dir = f"{self.rel_path}/latest"
-        latest_report_path = f"{latest_dir}/report.html"
-        old_results_time = results_server.get_creation_time(latest_report_path)
-
-        if old_results_time is not None:
-            # If there is indeed a creation time, we will need to move the
-            # "latest" directory to a path based on that time.
-            old_results_ts = old_results_time.strftime(tf)
-            backup_dir = f"{self.rel_path}/{old_results_ts}"
-
-            results_server.mv(latest_dir, backup_dir)
-
-        # Do an ls in the results root dir to check what directories exist. If
-        # something goes wrong then continue, behaving as if there were none.
-        try:
-            existing_paths = results_server.ls(self.rel_path)
-        except subprocess.CalledProcessError:
-            log.exception(
-                f"Failed to list {self.rel_path} with gsutil. Acting as if there was nothing.",
-            )
-            existing_paths = []
-
-        # Do an ls in the results root dir to check what directories exist.
-        existing_basenames = []
-        for existing_path in existing_paths:
-            # Here, existing_path will start with "gs://" and should end in a
-            # time or with "latest" and then a trailing '/'. Split it to find
-            # that the directory basename. The rsplit() here will result in
-            # ["some_path", "basename_we_want", ""]. Grab the middle.
-            existing_parts = existing_path.rsplit("/", 2)
-            existing_basenames.append(existing_parts[1])
-
-        # We want to add pointers to existing directories with recent
-        # timestamps. Sort in reverse (time and lexicographic!) order, then
-        # take the top few results.
-        existing_basenames.sort(reverse=True)
-
-        history_txt = "\n## Past Results\n"
-        history_txt += "- [Latest](../latest/" + self.results_html_name + ")\n"
-        for existing_basename in existing_basenames[:max_old_page_links]:
-            relative_url = f"../{existing_basename}/{self.results_html_name}"
-            history_txt += f"- [{existing_basename}]({relative_url})\n"
-
-        # Append the history to the results.
-        publish_results_md = self.publish_results_md or self.results_md
-        publish_results_md = publish_results_md + history_txt
-
-        # Export any results dictionary to json
-        suffixes = ["html"]
-        json_str = None
-        if hasattr(self, "results_dict"):
-            suffixes.append("json")
-            json_str = json.dumps(self.results_dict)
-
-        # Export our markdown page to HTML and dump the json to a local file.
-        # These are called publish.html and publish.json locally, but we'll
-        # rename them as part of the upload.
-        self.write_results("publish.html", publish_results_md, json_str)
-
-        html_name_no_suffix = self.results_html_name.split(".", 1)[0]
-        dst_no_suffix = f"{self.rel_path}/latest/{html_name_no_suffix}"
-
-        # Now copy our local files over to the server
-        log.info("Publishing results to %s", self.results_server_url)
-        for suffix in suffixes:
-            src = f"{self.results_dir}/publish.{suffix}"
-            dst = f"{dst_no_suffix}.{suffix}"
-            results_server.upload(src, dst)
-
-    def publish_results(self) -> None:
-        """Publish these results to the opentitan web server."""
-        try:
-            server_handle = ResultsServer(self.results_server)
-        except NoGCPError:
-            # We failed to create a results server object at all, so we're not going to be able
-            # to publish any results right now.
-            log.exception("Google Cloud SDK not installed. Cannot access the results server")
-            return
-
-        for item in self.cfgs:
-            item._publish_results(server_handle)
-
-        if self.is_primary_cfg:
-            self.publish_results_summary(server_handle)
-
-        # Trigger a rebuild of the site/docs which may pull new data from
-        # the published results.
-        self.rebuild_site()
-
-    def publish_results_summary(self, results_server: ResultsServer) -> None:
-        """Public facing API for publishing md format results to the opentitan
-        web server.
-        """
-        # Publish the results page.
-        log.info("Publishing results summary to %s", self.results_server_url)
-
-        latest_dir = f"{self.rel_path}/latest"
-        latest_report_path = f"{latest_dir}/report.html"
-        results_server.upload(self.results_page, latest_report_path)
-
-    def rebuild_site(self) -> None:
-        """Trigger a rebuild of the opentitan.org site using a Cloud Build trigger.
-
-        The Gcloud project which builds and deploys the site ("gold-hybrid-255131") uses
-        a cloudbuild yaml file (util/site/site-builder/cloudbuild-deploy-docs.yaml) to define
-        the rebuilding of the site.
-        A manually-triggered job ('site-builder-manual') has been created, which can be
-        triggered through an appropriately-authenticated Google Cloud SDK command. This
-        function calls that command.
-        """
-        if which("gcloud") is None:
-            log.error(
-                "Google Cloud SDK not installed!"
-                "Cannot access the Cloud Build API to trigger a site rebuild.",
-            )
-            return
-
-        project = "gold-hybrid-255313"
-        trigger_name = "site-builder-manual"
-        cmd = f"gcloud beta --project {project} builds triggers run {trigger_name}".split(" ")
-        try:
-            cmd_output = subprocess.run(
-                args=cmd,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                check=False,
-            )
-            log.verbose(cmd_output.stdout.decode("utf-8"))
-        except Exception as e:
-            log.exception(f'{e}: Failed to trigger Cloud Build job to rebuild site:\n"{cmd}"')
 
     def has_errors(self):
         return self.errors_seen

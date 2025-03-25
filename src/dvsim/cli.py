@@ -28,6 +28,7 @@ import shlex
 import subprocess
 import sys
 import textwrap
+from collections.abc import Sequence
 from pathlib import Path
 
 from dvsim.flow.factory import make_cfg
@@ -143,7 +144,9 @@ def resolve_branch(branch):
         return branch.replace("/", "-")
 
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"], stdout=subprocess.PIPE, check=False
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        stdout=subprocess.PIPE,
+        check=False,
     )
     branch = result.stdout.decode("utf-8").strip().replace("/", "-")
     if not branch:
@@ -744,18 +747,12 @@ def parse_args():
         help=("Rather than building or running any tests, analyze the coverage from the last run."),
     )
 
-    pubg = parser.add_argument_group("Generating and publishing results")
+    pubg = parser.add_argument_group("Generating results")
 
     pubg.add_argument(
         "--map-full-testplan",
         action="store_true",
         help=("Show complete testplan annotated results at the end."),
-    )
-
-    pubg.add_argument(
-        "--publish",
-        action="store_true",
-        help="Publish results to reports.opentitan.org.",
     )
 
     dvg = parser.add_argument_group("Controlling DVSim itself")
@@ -799,6 +796,7 @@ def parse_args():
     if args.interactive and args.remote:
         log.error("--interactive and --remote cannot be set together")
         sys.exit()
+
     if args.interactive and args.reseed != 1:
         args.reseed = 1
 
@@ -829,10 +827,6 @@ def main() -> None:
     if not Path(args.cfg).exists():
         log.fatal("Path to config file %s appears to be invalid.", args.cfg)
         sys.exit(1)
-
-    # If publishing results, then force full testplan mapping of results.
-    if args.publish:
-        args.map_full_testplan = True
 
     args.branch = resolve_branch(args.branch)
     proj_root_src, proj_root = resolve_proj_root(args)
@@ -908,10 +902,6 @@ def main() -> None:
 
         # Generate results.
         cfg.gen_results(results)
-
-        # Publish results
-        if args.publish:
-            cfg.publish_results()
 
     else:
         log.error("Nothing to run!")

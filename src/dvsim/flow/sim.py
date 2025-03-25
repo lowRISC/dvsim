@@ -22,7 +22,6 @@ from dvsim.job.deploy import CompileSim, CovAnalyze, CovMerge, CovReport, CovUnr
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
-from dvsim.results_server import ResultsServer
 from dvsim.sim_results import SimResults
 from dvsim.test import Test
 from dvsim.testplan import Testplan
@@ -888,11 +887,7 @@ class SimCfg(FlowCfg):
                     # Link the dashboard page using "cov_report_page" value.
                     if hasattr(self, "cov_report_page"):
                         results_str += "\n### [Coverage Dashboard]"
-                        if self.args.publish:
-                            cov_report_page_path = "cov_report"
-                        else:
-                            cov_report_page_path = self.cov_report_dir
-                        cov_report_page_path += "/" + self.cov_report_page
+                        cov_report_page_path = self.cov_report_dir + "/" + self.cov_report_page
                         results_str += f"({cov_report_page_path})\n\n"
                     results_str += self.cov_report_deploy.cov_results
                     self.results_summary["Coverage"] = self.cov_report_deploy.cov_total
@@ -947,15 +942,3 @@ class SimCfg(FlowCfg):
 
         self.results_summary_md = "\n".join(lines)
         return self.results_summary_md
-
-    def _publish_results(self, results_server: ResultsServer) -> None:
-        """Publish coverage results to the opentitan web server."""
-        super()._publish_results(results_server)
-
-        if self.cov_report_deploy is not None:
-            log.info(
-                f"Publishing coverage results to https://{self.results_server}/{self.rel_path}/latest",
-            )
-
-            latest_dir = f"{self.rel_path}/latest"
-            results_server.upload(self.cov_report_dir, latest_dir, recursive=True)
