@@ -22,10 +22,9 @@ by the sim tool.
 
 import argparse
 import datetime
+import logging as log
 import os
 import random
-import shlex
-import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -39,58 +38,15 @@ from dvsim.launcher.lsf import LsfLauncher
 from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
 from dvsim.launcher.slurm import SlurmLauncher
-from dvsim.logging import configure_logging, log
-from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer, rm_path, run_cmd_with_timeout
+from dvsim.logging import configure_logging
+from dvsim.project import init_project
+from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer
 
 # TODO: add dvsim_cfg.hjson to retrieve this info
 version = 0.1
 
 # The different categories that can be passed to the --list argument.
 _LIST_CATEGORIES = ["build_modes", "run_modes", "tests", "regressions"]
-
-
-# Function to resolve the scratch root directory among the available options:
-# If set on the command line, then use that as a preference.
-# Else, check if $SCRATCH_ROOT env variable exists and is a directory.
-# Else use the default (<proj_root>/scratch)
-# Try to create the directory if it does not already exist.
-def resolve_scratch_root(arg_scratch_root, proj_root):
-    default_scratch_root = proj_root + "/scratch"
-    scratch_root = os.environ.get("SCRATCH_ROOT")
-    if not arg_scratch_root:
-        if scratch_root is None:
-            arg_scratch_root = default_scratch_root
-        else:
-            # Scratch space could be mounted in a filesystem (such as NFS) on a network drive.
-            # If the network is down, it could cause the access access check to hang. So run a
-            # simple ls command with a timeout to prevent the hang.
-            (out, status) = run_cmd_with_timeout(
-                cmd="ls -d " + scratch_root,
-                timeout=1,
-                exit_on_failure=0,
-            )
-            if status == 0 and out != "":
-                arg_scratch_root = scratch_root
-            else:
-                arg_scratch_root = default_scratch_root
-                log.warning(
-                    f'Env variable $SCRATCH_ROOT="{scratch_root}" is not accessible.\n'
-                    f'Using "{arg_scratch_root}" instead.',
-                )
-    else:
-        arg_scratch_root = os.path.realpath(arg_scratch_root)
-
-    try:
-        os.makedirs(arg_scratch_root, exist_ok=True)
-    except PermissionError as e:
-        log.fatal(f"Failed to create scratch root {arg_scratch_root}:\n{e}.")
-        sys.exit(1)
-
-    if not os.access(arg_scratch_root, os.W_OK):
-        log.fatal(f"Scratch root {arg_scratch_root} is not writable!")
-        sys.exit(1)
-
-    return arg_scratch_root
 
 
 def read_max_parallel(arg):
@@ -127,124 +83,6 @@ def resolve_max_parallel(arg):
             )
 
     return 16
-
-
-def resolve_branch(branch):
-    """Choose a branch name for output files.
-
-    If the --branch argument was passed on the command line, the branch
-    argument is the branch name to use. Otherwise it is None and we use git to
-    find the name of the current branch in the working directory.
-
-    Note, as this name will be used to generate output files any forward slashes
-    are replaced with single dashes to avoid being interpreted as directory hierarchy.
-    """
-    if branch is not None:
-        return branch.replace("/", "-")
-
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        stdout=subprocess.PIPE,
-        check=False,
-    )
-    branch = result.stdout.decode("utf-8").strip().replace("/", "-")
-    if not branch:
-        log.warning('Failed to find current git branch. Setting it to "default"')
-        branch = "default"
-
-    return branch
-
-
-# Get the project root directory path - this is used to construct the full paths
-def get_proj_root():
-    cmd = ["git", "rev-parse", "--show-toplevel"]
-    result = subprocess.run(cmd, capture_output=True, check=False)
-    proj_root = result.stdout.decode("utf-8").strip()
-    if not proj_root:
-        log.error(
-            "Attempted to find the root of this GitHub repository by running:\n"
-            "{}\n"
-            "But this command has failed:\n"
-            "{}".format(" ".join(cmd), result.stderr.decode("utf-8")),
-        )
-        sys.exit(1)
-    return proj_root
-
-
-def resolve_proj_root(args):
-    """Update proj_root based on how DVSim is invoked.
-
-    If --remote switch is set, a location in the scratch area is chosen as the
-    new proj_root. The entire repo is copied over to this location. Else, the
-    proj_root is discovered using get_proj_root() method, unless the user
-    overrides it on the command line.
-
-    This function returns the updated proj_root src and destination path. If
-    --remote switch is not set, the destination path is identical to the src
-    path. Likewise, if --dry-run is set.
-    """
-    proj_root_src = args.proj_root or get_proj_root()
-
-    # Check if jobs are dispatched to external compute machines. If yes,
-    # then the repo needs to be copied over to the scratch area
-    # accessible to those machines.
-    # If --purge arg is set, then purge the repo_top that was copied before.
-    if args.remote and not args.dry_run:
-        proj_root_dest = os.path.join(args.scratch_root, args.branch, "repo_top")
-        if args.purge:
-            rm_path(proj_root_dest)
-        copy_repo(proj_root_src, proj_root_dest)
-    else:
-        proj_root_dest = proj_root_src
-
-    return proj_root_src, proj_root_dest
-
-
-def copy_repo(src, dest) -> None:
-    """Copy over the repo to a new location.
-
-    The repo is copied over from src to dest area. It tentatively uses the
-    rsync utility which provides the ability to specify a file containing some
-    exclude patterns to skip certain things from being copied over. With GitHub
-    repos, an existing `.gitignore` serves this purpose pretty well.
-    """
-    rsync_cmd = [
-        "rsync",
-        "--recursive",
-        "--links",
-        "--checksum",
-        "--update",
-        "--inplace",
-        "--no-group",
-    ]
-
-    # Supply `.gitignore` from the src area to skip temp files.
-    ignore_patterns_file = Path(src) / ".gitignore"
-    if ignore_patterns_file.exists():
-        # TODO: hack - include hw/foundry since it is excluded in .gitignore.
-        rsync_cmd += [
-            "--include=hw/foundry",
-            f"--exclude-from={ignore_patterns_file}",
-            "--exclude=.*",
-        ]
-
-    rsync_cmd += [src + "/.", dest]
-    rsync_str = " ".join([shlex.quote(w) for w in rsync_cmd])
-
-    cmd = ["flock", "--timeout", "600", dest, "--command", rsync_str]
-
-    log.info("[copy_repo] [dest]: %s", dest)
-    log.verbose("[copy_repo] [cmd]: \n%s", " ".join(cmd))
-
-    # Make sure the dest exists first.
-    os.makedirs(dest, exist_ok=True)
-    try:
-        subprocess.run(cmd, check=True, capture_output=True)
-    except subprocess.CalledProcessError as e:
-        log.exception(
-            "Failed to copy over %s to %s: %s", src, dest, e.stderr.decode("utf-8").strip()
-        )
-    log.info("Done.")
 
 
 def wrapped_docstring():
@@ -823,27 +661,18 @@ def main() -> None:
         debug=args.verbose == "debug",
     )
 
-    if not Path(args.cfg).exists():
-        log.fatal("Path to config file %s appears to be invalid.", args.cfg)
-        sys.exit(1)
-
-    args.branch = resolve_branch(args.branch)
-    proj_root_src, proj_root = resolve_proj_root(args)
-    args.scratch_root = resolve_scratch_root(args.scratch_root, proj_root)
-    log.info("[proj_root]: %s", proj_root)
-
-    # Create an empty FUSESOC_IGNORE file in scratch_root. This ensures that
-    # any fusesoc invocation from a job won't search within scratch_root for
-    # core files.
-    (Path(args.scratch_root) / "FUSESOC_IGNORE").touch()
-
-    args.cfg = Path(args.cfg).resolve()
-    if args.remote:
-        cfg_path = args.cfg.replace(proj_root_src + "/", "")
-        args.cfg = os.path.join(proj_root, cfg_path)
+    project_cfg = init_project(
+        cfg_path=Path(args.cfg),
+        proj_root=Path(args.proj_root) if args.proj_root else None,
+        scratch_root=Path(args.scratch_root) if args.scratch_root else None,
+        branch=args.branch,
+        dry_run=args.dry_run,
+        remote=args.remote,
+        job_prefix=args.job_prefix,
+    )
 
     # Add timestamp to args that all downstream objects can use.
-    curr_ts = datetime.datetime.utcnow()
+    curr_ts = datetime.datetime.now(datetime.UTC)
     args.timestamp_long = curr_ts.strftime(TS_FORMAT_LONG)
     args.timestamp = curr_ts.strftime(TS_FORMAT)
 
@@ -867,8 +696,11 @@ def main() -> None:
 
     # Build infrastructure from hjson file and create the list of items to
     # be deployed.
-    global cfg
-    cfg = make_cfg(args.cfg, args, proj_root)
+    cfg = make_cfg(
+        project_cfg=project_cfg,
+        select_cfgs=args.select_cfgs,
+        args=args,
+    )
 
     # List items available for run if --list switch is passed, and exit.
     if args.list is not None:

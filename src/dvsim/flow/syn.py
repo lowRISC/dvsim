@@ -4,6 +4,8 @@
 
 """Class describing synthesis configuration object."""
 
+from argparse import Namespace
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import hjson
@@ -11,6 +13,7 @@ from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
 from dvsim.logging import log
+from dvsim.project import ProjectMeta
 from dvsim.utils import print_msg_list, subst_wildcards
 
 
@@ -19,8 +22,22 @@ class SynCfg(OneShotCfg):
 
     flow = "syn"
 
-    def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
-        super().__init__(flow_cfg_file, hjson_data, args, mk_config)
+    def __init__(
+        self,
+        flow_cfg_file: Path,
+        project_cfg: ProjectMeta,
+        config_data: Mapping,
+        args: Namespace,
+        child_configs: Sequence["SynCfg"] | None = None,
+    ) -> None:
+        super().__init__(
+            flow_cfg_file=flow_cfg_file,
+            project_cfg=project_cfg,
+            config_data=config_data,
+            args=args,
+            child_configs=child_configs,
+        )
+
         # Set the title for synthesis results.
         self.results_title = self.name.upper() + " Synthesis Results"
 

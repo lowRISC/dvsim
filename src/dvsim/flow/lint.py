@@ -4,13 +4,16 @@
 
 """Class describing lint configuration object."""
 
+import logging as log
+from argparse import Namespace
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
-from dvsim.logging import log
 from dvsim.msg_buckets import MsgBuckets
+from dvsim.project import ProjectMeta
 from dvsim.utils import check_bool, subst_wildcards
 
 
@@ -19,7 +22,14 @@ class LintCfg(OneShotCfg):
 
     flow = "lint"
 
-    def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
+    def __init__(
+        self,
+        flow_cfg_file: Path,
+        project_cfg: ProjectMeta,
+        config_data: Mapping,
+        args: Namespace,
+        child_configs: Sequence["LintCfg"] | None = None,
+    ) -> None:
         # TODO: check whether this can be replaced with the subflow concept.
         # This determines whether the flow is for a style lint run.
         # Format: bool
@@ -38,7 +48,13 @@ class LintCfg(OneShotCfg):
         # Format: str
         self.additional_fusesoc_argument = ""
 
-        super().__init__(flow_cfg_file, hjson_data, args, mk_config)
+        super().__init__(
+            flow_cfg_file=flow_cfg_file,
+            project_cfg=project_cfg,
+            config_data=config_data,
+            args=args,
+            child_configs=child_configs,
+        )
 
         if self.is_style_lint == "":
             self.is_style_lint = False

@@ -9,8 +9,9 @@ import json
 import os
 import re
 import sys
+from argparse import Namespace
 from collections import OrderedDict, defaultdict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import ClassVar
@@ -21,6 +22,7 @@ from dvsim.flow.base import FlowCfg
 from dvsim.job.deploy import CompileSim, CovAnalyze, CovMerge, CovReport, CovUnr, Deploy, RunTest
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
+from dvsim.project import ProjectMeta
 from dvsim.regression import Regression
 from dvsim.sim_results import SimResults
 from dvsim.test import Test
@@ -57,7 +59,17 @@ class SimCfg(FlowCfg):
         "sw_build_opts",
     ]
 
-    def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
+    # TODO: move args processing outside and only take config_data
+    def __init__(
+        self,
+        *,
+        flow_cfg_file: Path,
+        project_cfg: ProjectMeta,
+        config_data: Mapping,
+        args: Namespace,
+        child_configs: Sequence["SimCfg"] | None = None,
+    ) -> None:
+        """Initialise a Sim flow Configuration."""
         # Options set from command line
         self.tool = args.tool
         self.build_opts = []
@@ -147,7 +159,13 @@ class SimCfg(FlowCfg):
         self.cov_report_deploy = None
         self.results_summary = OrderedDict()
 
-        super().__init__(flow_cfg_file, hjson_data, args, mk_config)
+        super().__init__(
+            flow_cfg_file=flow_cfg_file,
+            project_cfg=project_cfg,
+            config_data=config_data,
+            args=args,
+            child_configs=child_configs,
+        )
 
     def _expand(self) -> None:
         # Choose a wave format now. Note that this has to happen after parsing

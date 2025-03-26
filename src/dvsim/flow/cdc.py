@@ -4,7 +4,12 @@
 
 """Class describing lint configuration object."""
 
+from argparse import Namespace
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+
 from dvsim.flow.lint import LintCfg
+from dvsim.project import ProjectMeta
 
 
 class CdcCfg(LintCfg):
@@ -12,7 +17,20 @@ class CdcCfg(LintCfg):
 
     flow = "cdc"
 
-    def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
-        super().__init__(flow_cfg_file, hjson_data, args, mk_config)
+    def __init__(
+        self,
+        flow_cfg_file: Path,
+        project_cfg: ProjectMeta,
+        config_data: Mapping,
+        args: Namespace,
+        child_configs: Sequence["CdcCfg"] | None = None,
+    ) -> None:
+        super().__init__(
+            flow_cfg_file=flow_cfg_file,
+            project_cfg=project_cfg,
+            config_data=config_data,
+            args=args,
+            child_configs=child_configs,
+        )
 
         self.results_title = f"{self.name.upper()} CDC Results"

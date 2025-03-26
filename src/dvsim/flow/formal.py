@@ -1,7 +1,10 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
+"""Formal flow."""
 
+from argparse import Namespace
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import hjson
@@ -9,6 +12,7 @@ from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
 from dvsim.logging import log
+from dvsim.project import ProjectMeta
 from dvsim.utils import subst_wildcards
 
 
@@ -17,11 +21,26 @@ class FormalCfg(OneShotCfg):
 
     flow = "formal"
 
-    def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
+    def __init__(
+        self,
+        flow_cfg_file: Path,
+        project_cfg: ProjectMeta,
+        config_data: Mapping,
+        args: Namespace,
+        child_configs: Sequence["FormalCfg"] | None = None,
+    ) -> None:
+        """Formal flow config."""
         # Options set from command line
         self.batch_mode_prefix = "" if args.gui else "-batch"
 
-        super().__init__(flow_cfg_file, hjson_data, args, mk_config)
+        super().__init__(
+            flow_cfg_file=flow_cfg_file,
+            project_cfg=project_cfg,
+            config_data=config_data,
+            args=args,
+            child_configs=child_configs,
+        )
+
         self.header = [
             "name",
             "errors",
@@ -36,8 +55,8 @@ class FormalCfg(OneShotCfg):
         ]
 
         # Default not to publish child cfg results.
-        self.publish_report = hjson_data.get("publish_report", False)
-        self.sub_flow = hjson_data["sub_flow"]
+        self.publish_report = config_data.get("publish_report", False)
+        self.sub_flow = config_data["sub_flow"]
         self.summary_header = ["name", "pass_rate", "formal_cov", "stimuli_cov", "checker_cov"]
         self.results_title = self.name.upper() + " Formal " + self.sub_flow.upper() + " Results"
 

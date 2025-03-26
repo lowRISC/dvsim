@@ -1,18 +1,21 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
+"""Factory to generate a flow config."""
 
-import pathlib
-import sys
+from argparse import Namespace
+from collections.abc import Sequence
 
+from dvsim.config.load import load_cfg
+from dvsim.flow.base import FlowCfg
 from dvsim.flow.cdc import CdcCfg
 from dvsim.flow.formal import FormalCfg
-from dvsim.flow.hjson import load_hjson
 from dvsim.flow.lint import LintCfg
 from dvsim.flow.rdc import RdcCfg
 from dvsim.flow.sim import SimCfg
 from dvsim.flow.syn import SynCfg
 from dvsim.logging import log
+from dvsim.project import ProjectMeta
 
 FLOW_HANDLERS = {
     "cdc": CdcCfg,
@@ -24,110 +27,105 @@ FLOW_HANDLERS = {
 }
 
 
-def _load_cfg(path, initial_values):
-    """Worker function for make_cfg.
+def _get_flow_handler_cls(flow: str) -> type[FlowCfg]:
+    """Get a flow handler class for the given flow name.
 
-    initial_values is passed to load_hjson (see documentation there).
+    Args:
+        flow: name of the flow
 
-    Returns a pair (cls, hjson_data) on success or raises a RuntimeError on
-    failure.
+    Returns:
+        Class object that can be used to instantiate a flow handler
 
     """
-    # Set the `self_dir` template variable to the path of the currently
-    # processed Hjson file.
-    assert "self_dir" in initial_values
-    initial_values["self_dir"] = pathlib.Path(path).parent
-
-    # Start by loading up the hjson file and any included files
-    hjson_data = load_hjson(path, initial_values)
-
-    # Look up the value of flow in the loaded data. This is a required field,
-    # and tells us what sort of FlowCfg to make.
-    flow = hjson_data.get("flow")
-    if flow is None:
+    if flow not in FLOW_HANDLERS:
+        known_flows = ", ".join(FLOW_HANDLERS.keys())
         msg = (
-            f'{path!r}: No value for the "flow" key. Are you sure '
-            "this is a dvsim configuration file?"
+            f'Configuration file sets "flow" to "{flow}", but '
+            f"this is not a known flow (known: {known_flows})."
         )
         raise RuntimeError(
             msg,
         )
 
-    classes = [
-        RdcCfg,
-        CdcCfg,
-        LintCfg,
-        SynCfg,
-        FormalCfg,
-        SimCfg,
-    ]
-    found_cls = None
-    known_types = []
-    for cls in classes:
-        assert cls.flow is not None
-        known_types.append(cls.flow)
-        if cls.flow == flow:
-            found_cls = cls
-            break
-    if found_cls is None:
-        msg = (
-            '{}: Configuration file sets "flow" to {!r}, but '
-            "this is not a known flow (known: {}).".format(path, flow, ", ".join(known_types))
-        )
-        raise RuntimeError(
-            msg,
-        )
-
-    return (found_cls, hjson_data)
+    return FLOW_HANDLERS[flow]
 
 
-def _make_child_cfg(path, args, initial_values):
-    try:
-        cls, hjson_data = _load_cfg(path, initial_values)
-    except RuntimeError as err:
-        log.exception(str(err))
-        sys.exit(1)
-
-    # Since this is a child configuration (from some primary configuration),
-    # make sure that we aren't ourselves a primary configuration. We don't need
-    # multi-level hierarchies and this avoids circular dependencies.
-    if "use_cfgs" in hjson_data:
-        msg = (
-            f"{path}: Configuration file has use_cfgs, but is "
-            "itself included from another configuration."
-        )
-        raise RuntimeError(
-            msg,
-        )
-
-    # Call cls as a constructor. Note that we pass None as the mk_config
-    # argument: this is not supposed to load anything else.
-    return cls(path, hjson_data, args, None)
-
-
-def make_cfg(path, args, proj_root):
+def make_cfg(
+    project_cfg: ProjectMeta,
+    select_cfgs: Sequence[str] | None,
+    args: Namespace,
+) -> FlowCfg:
     """Make a flow config by loading the config file at path.
 
-    args is the arguments passed to the dvsim.py tool and proj_root is the top
-    of the project.
+    Args:
+        project_cfg: metadata about the project
+        select_cfgs: list of child config names to use from the primary config
+        args: are the arguments passed to the CLI
+
+    Returns:
+        Instantiated FlowCfg object configured using the project's top level
+        config file.
 
     """
-    initial_values = {
-        "proj_root": proj_root,
-        "self_dir": pathlib.Path(path).parent,
-    }
+    log.info("Loading primary config file: %s", project_cfg.top_cfg_path)
+
+    # load the whole project config data
+    primary_cfg = dict(
+        load_cfg(
+            path=project_cfg.top_cfg_path,
+            path_resolution_wildcards={
+                "proj_root": project_cfg.root_path,
+            },
+            select_cfgs=select_cfgs,
+        ),
+    )
+
+    # Tool specified on CLI overrides the file based config
     if args.tool is not None:
-        initial_values["tool"] = args.tool
+        primary_cfg["tool"] = args.tool
 
-    try:
-        cls, hjson_data = _load_cfg(path, initial_values)
-    except RuntimeError as err:
-        log.exception(str(err))
-        sys.exit(1)
+    if "flow" not in primary_cfg:
+        msg = 'No value for the "flow" key. Are you sure this is a dvsim configuration file?'
+        raise RuntimeError(
+            msg,
+        )
 
-    def factory(child_path):
-        child_ivs = initial_values.copy()
-        child_ivs["flow"] = hjson_data["flow"]
-        return _make_child_cfg(child_path, args, child_ivs)
+    cls = _get_flow_handler_cls(str(primary_cfg["flow"]))
 
-    return cls(path, hjson_data, args, factory)
+    child_flow_handlers = []
+    if "cfgs" in primary_cfg:
+        for child_cfg_path, child_cfg_data in primary_cfg["cfgs"].items():
+            # Tool specified on CLI overrides the file based config
+            if args.tool is not None:
+                child_cfg_data["tool"] = args.tool
+
+            log.info(
+                "Constructing child '%s' %s flow with config: '%s'",
+                child_cfg_data["name"],
+                child_cfg_data["flow"],
+                child_cfg_path,
+            )
+            child_flow_handlers.append(
+                cls(
+                    flow_cfg_file=child_cfg_path,
+                    project_cfg=project_cfg,
+                    config_data=child_cfg_data,
+                    args=args,
+                ),
+            )
+
+    log.info(
+        "Constructing top level '%s' %s flow with config: '%s'",
+        primary_cfg["name"],
+        primary_cfg["flow"],
+        project_cfg.top_cfg_path,
+    )
+    log.info("Constructing top level flow handler with %s", cls.__name__)
+
+    return cls(
+        flow_cfg_file=project_cfg.top_cfg_path,
+        project_cfg=project_cfg,
+        config_data=primary_cfg,
+        args=args,
+        child_configs=child_flow_handlers,
+    )
