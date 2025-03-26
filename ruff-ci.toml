@@ -117,3 +117,12 @@ ignore = [
     "TRY401",
     "UP031",
 ]
+
+[lint.per-file-ignores]
+# Less strict in the tests
+"tests/**.py" = [
+    # Checks for boolean passed as positional argument which is useful in the
+    # main codebase for clarity. However it's common to assert against a boolean
+    # in tests and having to use kwargs in all cases will clutter the tests.
+    "FBT003",
+]
