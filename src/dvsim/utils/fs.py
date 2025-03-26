@@ -27,7 +27,7 @@ TS_FORMAT = "%Y%m%d_%H%M%S"
 TS_FORMAT_LONG = "%A %B %d %Y %H:%M:%S UTC"
 
 
-def rm_path(path: Path, ignore_error: bool = False) -> None:
+def rm_path(path: Path, *, ignore_error: bool = False) -> None:
     """Remove the specified path if it exists.
 
     'path' is a Path-like object. If it does not exist, the function simply
@@ -38,20 +38,22 @@ def rm_path(path: Path, ignore_error: bool = False) -> None:
     # regressions convert to Path anyway.
     path = Path(path)
 
-    if path.is_file():
+    # Nothing to do
+    if not path.exists(follow_symlinks=False):
+        return
+
+    if path.is_file() or path.is_symlink():
         path.unlink()
         return
 
-    exc = None
     try:
         shutil.rmtree(path)
-    except OSError as e:
-        exc = e
 
-    if exc:
-        log.error("Failed to remove %s:\n%s.", path, exc)
+    except OSError:
+        log.exception("Failed to remove %s:\n", path)
+
         if not ignore_error:
-            raise exc
+            raise
 
 
 def mk_path(path: Path) -> None:
@@ -63,24 +65,30 @@ def mk_path(path: Path) -> None:
     """
     try:
         Path(path).mkdir(parents=True, exist_ok=True)
-    except PermissionError as e:
-        log.fatal(f"Failed to create directory {path}:\n{e}.")
+
+    except PermissionError:
+        log.exception("Failed to create directory %s", path)
         sys.exit(1)
 
 
-def mk_symlink(path: Path, link: Path) -> None:
+def mk_symlink(*, path: Path, link: Path) -> None:
     """Create a symlink from the given path.
 
     'link' is a Path-like object. If it does exist, remove the existing link
     and create a new symlink with this given path.
     If it does not exist, the function creates the symlink with the given path.
     """
-    while True:
-        try:
-            os.symlink(path, link)
-            break
-        except FileExistsError:
-            rm_path(link)
+    if link.exists():
+        if not link.is_symlink():
+            log.error(
+                "Trying to create symlink %s, existing non symlink file found",
+                link,
+            )
+            raise TypeError
+
+        link.unlink()
+
+    link.symlink_to(path)
 
 
 def clean_odirs(
