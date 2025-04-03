@@ -31,9 +31,11 @@ class _JobData:
         # Job line must have at least 8 tokens
         try:
             self.id = int(tokens[0])
+
         except ValueError:
             error_msg = "Could not convert data to an integer."
             raise ValueError(error_msg)
+
         self.priority = float(tokens[1])
         self.name = tokens[2]
         self.user = tokens[3]
@@ -78,12 +80,12 @@ class _JobData:
         self._ja_tasklist = ja_task_id
 
     def __repr__(self) -> str:
-        repr = ["{"]
+        repr_str = ["{"]
         for key, value in self.__dict__.items():
             if key[0] != "_":
-                repr.append(key + "=" + str(value))
-        repr.append("}")
-        return "\n".join(repr)
+                repr_str.append(key + "=" + str(value))
+        repr_str.append("}")
+        return "\n".join(repr_str)
 
 
 class JobList:
