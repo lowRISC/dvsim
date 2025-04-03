@@ -4,13 +4,13 @@
 
 """Class describing simulation configuration object."""
 
-import collections
 import fnmatch
 import json
 import os
 import re
 import sys
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import ClassVar
@@ -18,7 +18,7 @@ from typing import ClassVar
 from tabulate import tabulate
 
 from dvsim.flow.base import FlowCfg
-from dvsim.job.deploy import CompileSim, CovAnalyze, CovMerge, CovReport, CovUnr, RunTest
+from dvsim.job.deploy import CompileSim, CovAnalyze, CovMerge, CovReport, CovUnr, Deploy, RunTest
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
@@ -327,7 +327,7 @@ class SimCfg(FlowCfg):
                 log.info(mode_name)
 
     def _create_build_and_run_list(self) -> None:
-        """Generates a list of deployable objects from the provided items.
+        """Generate a list of deployable objects from the provided items.
 
         Tests to be run are provided with --items switch. These can be glob-
         style patterns. This method finds regressions and tests that match
@@ -562,20 +562,13 @@ class SimCfg(FlowCfg):
         for item in self.cfgs:
             item._cov_unr()
 
-    def _gen_json_results(self, run_results):
-        """Returns the run results as json-formatted dictionary."""
-
-        def _empty_str_as_none(s: str) -> str | None:
-            """Map an empty string to None and retain the value of a non-empty
-            string.
-
-            This is intended to clearly distinguish an empty string, which may
-            or may not be an valid value, from an invalid value.
-            """
-            return s if s != "" else None
+    def _gen_json_results(self, run_results: Mapping[Deploy, str]) -> str:
+        """Return the run results as json-formatted dictionary."""
 
         def _pct_str_to_float(s: str) -> float | None:
-            """Map a percentage value stored in a string with ` %` suffix to a
+            """Extract percent or None.
+
+            Map a percentage value stored in a string with ` %` suffix to a
             float or to None if the conversion to Float fails.
             """
             try:
@@ -608,7 +601,7 @@ class SimCfg(FlowCfg):
         # Describe name of hardware block targeted by this run and optionally
         # the variant of the hardware block.
         results["block_name"] = self.name.lower()
-        results["block_variant"] = _empty_str_as_none(self.variant.lower())
+        results["block_variant"] = self.variant.lower() or None
 
         # The timestamp for this run has been taken with `utcnow()` and is
         # stored in a custom format.  Store it in standard ISO format with
@@ -620,7 +613,7 @@ class SimCfg(FlowCfg):
         # Extract Git properties.
         m = re.search(r"https://github.com/.+?/tree/([0-9a-fA-F]+)", self.revision)
         results["git_revision"] = m.group(1) if m else None
-        results["git_branch_name"] = _empty_str_as_none(self.branch)
+        results["git_branch_name"] = self.branch or None
 
         # Describe type of report and tool used.
         results["report_type"] = "simulation"
@@ -704,7 +697,7 @@ class SimCfg(FlowCfg):
         if sim_results.buckets:
             by_tests = sorted(sim_results.buckets.items(), key=lambda i: len(i[1]), reverse=True)
             for bucket, tests in by_tests:
-                unique_tests = collections.defaultdict(list)
+                unique_tests = defaultdict(list)
                 for test, line, context in tests:
                     if not isinstance(test, RunTest):
                         continue
@@ -743,8 +736,10 @@ class SimCfg(FlowCfg):
         # Return the `results` dictionary as json string.
         return json.dumps(self.results_dict)
 
-    def _gen_results(self, run_results):
-        """The function is called after the regression has completed. It collates the
+    def _gen_results(self, results: Mapping[Deploy, str]) -> str:
+        """Generate simulation results.
+
+        The function is called after the regression has completed. It collates the
         status of all run targets and generates a dict. It parses the testplan and
         maps the generated result to the testplan entries to generate a final table
         (list). It also prints the full list of failures for debug / triage. If cov
@@ -752,7 +747,7 @@ class SimCfg(FlowCfg):
         result is in markdown format.
         """
 
-        def indent_by(level):
+        def indent_by(level: int) -> str:
             return " " * (4 * level)
 
         def create_failure_message(test, line, context):
@@ -769,7 +764,7 @@ class SimCfg(FlowCfg):
             return message
 
         def create_bucket_report(buckets):
-            """Creates a report based on the given buckets.
+            """Create a report based on the given buckets.
 
             The buckets are sorted by descending number of failures. Within
             buckets this also group tests by unqualified name, and just a few
@@ -787,7 +782,7 @@ class SimCfg(FlowCfg):
             fail_msgs = ["\n## Failure Buckets", ""]
             for bucket, tests in by_tests:
                 fail_msgs.append(f"* `{bucket}` has {len(tests)} failures:")
-                unique_tests = collections.defaultdict(list)
+                unique_tests = defaultdict(list)
                 for test, line, context in tests:
                     unique_tests[test.name].append((test, line, context))
                 for name, test_reseeds in list(unique_tests.items())[:_MAX_UNIQUE_TESTS]:
@@ -812,7 +807,7 @@ class SimCfg(FlowCfg):
             return fail_msgs
 
         deployed_items = self.deploy
-        results = SimResults(deployed_items, run_results)
+        results = SimResults(deployed_items, results)
 
         # Generate results table for runs.
         results_str = "## " + self.results_title + "\n"
@@ -881,7 +876,7 @@ class SimCfg(FlowCfg):
 
             # Append coverage results if coverage was enabled.
             if self.cov_report_deploy is not None:
-                report_status = run_results[self.cov_report_deploy]
+                report_status = results[self.cov_report_deploy]
                 if report_status == "P":
                     results_str += "\n## Coverage Results\n"
                     # Link the dashboard page using "cov_report_page" value.

@@ -7,8 +7,10 @@
 import os
 import pprint
 import sys
-from collections.abc import Mapping
+from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import ClassVar
 
 import hjson
 
@@ -27,7 +29,7 @@ from dvsim.utils import (
 
 
 # Interface class for extensions.
-class FlowCfg:
+class FlowCfg(ABC):
     """Base class for the different flows supported by dvsim.py.
 
     The constructor expects some parsed hjson data. Create these objects with
@@ -41,9 +43,10 @@ class FlowCfg:
 
     # Can be overridden in subclasses to configure which wildcards to ignore
     # when expanding hjson.
-    ignored_wildcards = []
+    ignored_wildcards: ClassVar = []
 
     def __str__(self) -> str:
+        """Get string representation of the flow config."""
         return pprint.pformat(self.__dict__)
 
     def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
@@ -87,7 +90,7 @@ class FlowCfg:
         # For a primary cfg, it is the aggregated list of all deploy objects
         # under self.cfgs. For a non-primary cfg, it is the list of items
         # slated for dispatch.
-        self.deploy = []
+        self.deploy: Sequence[Deploy] = []
 
         # Timestamp
         self.timestamp_long = args.timestamp_long
@@ -98,7 +101,7 @@ class FlowCfg:
         self.rel_path = ""
         self.results_title = ""
         self.revision = ""
-        self.css_file = os.path.join(Path(os.path.realpath(__file__)).parent, "style.css")
+        self.css_file = Path(__file__).resolve().parent / "style.css"
         # `self.results_*` below will be updated after `self.rel_path` and
         # `self.scratch_base_root` variables are updated.
         self.results_dir = ""
@@ -151,7 +154,7 @@ class FlowCfg:
         # Run any final checks
         self._post_init()
 
-    def _merge_hjson(self, hjson_data) -> None:
+    def _merge_hjson(self, hjson_data: Mapping) -> None:
         """Take hjson data and merge it into self.__dict__.
 
         Subclasses that need to do something just before the merge should
@@ -162,7 +165,7 @@ class FlowCfg:
             set_target_attribute(self.flow_cfg_file, self.__dict__, key, value)
 
     def _expand(self) -> None:
-        """Called to expand wildcards after merging hjson.
+        """Expand wildcards after merging hjson.
 
         Subclasses can override this to do something just before expansion.
 
@@ -237,8 +240,9 @@ class FlowCfg:
             )
             sys.exit(1)
 
-    def _conv_inline_cfg_to_hjson(self, idict):
+    def _conv_inline_cfg_to_hjson(self, idict: Mapping) -> str | None:
         """Dump a temp hjson file in the scratch space from input dict.
+
         This method is to be called only by a primary cfg.
         """
         if not self.is_primary_cfg:
@@ -259,8 +263,10 @@ class FlowCfg:
 
         # Create the file and dump the dict as hjson
         log.verbose('Dumping inline cfg "%s" in hjson to:\n%s', name, temp_cfg_file)
+
         try:
             Path(temp_cfg_file).write_text(hjson.dumps(idict, for_json=True))
+
         except Exception as e:
             log.exception(
                 'Failed to hjson-dump temp cfg file"%s" for "%s"(will be skipped!) due to:\n%s',
@@ -332,6 +338,7 @@ class FlowCfg:
             log.error('Override key "%s" not found in the cfg!', ov_name)
             sys.exit(1)
 
+    @abstractmethod
     def _purge(self) -> None:
         """Purge the existing scratch areas in preparation for the new run."""
 
@@ -340,6 +347,7 @@ class FlowCfg:
         for item in self.cfgs:
             item._purge()
 
+    @abstractmethod
     def _print_list(self) -> None:
         """Print the list of available items that can be kicked off."""
 
@@ -370,12 +378,13 @@ class FlowCfg:
         # Filter configurations
         self.cfgs = [c for c in self.cfgs if c.name in self.select_cfgs]
 
+    @abstractmethod
     def _create_deploy_objects(self) -> None:
         """Create deploy objects from items that were passed on for being run.
+
         The deploy objects for build and run are created from the objects that
         were created from the create_objects() method.
         """
-        return
 
     def create_deploy_objects(self) -> None:
         """Public facing API for _create_deploy_objects()."""
@@ -389,7 +398,7 @@ class FlowCfg:
         for item in self.cfgs:
             item._create_deploy_objects()
 
-    def deploy_objects(self):
+    def deploy_objects(self) -> Mapping[Deploy, str]:
         """Public facing API for deploying all available objects.
 
         Runs each job and returns a map from item to status.
@@ -402,13 +411,18 @@ class FlowCfg:
             log.error("Nothing to run!")
             sys.exit(1)
 
-        return Scheduler(deploy, get_launcher_cls(), self.interactive).run()
+        return Scheduler(
+            items=deploy,
+            launcher_cls=get_launcher_cls(),
+            interactive=self.interactive,
+        ).run()
 
-    def _gen_results(self, results: Mapping[Deploy, str]) -> None:
-        """Generate results.
+    @abstractmethod
+    def _gen_results(self, results: Mapping[Deploy, str]) -> str:
+        """Generate flow results.
 
-        The function is called after the flow has completed. It collates the
-        status of all run targets and generates a dict. It parses the log
+        The function is called after the flow has completed. It collates
+        the status of all run targets and generates a dict. It parses the log
         to identify the errors, warnings and failures as applicable. It also
         prints the full list of failures for debug / triage to the final
         report, which is in markdown format.
@@ -416,7 +430,7 @@ class FlowCfg:
         results should be a dictionary mapping deployed item to result.
         """
 
-    def gen_results(self, results) -> None:
+    def gen_results(self, results: Mapping[Deploy, str]) -> None:
         """Public facing API for _gen_results().
 
         results should be a dictionary mapping deployed item to result.
@@ -437,6 +451,7 @@ class FlowCfg:
             self.gen_results_summary()
             self.write_results(self.results_html_name, self.results_summary_md)
 
+    @abstractmethod
     def gen_results_summary(self) -> None:
         """Public facing API to generate summary results for each IP/cfg file."""
 
@@ -468,4 +483,5 @@ class FlowCfg:
         return f"[{link_text}]({relative_link})"
 
     def has_errors(self) -> bool:
+        """Return error state."""
         return self.errors_seen

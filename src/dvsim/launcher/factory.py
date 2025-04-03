@@ -20,11 +20,11 @@ except ImportError:
     EDACLOUD_LAUNCHER_EXISTS = False
 
 # The chosen launcher class.
-_LAUNCHER_CLS = None
+_LAUNCHER_CLS: type[Launcher] | None = None
 
 
-def set_launcher_type(is_local=False) -> None:
-    """Sets the launcher type that will be used to launch the jobs.
+def set_launcher_type(is_local: bool = False) -> None:
+    """Set the launcher type that will be used to launch the jobs.
 
     The env variable `DVSIM_LAUNCHER` is used to identify what launcher system
     to use. This variable is specific to the user's work site. It is meant to
@@ -66,7 +66,7 @@ def set_launcher_type(is_local=False) -> None:
         _LAUNCHER_CLS = LocalLauncher
 
 
-def get_launcher_cls():
+def get_launcher_cls() -> type[Launcher]:
     """Returns the chosen launcher class."""
     assert _LAUNCHER_CLS is not None
     return _LAUNCHER_CLS
