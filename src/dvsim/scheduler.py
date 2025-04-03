@@ -7,7 +7,7 @@ import logging as log
 import threading
 from signal import SIGINT, SIGTERM, signal
 
-from dvsim.launcher.base import LauncherBusy, LauncherError
+from dvsim.launcher.base import LauncherBusyError, LauncherError
 from dvsim.utils import VERBOSE
 from dvsim.utils.status_printer import get_status_printer
 from dvsim.utils.timer import Timer
@@ -484,7 +484,7 @@ class Scheduler:
                     log.exception(err.msg)
                     self._kill_item(item)
 
-                except LauncherBusy as err:
+                except LauncherBusyError as err:
                     log.exception("Launcher busy: %s", err)
 
                     self._queued[target].append(item)

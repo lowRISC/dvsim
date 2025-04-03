@@ -10,7 +10,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusy, LauncherError
+from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
 
 
 class LocalLauncher(Launcher):
@@ -69,7 +69,7 @@ class LocalLauncher(Launcher):
 
             except BlockingIOError as e:
                 msg = f"Failed to launch job: {e}"
-                raise LauncherBusy(msg) from e
+                raise LauncherBusyError(msg) from e
 
             except subprocess.SubprocessError as e:
                 msg = f"IO Error: {e}\nSee {log_path}"
