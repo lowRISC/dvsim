@@ -15,7 +15,7 @@ import time
 
 from dvsim.launcher.sge.qsubopts import QSubOptions
 
-sgeJob_t = QSubOptions()
+sge_job_t = QSubOptions()
 
 
 class _JobData:
