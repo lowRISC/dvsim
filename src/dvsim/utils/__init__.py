@@ -19,6 +19,8 @@ import hjson
 import mistletoe
 from premailer import transform
 
+from .timer import Timer
+
 # For verbose logging
 VERBOSE = 15
 
