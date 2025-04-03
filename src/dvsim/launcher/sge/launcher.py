@@ -49,25 +49,25 @@ class SgeLauncher(Launcher):
             f.write(f"[Executing]:\n{self.deploy.cmd}\n\n")
             f.flush()
             # ---------- prepare SGE job struct -----
-            sgeJob = SGE.QSubOptions()  # noqa: F405
-            sgeJob.args.N = "VCS_RUN_" + str(pid)  # Name of Grid Engine job
+            sge_job = SGE.QSubOptions()  # noqa: F405
+            sge_job.args.N = "VCS_RUN_" + str(pid)  # Name of Grid Engine job
             if "build.log" in self.deploy.get_log_path():
-                sgeJob.args.N = "VCS_BUILD_" + str(pid)  # Name of Grid Engine job
+                sge_job.args.N = "VCS_BUILD_" + str(pid)  # Name of Grid Engine job
 
-            job_name = sgeJob.args.N
-            sgeJob.args.t = "0"  # Define an array job with 20 subjobs
-            sgeJob.args.slot = "1"  # Define num of slot
-            sgeJob.args.sync = "y"  # wait for job to complete before exiting
-            sgeJob.args.q = "vcs_q"  # Define the sge queue name
-            sgeJob.args.p = "0"  # Set priority to 0
-            sgeJob.args.ll = "mf=20G"  # memory req,request the given resources
+            job_name = sge_job.args.N
+            sge_job.args.t = "0"  # Define an array job with 20 subjobs
+            sge_job.args.slot = "1"  # Define num of slot
+            sge_job.args.sync = "y"  # wait for job to complete before exiting
+            sge_job.args.q = "vcs_q"  # Define the sge queue name
+            sge_job.args.p = "0"  # Set priority to 0
+            sge_job.args.ll = "mf=20G"  # memory req,request the given resources
             # pecifies a range of priorities from -1023 to 1024.
             # The higher the number, the higher the priority.
             # The default priority for jobs is zero
-            sgeJob.args.command = '"' + self.deploy.cmd + '"'
-            sgeJob.args.b = "y"  # This is a binary file
-            sgeJob.args.o = self.deploy.get_log_path() + ".sge"
-            cmd = str(sgeJob.execute(mode="echo"))
+            sge_job.args.command = '"' + self.deploy.cmd + '"'
+            sge_job.args.b = "y"  # This is a binary file
+            sge_job.args.o = self.deploy.get_log_path() + ".sge"
+            cmd = str(sge_job.execute(mode="echo"))
             # ---------------
             self.process = subprocess.Popen(
                 shlex.split(cmd),
@@ -103,10 +103,10 @@ class SgeLauncher(Launcher):
         # copy SGE jobb results to log file
         if os.path.exists(self.deploy.get_log_path() + ".sge"):
             file1 = open(self.deploy.get_log_path() + ".sge", errors="replace")
-            Lines = file1.readlines()
+            lines = file1.readlines()
             file1.close()
             f = open(self.deploy.get_log_path(), "a", encoding="UTF-8", errors="surrogateescape")
-            for line in Lines:
+            for line in lines:
                 f.write(line)
             f.flush()
             os.remove(self.deploy.get_log_path() + ".sge")

@@ -26,7 +26,6 @@ ignore = [
 
 # High priority fixes
     "N818", # Exception classes should end in Error
-    "N806", # Variable names
     "LOG015", # Using root logger
     "B008", # function calls in default arg value
     "A001", # variable names mask builtins
