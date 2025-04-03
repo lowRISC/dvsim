@@ -2,8 +2,11 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
+"""Modes are an abstraction for a collection of options and configuration for a dvsim job."""
+
 import logging as log
 import sys
+from collections.abc import Mapping, Sequence
 
 
 class Mode:
@@ -127,12 +130,15 @@ class Mode:
                 if self.name != sub_mode and sub_mode not in new_sub_modes:
                     new_sub_modes.append(sub_mode)
             self.set_sub_modes(new_sub_modes)
+
         return True
 
     @staticmethod
-    def create_modes(ModeType, mdicts):
-        """Create modes of type ModeType from a given list of raw dicts
-        Process dependencies.
+    def create_modes(mode_type: "type[Mode]", mdicts: Mapping) -> Sequence["Mode"]:
+        """Create modes of type mode_type.
+
+        Use the given list of raw dicts Process dependencies.
+
         Return a list of modes objects.
         """
 
@@ -171,7 +177,7 @@ class Mode:
 
         modes_objs = []
         # create a default mode if available
-        default_mode = ModeType.get_default_mode()
+        default_mode = mode_type.get_default_mode()
         if default_mode is not None:
             modes_objs.append(default_mode)
 
@@ -180,7 +186,7 @@ class Mode:
         for mdict in mdicts:
             # Create a new item
             new_mode_merged = False
-            new_mode = ModeType(mdict)
+            new_mode = mode_type(mdict)
             for mode in modes_objs:
                 # Merge new one with existing if available
                 if mode.name == new_mode.name:
@@ -191,7 +197,7 @@ class Mode:
             # Add the new mode to the list if not already appended
             if not new_mode_merged:
                 modes_objs.append(new_mode)
-                ModeType.item_names.append(new_mode.name)
+                mode_type.item_names.append(new_mode.name)
 
         # Pass 2: Recursively expand sub modes within parent modes
         for mode in modes_objs:
@@ -201,7 +207,7 @@ class Mode:
         return modes_objs
 
     @staticmethod
-    def get_default_mode(ModeType) -> None:
+    def get_default_mode(mode_type) -> None:
         return None
 
 

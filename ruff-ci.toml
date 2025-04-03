@@ -25,13 +25,13 @@ ignore = [
     "TRY003",
 
 # High priority fixes
-    "N803",
-    "N818",
-    "N816",
-    "N806",
-    "B008",
-    "A001",
-    "PERF203",
+    "N818", # Exception classes should end in Error
+    "N816", # Variable names
+    "N806", # Variable names
+    "LOG015", # Using root logger
+    "B008", # function calls in default arg value
+    "A001", # variable names mask builtins
+    "PERF203", # Exception handling in loops
 
 # Temporary ignores just for CI until the rules pass then they can be removed
 # from here to prevent future regressions
