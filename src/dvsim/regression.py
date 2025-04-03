@@ -6,7 +6,7 @@ import logging as log
 import sys
 
 from dvsim.modes import Mode, find_mode, find_mode_list
-from dvsim.Test import Test
+from dvsim.test import Test
 from dvsim.utils import VERBOSE
 
 

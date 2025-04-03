@@ -6,7 +6,7 @@ r"""Class describing simulation results."""
 import collections
 import re
 
-from dvsim.Testplan import Result
+from dvsim.testplan import Result
 
 _REGEX_REMOVE = [
     # Remove UVM time.

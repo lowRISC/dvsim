@@ -22,8 +22,8 @@ from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
 from dvsim.results_server import ResultsServer
 from dvsim.sim_results import SimResults
-from dvsim.Test import Test
-from dvsim.Testplan import Testplan
+from dvsim.test import Test
+from dvsim.testplan import Testplan
 from dvsim.utils import TS_FORMAT, rm_path
 
 # This affects the bucketizer failure report.
