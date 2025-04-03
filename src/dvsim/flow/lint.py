@@ -9,7 +9,7 @@ from pathlib import Path
 from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
-from dvsim.MsgBuckets import MsgBuckets
+from dvsim.msg_buckets import MsgBuckets
 from dvsim.utils import check_bool, subst_wildcards
 
 
