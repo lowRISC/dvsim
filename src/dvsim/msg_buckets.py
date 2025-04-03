@@ -13,7 +13,7 @@ from pathlib import Path
 
 import hjson
 
-from dvsim.MsgBucket import MsgBucket
+from dvsim.msg_bucket import MsgBucket
 from dvsim.utils import print_msg_list
 
 
