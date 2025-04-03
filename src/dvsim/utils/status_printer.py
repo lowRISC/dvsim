@@ -2,10 +2,11 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Status printing utilities."""
+"""Job status printing during a scheduled run."""
 
 import logging as log
 import sys
+from collections.abc import Sequence
 
 import enlighten
 
@@ -22,32 +23,36 @@ class StatusPrinter:
         """Initialise."""
 
     def print_header(self, msg: str) -> None:
-        """Print header."""
+        """Initialize / print the header bar.
+
+        The header bar contains an introductory message such as the legend of
+        what Q, D, ... mean.
+        """
 
     def init_target(self, target: str, msg: str) -> None:
-        """Initialise target."""
+        """Initialize the status bar for each target."""
 
     def update_target(
         self,
         target: str,
         hms: str,
         msg: str,
-        perc,
-        running,
+        perc: float,
+        running: Sequence[str],
     ) -> None:
-        """Update target.
+        """Periodically update the status bar for each target.
 
         Args:
-            hms: Elapsed time in hh:mm:ss.
-            target: The tool flow step.
-            msg: The completion status message (set externally).
-            perc: Percentage of completion.
-            running: What jobs are currently still running.
+            hms:      Elapsed time in hh:mm:ss.
+            target:   The tool flow step.
+            msg:      The completion status message (set externally).
+            perc:     Percentage of completion.
+            running:  What jobs are currently still running.
 
         """
 
     def exit(self) -> None:
-        """Exit."""
+        """Do cleanup activities before exiting."""
 
 
 class TtyStatusPrinter(StatusPrinter):
@@ -61,11 +66,6 @@ class TtyStatusPrinter(StatusPrinter):
     computations of how the jobs are progressing need to be handled externally.
 
     The following are the 'fields' accepted by this class:
-      hms:      Elapsed time in hh:mm:ss.
-      target:   The tool flow step.
-      msg:      The completion status message (set externally).
-      perc:     Percentage of completion.
-      running:  What jobs are currently still running.
     """
 
     # Print elapsed time in bold.
@@ -74,15 +74,16 @@ class TtyStatusPrinter(StatusPrinter):
     status_fmt = header_fmt + " {perc:3.0f}%  {running}"
 
     def __init__(self) -> None:
-        """Once a target is complete, we no longer need to update it - we can
-        just skip it. Maintaining this here provides a way to print the status
-        one last time when it reaches 100%. It is much easier to do that here
-        than in the Scheduler class.
-        """
+        """Initialise printer."""
         super().__init__()
+
+        # Once a target is complete, we no longer need to update it - we can
+        # just skip it. Maintaining this here provides a way to print the status
+        # one last time when it reaches 100%. It is much easier to do that here
+        # than in the Scheduler class.
         self.target_done = {}
 
-    def print_header(self, msg) -> None:
+    def print_header(self, msg: str) -> None:
         """Initialize / print the header bar.
 
         The header bar contains an introductory message such as the legend of
@@ -90,16 +91,32 @@ class TtyStatusPrinter(StatusPrinter):
         """
         log.info(self.header_fmt.format(hms="", target="legend", msg=msg))
 
-    def init_target(self, target, msg) -> None:
+    def init_target(self, target: str, msg: str) -> None:
         """Initialize the status bar for each target."""
         self.target_done[target] = False
 
-    def _trunc_running(self, running: str) -> str:
-        """Truncates the list of running items to 30 character string."""
+    def _trunc_running(self, running) -> str:
+        """Truncate the list of running items to 30 character string."""
         return running[:28] + (running[28:] and "..")
 
-    def update_target(self, target, hms, msg, perc, running) -> None:
-        """Periodically update the status bar for each target."""
+    def update_target(
+        self,
+        target: str,
+        hms: str,
+        msg: str,
+        perc: float,
+        running: Sequence[str],
+    ) -> None:
+        """Periodically update the status bar for each target.
+
+        Args:
+            hms:      Elapsed time in hh:mm:ss.
+            target:   The tool flow step.
+            msg:      The completion status message (set externally).
+            perc:     Percentage of completion.
+            running:  What jobs are currently still running.
+
+        """
         if self.target_done[target]:
             return
 
@@ -176,13 +193,14 @@ class EnlightenStatusPrinter(TtyStatusPrinter):
             self.target_done[target] = True
 
     def exit(self) -> None:
+        """Do cleanup activities before exiting."""
         self.status_header.close()
         for target in self.status_target:
             self.status_target[target].close()
 
 
-def get_status_printer(*, interactive: bool) -> StatusPrinter:
-    """Factory method that returns a status printer instance.
+def get_status_printer(interactive: bool) -> StatusPrinter:
+    """Get the status printer.
 
     If stdout is a TTY, then return an instance of EnlightenStatusPrinter, else
     return an instance of StatusPrinter.
@@ -197,7 +215,7 @@ def get_status_printer(*, interactive: bool) -> StatusPrinter:
 
 
 def print_msg_list(msg_list_title, msg_list, max_msg_count=-1):
-    """This function prints a list of messages to Markdown.
+    """Print a list of messages to Markdown.
 
     The argument msg_list_title contains a string for the list title, whereas
     the msg_list argument contains the actual list of message strings.
@@ -216,10 +234,13 @@ def print_msg_list(msg_list_title, msg_list, max_msg_count=-1):
             if k <= max_msg_count or max_msg_count < 0:
                 md_results += msg + "\n\n"
             else:
-                md_results += "Note: %d more messages have been suppressed " % (
-                    len(msg_list) - max_msg_count
+                suppressed_count = len(msg_list) - max_msg_count
+                md_results += (
+                    f"Note: {suppressed_count} more messages have been suppressed "
+                    f"(max_msg_count = {max_msg_count}) \n\n"
                 )
-                md_results += "(max_msg_count = %d) \n\n" % (max_msg_count)
                 break
+
         md_results += "```\n"
+
     return md_results
