@@ -21,7 +21,7 @@ from dvsim.flow.base import FlowCfg
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.Regression import Regression
 from dvsim.results_server import ResultsServer
-from dvsim.SimResults import SimResults
+from dvsim.sim_results import SimResults
 from dvsim.Test import Test
 from dvsim.Testplan import Testplan
 from dvsim.utils import TS_FORMAT, rm_path
