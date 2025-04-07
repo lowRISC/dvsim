@@ -150,7 +150,7 @@ class FlowCfg:
         self._expand()
 
         # Construct the path variables after variable expansion.
-        self.results_dir = Path(self.scratch_base_path) / "reports" / self.rel_path / "latest"
+        self.results_dir = Path(self.scratch_base_path) / "reports" / self.rel_path
         self.results_page = self.results_dir / self.results_html_name
 
         tmp_path = self.results_server + "/" + self.rel_path + "/latest/" + self.results_html_name
