@@ -4,11 +4,12 @@
 
 """Utilities for running external tools."""
 
-import logging as log
 import shlex
 import subprocess
 import sys
 import time
+
+from dvsim.logging import log
 
 
 def run_cmd(cmd: str) -> str:

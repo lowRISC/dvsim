@@ -4,13 +4,14 @@
 
 """file system utilities."""
 
-import logging as log
 import os
 import shutil
 import sys
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
+
+from dvsim.logging import log
 
 __all__ = (
     "TS_FORMAT",

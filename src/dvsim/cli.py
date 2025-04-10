@@ -22,7 +22,6 @@ by the sim tool.
 
 import argparse
 import datetime
-import logging as log
 import os
 import random
 import shlex
@@ -40,8 +39,8 @@ from dvsim.launcher.lsf import LsfLauncher
 from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
 from dvsim.launcher.slurm import SlurmLauncher
-from dvsim.logging import VERBOSE, configure_logging
-from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, VERBOSE, Timer, rm_path, run_cmd_with_timeout
+from dvsim.logging import configure_logging, log
+from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer, rm_path, run_cmd_with_timeout
 
 # TODO: add dvsim_cfg.hjson to retrieve this info
 version = 0.1
@@ -218,8 +217,8 @@ def copy_repo(src, dest) -> None:
     ]
 
     # Supply `.gitignore` from the src area to skip temp files.
-    ignore_patterns_file = os.path.join(src, ".gitignore")
-    if Path(ignore_patterns_file).exists():
+    ignore_patterns_file = Path(src) / ".gitignore"
+    if ignore_patterns_file.exists():
         # TODO: hack - include hw/foundry since it is excluded in .gitignore.
         rsync_cmd += [
             "--include=hw/foundry",
@@ -233,7 +232,7 @@ def copy_repo(src, dest) -> None:
     cmd = ["flock", "--timeout", "600", dest, "--command", rsync_str]
 
     log.info("[copy_repo] [dest]: %s", dest)
-    log.log(VERBOSE, "[copy_repo] [cmd]: \n%s", " ".join(cmd))
+    log.verbose("[copy_repo] [cmd]: \n%s", " ".join(cmd))
 
     # Make sure the dest exists first.
     os.makedirs(dest, exist_ok=True)

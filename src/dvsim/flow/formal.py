@@ -2,13 +2,13 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging as log
 from pathlib import Path
 
 import hjson
 from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
+from dvsim.logging import log
 from dvsim.results_server import ResultsServer
 from dvsim.utils import subst_wildcards
 

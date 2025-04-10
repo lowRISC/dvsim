@@ -2,10 +2,9 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging as log
 import sys
 
-from dvsim.logging import VERBOSE
+from dvsim.logging import log
 from dvsim.modes import Mode, find_mode, find_mode_list
 from dvsim.test import Test
 
@@ -135,8 +134,7 @@ class Regression(Mode):
             # If `tests` member resolves to None, then we add ALL available
             # tests for running the regression.
             if regression_obj.tests is None:
-                log.log(
-                    VERBOSE,
+                log.verbose(
                     'Unpacking all tests in scope for regression "%s"',
                     regression_obj.name,
                 )

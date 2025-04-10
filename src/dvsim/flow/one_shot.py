@@ -4,12 +4,12 @@
 
 """Class describing a one-shot build configuration object."""
 
-import logging as log
 import os
 from collections import OrderedDict
 
 from dvsim.flow.base import FlowCfg
 from dvsim.job.deploy import CompileOneShot
+from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode
 from dvsim.utils import rm_path
 

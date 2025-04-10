@@ -2,17 +2,21 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging as log
+"""Job deployment mechanism."""
+
 import pprint
 import random
 import shlex
+from collections.abc import Mapping
 from pathlib import Path
+from typing import ClassVar
 
 from tabulate import tabulate
 
+from dvsim.flow.sim import SimCfg
 from dvsim.job.time import JobTime
 from dvsim.launcher.factory import get_launcher
-from dvsim.logging import VERBOSE
+from dvsim.logging import log
 from dvsim.sim_utils import get_cov_summary_table, get_job_runtime, get_simulated_time
 from dvsim.utils import (
     clean_odirs,
@@ -31,7 +35,7 @@ class Deploy:
     # List of variable names that are to be treated as "list of commands".
     # This tells '_construct_cmd' that these vars are lists that need to
     # be joined with '&&' instead of a space.
-    cmds_list_vars = []
+    cmds_list_vars: ClassVar = []
 
     # Represents the weight with which a job of this target is scheduled. These
     # initial weights set for each of the targets below are roughly inversely
@@ -43,14 +47,18 @@ class Deploy:
     weight = 1
 
     def __str__(self) -> str:
-        return (
-            pprint.pformat(self.__dict__)
-            if log.getLogger().isEnabledFor(VERBOSE)
-            else self.full_name
-        )
+        """Get a string representation of the deployment object."""
+        return pprint.pformat(self.__dict__) if log.isEnabledFor(log.VERBOSE) else self.full_name
 
-    def __init__(self, sim_cfg) -> None:
-        assert self.target is not None
+    def __init__(self, sim_cfg: SimCfg) -> None:
+        """Initialise deployment object.
+
+        Args:
+            sim_cfg: simulation config object
+
+        """
+        if self.target is None:
+            raise RuntimeError("No target specified")
 
         # Cross ref the whole cfg object for ease.
         self.sim_cfg = sim_cfg
@@ -88,7 +96,7 @@ class Deploy:
         self.job_runtime = JobTime()
 
     def _define_attrs(self) -> None:
-        """Defines the attributes this instance needs to have.
+        """Define the attributes this instance needs to have.
 
         These attributes are extracted from the Mode object / HJson config with
         which this instance is created. There are two types of attributes -
@@ -113,8 +121,8 @@ class Deploy:
         }
 
     # Function to parse a dict and extract the mandatory cmd and misc attrs.
-    def _extract_attrs(self, ddict) -> None:
-        """Extracts the attributes from the supplied dict.
+    def _extract_attrs(self, ddict: Mapping) -> None:
+        """Extract the attributes from the supplied dict.
 
         'ddict' is typically either the Mode object or the entire config
         object's dict. It is used to retrieve the instance attributes defined
@@ -132,7 +140,7 @@ class Deploy:
                 self.mandatory_misc_attrs[key] = True
 
     def _set_attrs(self) -> None:
-        """Sets additional attributes.
+        """Set additional attributes.
 
         Invokes '_extract_attrs()' to read in all the necessary instance
         attributes. Based on those, some additional instance attributes may
@@ -172,7 +180,7 @@ class Deploy:
         self.fail_patterns = []
 
     def _check_attrs(self) -> None:
-        """Checks if all required class attributes are set.
+        """Check if all required class attributes are set.
 
         Invoked in __init__() after all attributes are extracted and set.
         """
@@ -210,7 +218,7 @@ class Deploy:
             ignore_error=False,
         )
 
-    def _process_exports(self):
+    def _process_exports(self) -> Mapping:
         """Convert 'exports' as a list of dicts in the HJson to a dict.
 
         Exports is a list of key-value pairs that are to be exported to the
@@ -222,7 +230,7 @@ class Deploy:
         """
         return {k: str(v) for item in self.exports for k, v in item.items()}
 
-    def _construct_cmd(self):
+    def _construct_cmd(self) -> str:
         """Construct the command that will eventually be launched."""
         cmd = f"make -f {self.flow_makefile} {self.target}"
         if self.dry_run is True:
@@ -241,9 +249,8 @@ class Deploy:
             cmd += f" {attr}={value}"
         return cmd
 
-    def is_equivalent_job(self, item) -> bool:
-        """Checks if job that would be dispatched with 'item' is equivalent to
-        'self'.
+    def is_equivalent_job(self, item: "Deploy") -> bool:
+        """Check if Deploy object results in an equivalent dispatched job.
 
         Determines if 'item' and 'self' would behave exactly the same way when
         deployed. If so, then there is no point in keeping both. The caller can
@@ -271,31 +278,30 @@ class Deploy:
             if val != item_val:
                 return False
 
-        log.log(VERBOSE, 'Deploy job "%s" is equivalent to "%s"', item.name, self.name)
+        log.verbose('Deploy job "%s" is equivalent to "%s"', item.name, self.name)
         return True
 
     def pre_launch(self) -> None:
-        """Callback to perform additional pre-launch activities.
+        """Perform additional pre-launch activities (callback).
 
         This is invoked by launcher::_pre_launch().
         """
 
     def post_finish(self, status) -> None:
-        """Callback to perform additional post-finish activities.
+        """Perform additional post-finish activities (callback).
 
         This is invoked by launcher::_post_finish().
         """
 
     def get_log_path(self) -> str:
-        """Returns the log file path."""
+        """Return the log file path."""
         return f"{self.odir}/{self.target}.log"
 
-    def get_timeout_mins(self) -> None:
-        """Returns the timeout in minutes."""
-        return
+    def get_timeout_mins(self) -> float | None:
+        """Return the timeout in minutes."""
 
     def extract_info_from_log(self, log_text: list) -> None:
-        """Extracts information pertaining to the job from its log.
+        """Extract information pertaining to the job from its log.
 
         This method parses the log text after the job has completed, for the
         extraction of information pertaining to the job's performance. This
@@ -317,7 +323,7 @@ class Deploy:
             self.job_runtime.set(self.launcher.job_runtime_secs, "s")
 
     def create_launcher(self) -> None:
-        """Creates the launcher instance.
+        """Create the launcher instance.
 
         Note that the launcher instance for ALL jobs in the same job group must
         be created before the Scheduler starts to dispatch one by one.
@@ -330,10 +336,11 @@ class CompileSim(Deploy):
     """Abstraction for building the simulation executable."""
 
     target = "build"
-    cmds_list_vars = ["pre_build_cmds", "post_build_cmds"]
+    cmds_list_vars: ClassVar = ["pre_build_cmds", "post_build_cmds"]
     weight = 5
 
     def __init__(self, build_mode, sim_cfg) -> None:
+        """Initialise a Sim compile stage job deployment."""
         self.build_mode_obj = build_mode
         self.seed = sim_cfg.build_seed
         super().__init__(sim_cfg)
@@ -343,6 +350,7 @@ class CompileSim(Deploy):
             log.debug('Timeout for job "%s" is %d minutes.', self.name, self.build_timeout_mins)
 
     def _define_attrs(self) -> None:
+        """Define attributes."""
         super()._define_attrs()
         self.mandatory_cmd_attrs.update(
             {
@@ -389,12 +397,13 @@ class CompileSim(Deploy):
             self.build_timeout_mins = self.sim_cfg.args.build_timeout_mins
 
     def pre_launch(self) -> None:
+        """Perform pre-launch tasks."""
         # Delete old coverage database directories before building again. We
         # need to do this because the build directory is not 'renewed'.
         rm_path(self.cov_db_dir)
 
-    def get_timeout_mins(self):
-        """Returns the timeout in minutes.
+    def get_timeout_mins(self) -> float:
+        """Return the timeout in minutes.
 
         Limit build jobs to 60 minutes if the timeout is not set.
         """
@@ -407,6 +416,7 @@ class CompileOneShot(Deploy):
     target = "build"
 
     def __init__(self, build_mode, sim_cfg) -> None:
+        """Initialise a CompileOneShot object."""
         self.build_mode_obj = build_mode
         super().__init__(sim_cfg)
 
@@ -455,8 +465,8 @@ class CompileOneShot(Deploy):
         if self.sim_cfg.args.build_timeout_mins is not None:
             self.build_timeout_mins = self.sim_cfg.args.build_timeout_mins
 
-    def get_timeout_mins(self):
-        """Returns the timeout in minutes.
+    def get_timeout_mins(self) -> float:
+        """Return the timeout in minutes.
 
         Limit build jobs to 60 minutes if the timeout is not set.
         """
@@ -562,15 +572,18 @@ class RunTest(Deploy):
             )
 
     def pre_launch(self) -> None:
+        """Perform pre-launch tasks."""
         self.launcher.renew_odir = True
 
     def post_finish(self, status) -> None:
+        """Perform tidy up tasks."""
         if status != "P":
             # Delete the coverage data if available.
             rm_path(self.cov_db_test_dir)
 
     @staticmethod
-    def get_seed():
+    def get_seed() -> int:
+        """Get the test random seed."""
         # If --seeds option is passed, then those custom seeds are consumed
         # first. If --fixed-seed <val> is also passed, the subsequent tests
         # (once the custom seeds are consumed) will be run with the fixed seed.
@@ -583,14 +596,14 @@ class RunTest(Deploy):
         return RunTest.seeds.pop(0)
 
     def get_timeout_mins(self):
-        """Returns the timeout in minutes.
+        """Return the timeout in minutes.
 
         Limit run jobs to 60 minutes if the timeout is not set.
         """
         return self.run_timeout_mins if self.run_timeout_mins is not None else 60
 
     def extract_info_from_log(self, log_text: list) -> None:
-        """Extracts the time the design was simulated for, from the log."""
+        """Extract the time the design was simulated for, from the log."""
         super().extract_info_from_log(log_text)
         try:
             time, unit = get_simulated_time(log_text, self.sim_cfg.tool)
@@ -605,6 +618,7 @@ class CovUnr(Deploy):
     target = "cov_unr"
 
     def __init__(self, sim_cfg) -> None:
+        """Initialise a UNR coverage calculation job deployment."""
         super().__init__(sim_cfg)
 
     def _define_attrs(self) -> None:
@@ -646,6 +660,7 @@ class CovMerge(Deploy):
     weight = 10
 
     def __init__(self, run_items, sim_cfg) -> None:
+        """Initialise a job deployment to merge coverage databases."""
         # Construct the cov_db_dirs right away from the run_items. This is a
         # special variable used in the HJson. The coverage associated with
         # the primary build mode needs to be first in the list.
@@ -701,6 +716,7 @@ class CovReport(Deploy):
     weight = 10
 
     def __init__(self, merge_job, sim_cfg) -> None:
+        """Initialise a job deployment to generate a coverage report."""
         super().__init__(sim_cfg)
         self.dependencies.append(merge_job)
 
@@ -745,6 +761,7 @@ class CovAnalyze(Deploy):
     target = "cov_analyze"
 
     def __init__(self, sim_cfg) -> None:
+        """Initialise a job deployment for running coverage analysis."""
         # Enforce GUI mode for coverage analysis.
         sim_cfg.gui = True
         super().__init__(sim_cfg)

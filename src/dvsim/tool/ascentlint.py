@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
@@ -6,11 +5,12 @@
 """Parses lint report and dump filtered messages in hjson format."""
 
 import argparse
-import logging as log
 import sys
 from pathlib import Path
 
 from LintParser import LintParser
+
+from dvsim.logging import log
 
 
 # TODO(#9079): this script will be removed long term once the

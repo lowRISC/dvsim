@@ -4,13 +4,13 @@
 
 """Class describing synthesis configuration object."""
 
-import logging as log
 from pathlib import Path
 
 import hjson
 from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
+from dvsim.logging import log
 from dvsim.utils import print_msg_list, subst_wildcards
 
 

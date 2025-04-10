@@ -6,11 +6,12 @@
 """Parses lint report and dump filtered messages in hjson format."""
 
 import argparse
-import logging as log
 import sys
 from pathlib import Path
 
 from LintParser import LintParser
+
+from dvsim.logging import log
 
 
 # TODO(#9079): this script will be removed long term once the

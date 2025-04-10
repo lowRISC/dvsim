@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import logging as log
 import os
 import pprint
 import subprocess
@@ -15,7 +14,7 @@ import hjson
 
 from dvsim.flow.hjson import set_target_attribute
 from dvsim.launcher.factory import get_launcher_cls
-from dvsim.logging import VERBOSE
+from dvsim.logging import log
 from dvsim.results_server import NoGCPError, ResultsServer
 from dvsim.scheduler import Scheduler
 from dvsim.utils import (
@@ -236,7 +235,7 @@ class FlowCfg:
             self.cfgs.append(self.create_instance(mk_config, temp_cfg_file))
 
             # Delete the temp_cfg_file once the instance is created
-            log.log(VERBOSE, "Deleting temp cfg file:\n%s", temp_cfg_file)
+            log.verbose("Deleting temp cfg file:\n%s", temp_cfg_file)
             rm_path(temp_cfg_file, ignore_error=True)
 
         else:
@@ -268,10 +267,9 @@ class FlowCfg:
         temp_cfg_file = self.scratch_root + "/." + self.branch + "__" + name + "_cfg.hjson"
 
         # Create the file and dump the dict as hjson
-        log.log(VERBOSE, 'Dumping inline cfg "%s" in hjson to:\n%s', name, temp_cfg_file)
+        log.verbose('Dumping inline cfg "%s" in hjson to:\n%s', name, temp_cfg_file)
         try:
-            with open(temp_cfg_file, "w") as f:
-                f.write(hjson.dumps(idict, for_json=True))
+            Path(temp_cfg_file).write_text(hjson.dumps(idict, for_json=True))
         except Exception as e:
             log.exception(
                 'Failed to hjson-dump temp cfg file"%s" for "%s"(will be skipped!) due to:\n%s',
@@ -440,7 +438,7 @@ class FlowCfg:
             log.info("[results]: [%s]:\n%s\n", item.name, result)
             log.info("[scratch_path]: [%s] [%s]", item.name, item.scratch_path)
             item.write_results(self.results_html_name, item.results_md, json_str)
-            log.log(VERBOSE, "[report]: [%s] [%s/report.html]", item.name, item.results_dir)
+            log.verbose("[report]: [%s] [%s/report.html]", item.name, item.results_dir)
             self.errors_seen |= item.errors_seen
 
         if self.is_primary_cfg:
@@ -628,7 +626,7 @@ class FlowCfg:
                 stderr=subprocess.STDOUT,
                 check=False,
             )
-            log.log(VERBOSE, cmd_output.stdout.decode("utf-8"))
+            log.verbose(cmd_output.stdout.decode("utf-8"))
         except Exception as e:
             log.exception(f'{e}: Failed to trigger Cloud Build job to rebuild site:\n"{cmd}"')
 

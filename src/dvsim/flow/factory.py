@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging as log
 import pathlib
 import sys
 
@@ -13,6 +12,16 @@ from dvsim.flow.lint import LintCfg
 from dvsim.flow.rdc import RdcCfg
 from dvsim.flow.sim import SimCfg
 from dvsim.flow.syn import SynCfg
+from dvsim.logging import log
+
+FLOW_HANDLERS = {
+    "cdc": CdcCfg,
+    "formal": FormalCfg,
+    "lint": LintCfg,
+    "rdc": RdcCfg,
+    "sim": SimCfg,
+    "syn": SynCfg,
+}
 
 
 def _load_cfg(path, initial_values):

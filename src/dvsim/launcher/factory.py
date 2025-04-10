@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging as log
 import os
 
 from dvsim.launcher.base import Launcher
@@ -11,6 +10,7 @@ from dvsim.launcher.lsf import LsfLauncher
 from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
 from dvsim.launcher.slurm import SlurmLauncher
+from dvsim.logging import log
 
 try:
     from edacloudlauncher.EdaCloudLauncher import EdaCloudLauncher

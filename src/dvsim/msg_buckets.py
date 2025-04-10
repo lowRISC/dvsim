@@ -9,11 +9,11 @@ and printout in the Dvsim flow classes.
 """
 
 import copy
-import logging as log
 from pathlib import Path
 
 import hjson
 
+from dvsim.logging import log
 from dvsim.msg_bucket import MsgBucket
 from dvsim.utils import print_msg_list
 

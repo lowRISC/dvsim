@@ -4,13 +4,12 @@
 
 import collections
 import datetime
-import logging as log
 import os
 import re
 import sys
 from pathlib import Path
 
-from dvsim.logging import VERBOSE
+from dvsim.logging import log
 from dvsim.utils import clean_odirs, mk_symlink, rm_path
 
 
@@ -352,4 +351,4 @@ class Launcher:
             assert err_msg
             assert isinstance(err_msg, ErrorMessage)
             self.fail_msg = err_msg
-            log.log(VERBOSE, err_msg.message)
+            log.verbose(err_msg.message)

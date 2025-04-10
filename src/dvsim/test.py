@@ -2,10 +2,10 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-import logging as log
 import sys
 from copy import deepcopy
 
+from dvsim.logging import log
 from dvsim.modes import RunMode, find_mode, find_mode_list
 
 

@@ -7,18 +7,19 @@
 import collections
 import fnmatch
 import json
-import logging as log
 import os
 import re
 import sys
 from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import ClassVar
 
 from tabulate import tabulate
 
 from dvsim.flow.base import FlowCfg
 from dvsim.job.deploy import CompileSim, CovAnalyze, CovMerge, CovReport, CovUnr, RunTest
+from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
 from dvsim.results_server import ResultsServer
@@ -42,7 +43,7 @@ class SimCfg(FlowCfg):
     flow = "sim"
 
     # TODO: Find a way to set these in sim cfg instead
-    ignored_wildcards = [
+    ignored_wildcards: ClassVar = [
         "build_mode",
         "index",
         "test",

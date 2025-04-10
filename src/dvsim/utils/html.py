@@ -4,12 +4,13 @@
 
 """Utility functions common across dvsim."""
 
-import logging as log
 import re
 from pathlib import Path
 
 import mistletoe
 from premailer import transform
+
+from dvsim.logging import log
 
 __all__ = (
     "htmc_color_pc_cells",

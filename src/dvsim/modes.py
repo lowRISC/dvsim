@@ -4,9 +4,10 @@
 
 """Modes are an abstraction for a collection of options and configuration for a dvsim job."""
 
-import logging as log
 import sys
 from collections.abc import Mapping, Sequence
+
+from dvsim.logging import log
 
 
 class Mode:

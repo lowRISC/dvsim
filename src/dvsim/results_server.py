@@ -8,9 +8,10 @@ This is hosted with Google cloud.
 """
 
 import datetime
-import logging as log
 import subprocess
 from shutil import which
+
+from dvsim.logging import log
 
 
 class NoGCPError(Exception):

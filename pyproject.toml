@@ -81,8 +81,16 @@ select = ["ALL"]
 extend-select = ["W391", "E303"]
 allowed-confusables = ["−"]
 ignore = [
-    "D203", "D213", "COM812", "ISC001",
-    "FIX", "TD", "S603", "S607", "TRY003",
+    "D203",   # Blank line after class def (we do not use this style)
+    "D213",   # Multi-line summary second line (we do not use this style)
+    "COM812", # Missing trailing comma (unnecessary with auto format)
+    "FIX",    # FIX related rules
+    "TD",     # TODO related rules
+    "S603",   # Start process without shell
+    "S607",   # Start process with partial path
+    "TRY003", # Custom exception with vanilla args. This is reasonable if the
+              # exception is used as a sentinel.
+    "EM101",  # String literals in exception
 ]
 
 [tool.ruff.lint.per-file-ignores]

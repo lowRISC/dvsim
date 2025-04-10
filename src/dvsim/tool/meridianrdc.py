@@ -6,12 +6,13 @@
 """Parses Meridian RDC report and dump filtered messages in hjson format."""
 
 import argparse
-import logging as log
 import re
 import sys
 from pathlib import Path
 
 from LintParser import LintParser
+
+from dvsim.logging import log
 
 
 def extract_rule_patterns(file_path: Path):

@@ -4,11 +4,12 @@
 
 """Job status printing during a scheduled run."""
 
-import logging as log
 import sys
 from collections.abc import Sequence
 
 import enlighten
+
+from dvsim.logging import log
 
 
 class StatusPrinter:

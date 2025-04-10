@@ -4,12 +4,13 @@
 
 """Utility functions for hjson."""
 
-import logging as log
 import sys
 from collections.abc import Mapping
 from pathlib import Path
 
 from hjson import loads
+
+from dvsim.logging import log
 
 
 def decode_hjson(s: str) -> Mapping[str, object]:

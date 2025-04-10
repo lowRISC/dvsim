@@ -4,12 +4,12 @@
 
 """Class describing lint configuration object."""
 
-import logging as log
 from pathlib import Path
 
 from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
+from dvsim.logging import log
 from dvsim.msg_buckets import MsgBuckets
 from dvsim.utils import check_bool, subst_wildcards
 

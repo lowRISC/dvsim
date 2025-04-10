@@ -3,14 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
-import logging as log
 import os
 import pathlib
 import subprocess
 import sys
 
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
-from dvsim.logging import VERBOSE
+from dvsim.logging import log
 from dvsim.utils import rm_path
 
 
@@ -131,7 +130,7 @@ class NcLauncher(Launcher):
             std_err = fd
 
         cmd_arr = self.get_submit_cmd()
-        log.log(VERBOSE, "[Submitting]:\n{}\n\n".format(" ".join(cmd_arr)))
+        log.verbose("[Submitting]:\n{}\n\n".format(" ".join(cmd_arr)))
 
         try:
             self.process = subprocess.Popen(
@@ -233,7 +232,7 @@ class NcLauncher(Launcher):
         and SIGKILL.
         """
         try:
-            log.log(VERBOSE, f"[Stopping] : {self.deploy.full_name}")
+            log.verbose(f"[Stopping] : {self.deploy.full_name}")
             subprocess.run(
                 ["nc", "stop", "-set", self.deploy.full_name, "-sig", "TERM,KILL"],
                 check=True,

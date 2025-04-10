@@ -3,12 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
-import logging as log
 import threading
 from signal import SIGINT, SIGTERM, signal
 
 from dvsim.launcher.base import LauncherBusyError, LauncherError
-from dvsim.logging import VERBOSE
+from dvsim.logging import log
 from dvsim.utils.status_printer import get_status_printer
 from dvsim.utils.timer import Timer
 
@@ -373,7 +372,7 @@ class Scheduler:
                     self.last_item_polled_idx[target],
                 )
                 status = item.launcher.poll()
-                level = VERBOSE
+                level = log.VERBOSE
 
                 assert status in ["D", "P", "F", "E", "K"]
                 if status == "D":
@@ -468,8 +467,7 @@ class Scheduler:
             if not to_dispatch:
                 continue
 
-            log.log(
-                VERBOSE,
+            log.verbose(
                 "[%s]: [%s]: [dispatch]:\n%s",
                 hms,
                 target,
@@ -489,8 +487,7 @@ class Scheduler:
 
                     self._queued[target].append(item)
 
-                    log.log(
-                        VERBOSE,
+                    log.verbose(
                         "[%s]: [%s]: [reqeued]: %s",
                         hms,
                         target,
