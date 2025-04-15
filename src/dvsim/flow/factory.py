@@ -4,9 +4,8 @@
 """Factory to generate a flow config."""
 
 from argparse import Namespace
-from collections.abc import Sequence
+from collections.abc import Mapping
 
-from dvsim.config.load import load_cfg
 from dvsim.flow.base import FlowCfg
 from dvsim.flow.cdc import CdcCfg
 from dvsim.flow.formal import FormalCfg
@@ -15,7 +14,9 @@ from dvsim.flow.rdc import RdcCfg
 from dvsim.flow.sim import SimCfg
 from dvsim.flow.syn import SynCfg
 from dvsim.logging import log
-from dvsim.project import ProjectMeta
+from dvsim.project import Project
+
+__all__ = ("make_flow",)
 
 FLOW_HANDLERS = {
     "cdc": CdcCfg,
@@ -50,9 +51,12 @@ def _get_flow_handler_cls(flow: str) -> type[FlowCfg]:
     return FLOW_HANDLERS[flow]
 
 
-def make_cfg(
-    project_cfg: ProjectMeta,
-    select_cfgs: Sequence[str] | None,
+# TODO: move this to ProjectMeta -> ProjectCfg
+
+
+def make_flow(
+    project_cfg: Project,
+    config_data: Mapping,
     args: Namespace,
 ) -> FlowCfg:
     """Make a flow config by loading the config file at path.
@@ -67,34 +71,17 @@ def make_cfg(
         config file.
 
     """
-    log.info("Loading primary config file: %s", project_cfg.top_cfg_path)
-
-    # load the whole project config data
-    primary_cfg = dict(
-        load_cfg(
-            path=project_cfg.top_cfg_path,
-            path_resolution_wildcards={
-                "proj_root": project_cfg.root_path,
-            },
-            select_cfgs=select_cfgs,
-        ),
-    )
-
-    # Tool specified on CLI overrides the file based config
-    if args.tool is not None:
-        primary_cfg["tool"] = args.tool
-
-    if "flow" not in primary_cfg:
+    if "flow" not in config_data:
         msg = 'No value for the "flow" key. Are you sure this is a dvsim configuration file?'
         raise RuntimeError(
             msg,
         )
 
-    cls = _get_flow_handler_cls(str(primary_cfg["flow"]))
+    cls = _get_flow_handler_cls(str(config_data["flow"]))
 
     child_flow_handlers = []
-    if "cfgs" in primary_cfg:
-        for child_cfg_path, child_cfg_data in primary_cfg["cfgs"].items():
+    if "cfgs" in config_data:
+        for child_cfg_path, child_cfg_data in config_data["cfgs"].items():
             # Tool specified on CLI overrides the file based config
             if args.tool is not None:
                 child_cfg_data["tool"] = args.tool
@@ -116,8 +103,8 @@ def make_cfg(
 
     log.info(
         "Constructing top level '%s' %s flow with config: '%s'",
-        primary_cfg["name"],
-        primary_cfg["flow"],
+        config_data["name"],
+        config_data["flow"],
         project_cfg.top_cfg_path,
     )
     log.info("Constructing top level flow handler with %s", cls.__name__)
@@ -125,7 +112,7 @@ def make_cfg(
     return cls(
         flow_cfg_file=project_cfg.top_cfg_path,
         project_cfg=project_cfg,
-        config_data=primary_cfg,
+        config_data=config_data,
         args=args,
         child_configs=child_flow_handlers,
     )

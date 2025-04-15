@@ -22,14 +22,15 @@ by the sim tool.
 
 import argparse
 import datetime
-import logging as log
+import json
 import os
 import random
 import sys
 import textwrap
+from collections.abc import Sequence
 from pathlib import Path
 
-from dvsim.flow.factory import make_cfg
+from dvsim.flow.factory import make_flow
 from dvsim.job.deploy import RunTest
 from dvsim.launcher.base import Launcher
 from dvsim.launcher.factory import set_launcher_type
@@ -38,8 +39,8 @@ from dvsim.launcher.lsf import LsfLauncher
 from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
 from dvsim.launcher.slurm import SlurmLauncher
-from dvsim.logging import configure_logging
-from dvsim.project import init_project
+from dvsim.logging import configure_logging, log
+from dvsim.project import Project
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer
 
 # TODO: add dvsim_cfg.hjson to retrieve this info
@@ -661,15 +662,19 @@ def main() -> None:
         debug=args.verbose == "debug",
     )
 
-    project_cfg = init_project(
+    project_cfg = Project.init(
         cfg_path=Path(args.cfg),
         proj_root=Path(args.proj_root) if args.proj_root else None,
         scratch_root=Path(args.scratch_root) if args.scratch_root else None,
         branch=args.branch,
+        job_prefix=args.job_prefix,
+        purge=args.purge,
         dry_run=args.dry_run,
         remote=args.remote,
-        job_prefix=args.job_prefix,
     )
+    project_cfg.save()
+
+    log.set_logfile(path=project_cfg.logfile)
 
     # Add timestamp to args that all downstream objects can use.
     curr_ts = datetime.datetime.now(datetime.UTC)
@@ -696,53 +701,56 @@ def main() -> None:
 
     # Build infrastructure from hjson file and create the list of items to
     # be deployed.
-    cfg = make_cfg(
-        project_cfg=project_cfg,
+    config_data = project_cfg.load_config(
         select_cfgs=args.select_cfgs,
+        args=args,
+    )
+    project_cfg.run_dir.mkdir(parents=True, exist_ok=True)
+    (project_cfg.run_dir / "config.json").write_text(json.dumps(config_data))
+
+    flow = make_flow(
+        project_cfg=project_cfg,
+        config_data=config_data,
         args=args,
     )
 
     # List items available for run if --list switch is passed, and exit.
     if args.list is not None:
-        cfg.print_list()
+        flow.print_list()
         sys.exit(0)
 
     # Purge the scratch path if --purge option is set.
     if args.purge:
-        cfg.purge()
+        flow.purge()
 
     # If --cov-unr is passed, run UNR to generate report for unreachable
     # exclusion file.
     if args.cov_unr:
-        cfg.cov_unr()
-        cfg.deploy_objects()
+        flow.cov_unr()
+        flow.deploy_objects()
         sys.exit(0)
 
     # In simulation mode: if --cov-analyze switch is passed, then run the GUI
     # tool.
     if args.cov_analyze:
-        cfg.cov_analyze()
-        cfg.deploy_objects()
+        flow.cov_analyze()
+        flow.deploy_objects()
         sys.exit(0)
 
     # Deploy the builds and runs
     if args.items:
         # Create deploy objects.
-        cfg.create_deploy_objects()
-        results = cfg.deploy_objects()
+        flow.create_deploy_objects()
+        results = flow.deploy_objects()
 
         # Generate results.
-        cfg.gen_results(results)
+        flow.gen_results(results)
 
     else:
         log.error("Nothing to run!")
         sys.exit(1)
 
     # Exit with non-zero status if there were errors or failures.
-    if cfg.has_errors():
+    if flow.has_errors():
         log.error("Errors were encountered in this run.")
         sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
