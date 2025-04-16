@@ -22,12 +22,10 @@ by the sim tool.
 
 import argparse
 import datetime
-import json
 import os
 import random
 import sys
 import textwrap
-from collections.abc import Sequence
 from pathlib import Path
 
 from dvsim.flow.factory import make_flow
@@ -671,6 +669,8 @@ def main() -> None:
         purge=args.purge,
         dry_run=args.dry_run,
         remote=args.remote,
+        select_cfgs=args.select_cfgs,
+        args=args,
     )
     project_cfg.save()
 
@@ -701,16 +701,8 @@ def main() -> None:
 
     # Build infrastructure from hjson file and create the list of items to
     # be deployed.
-    config_data = project_cfg.load_config(
-        select_cfgs=args.select_cfgs,
-        args=args,
-    )
-    project_cfg.run_dir.mkdir(parents=True, exist_ok=True)
-    (project_cfg.run_dir / "config.json").write_text(json.dumps(config_data))
-
     flow = make_flow(
         project_cfg=project_cfg,
-        config_data=config_data,
         args=args,
     )
 
