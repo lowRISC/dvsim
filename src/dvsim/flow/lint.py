@@ -13,7 +13,7 @@ from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
 from dvsim.msg_buckets import MsgBuckets
-from dvsim.project import ProjectMeta
+from dvsim.project import Project
 from dvsim.utils import check_bool, subst_wildcards
 
 
@@ -25,7 +25,7 @@ class LintCfg(OneShotCfg):
     def __init__(
         self,
         flow_cfg_file: Path,
-        project_cfg: ProjectMeta,
+        project_cfg: Project,
         config_data: Mapping,
         args: Namespace,
         child_configs: Sequence["LintCfg"] | None = None,

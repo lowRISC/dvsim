@@ -51,9 +51,6 @@ def _get_flow_handler_cls(flow: str) -> type[FlowCfg]:
     return FLOW_HANDLERS[flow]
 
 
-# TODO: move this to ProjectMeta -> ProjectCfg
-
-
 def make_flow(
     project_cfg: Project,
     config_data: Mapping,
@@ -63,7 +60,7 @@ def make_flow(
 
     Args:
         project_cfg: metadata about the project
-        select_cfgs: list of child config names to use from the primary config
+        config_data: project configuration data
         args: are the arguments passed to the CLI
 
     Returns:

@@ -13,7 +13,7 @@ from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
 from dvsim.logging import log
-from dvsim.project import ProjectMeta
+from dvsim.project import Project
 from dvsim.utils import print_msg_list, subst_wildcards
 
 
@@ -25,7 +25,7 @@ class SynCfg(OneShotCfg):
     def __init__(
         self,
         flow_cfg_file: Path,
-        project_cfg: ProjectMeta,
+        project_cfg: Project,
         config_data: Mapping,
         args: Namespace,
         child_configs: Sequence["SynCfg"] | None = None,

@@ -14,7 +14,7 @@ from dvsim.flow.base import FlowCfg
 from dvsim.job.deploy import CompileOneShot
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode
-from dvsim.project import ProjectMeta
+from dvsim.project import Project
 from dvsim.utils import rm_path
 
 
@@ -28,7 +28,7 @@ class OneShotCfg(FlowCfg):
     def __init__(
         self,
         flow_cfg_file: Path,
-        project_cfg: ProjectMeta,
+        project_cfg: Project,
         config_data: Mapping,
         args: Namespace,
         child_configs: Sequence["OneShotCfg"] | None = None,

@@ -22,7 +22,7 @@ from dvsim.flow.base import FlowCfg
 from dvsim.job.deploy import CompileSim, CovAnalyze, CovMerge, CovReport, CovUnr, Deploy, RunTest
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
-from dvsim.project import ProjectMeta
+from dvsim.project import Project
 from dvsim.regression import Regression
 from dvsim.sim_results import SimResults
 from dvsim.test import Test
@@ -64,7 +64,7 @@ class SimCfg(FlowCfg):
         self,
         *,
         flow_cfg_file: Path,
-        project_cfg: ProjectMeta,
+        project_cfg: Project,
         config_data: Mapping,
         args: Namespace,
         child_configs: Sequence["SimCfg"] | None = None,

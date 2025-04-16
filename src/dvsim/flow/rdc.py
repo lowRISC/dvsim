@@ -9,7 +9,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from dvsim.flow.lint import LintCfg
-from dvsim.project import ProjectMeta
+from dvsim.project import Project
 
 
 class RdcCfg(LintCfg):
@@ -20,7 +20,7 @@ class RdcCfg(LintCfg):
     def __init__(
         self,
         flow_cfg_file: Path,
-        project_cfg: ProjectMeta,
+        project_cfg: Project,
         config_data: Mapping,
         args: Namespace,
         child_configs: Sequence["RdcCfg"] | None = None,

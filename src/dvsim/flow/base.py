@@ -17,7 +17,7 @@ from typing import ClassVar
 from dvsim.job.deploy import Deploy
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
-from dvsim.project import ProjectMeta
+from dvsim.project import Project
 from dvsim.scheduler import Scheduler
 from dvsim.utils import (
     find_and_substitute_wildcards,
@@ -46,7 +46,7 @@ class FlowCfg:
         self,
         *,
         flow_cfg_file: Path,
-        project_cfg: ProjectMeta,
+        project_cfg: Project,
         config_data: Mapping,
         args: Namespace,
         child_configs: Sequence["FlowCfg"] | None = None,
