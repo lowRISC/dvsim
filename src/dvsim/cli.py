@@ -729,18 +729,17 @@ def main() -> None:
         flow.deploy_objects()
         sys.exit(0)
 
-    # Deploy the builds and runs
-    if args.items:
-        # Create deploy objects.
-        flow.create_deploy_objects()
-        results = flow.deploy_objects()
-
-        # Generate results.
-        flow.gen_results(results)
-
-    else:
+    if not args.items:
         log.error("Nothing to run!")
         sys.exit(1)
+
+    # Deploy the builds and runs
+    # Create deploy objects.
+    flow.create_deploy_objects()
+    results = flow.deploy_objects()
+
+    # Generate results.
+    flow.gen_results(results)
 
     # Exit with non-zero status if there were errors or failures.
     if flow.has_errors():
