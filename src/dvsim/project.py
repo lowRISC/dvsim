@@ -20,6 +20,7 @@ from dvsim.utils import (
     rm_path,
     run_cmd_with_timeout,
 )
+from dvsim.utils.wildcards import find_and_substitute_wildcards
 
 __all__ = ("Project",)
 
@@ -216,11 +217,20 @@ def _load_flow_config(
 
     if "cfgs" in cfg:
         # add any missing rel_path fields
-        for child_cfg in cfg["cfgs"].values():
+        for child_cfg_path in cfg["cfgs"]:
+            child_cfg = cfg["cfgs"][child_cfg_path]
+
             if "rel_path" not in child_cfg:
                 child_cfg["rel_path"] = child_cfg["self_dir"].relative_to(
                     root_path,
                 )
+
+            # resolve as many wildcards as possible at this stage
+            cfg["cfgs"][child_cfg_path] = find_and_substitute_wildcards(
+                obj=child_cfg,
+                wildcard_values=child_cfg,
+                ignore_error=True,
+            )
 
         return TopFlowConfig.model_validate(cfg)
 
