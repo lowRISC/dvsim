@@ -421,6 +421,23 @@ def _merge_use_cfgs(
     return {k: v for k, v in cfg.items() if k != "use_cfgs"}
 
 
+def _apply_overrides(cfg: Mapping[str, object]) -> Mapping[str, object]:
+    """Apply overrides that are found in the config."""
+    if "overrides" not in cfg:
+        return cfg
+
+    overrides = cfg["overrides"]
+    log.debug("applying overrides: %s", overrides)
+
+    # copy and filter out the overrides field
+    new_cfg = {k: v for k, v in cfg.items() if k != "overrides"}
+
+    # apply the overrides
+    new_cfg.update({o["name"]: o["value"] for o in overrides})
+
+    return new_cfg
+
+
 def load_cfg(
     path: Path,
     *,
@@ -501,6 +518,9 @@ def load_cfg(
         include_paths=include_paths,
         wildcard_values=path_resolution_wildcards,
     )
+
+    # Apply overrides
+    cfg_data = _apply_overrides(cfg=cfg_data)
 
     # Import any use_cfgs child config files
     return _merge_use_cfgs(

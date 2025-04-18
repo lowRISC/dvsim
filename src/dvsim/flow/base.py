@@ -81,10 +81,6 @@ class FlowCfg:
         # process' environment.
         self.exports = []
 
-        # Add overrides using the overrides keyword - existing attributes
-        # are overridden with the override values.
-        self.overrides = []
-
         # Add a notion of "primary" cfg - this is indicated using
         # a special key 'use_cfgs' within the hjson cfg.
         self.is_primary_cfg = child_configs is not None
@@ -127,15 +123,14 @@ class FlowCfg:
         # Merge in the values from the loaded config file.
         self.__dict__.update(self._config_data)
 
-        # Is this a primary config? If so, we need to load up all the child
-        # configurations at this point. If not, we place ourselves into
-        # self.cfgs and consider ourselves a sort of "degenerate primary
-        # configuration".
+        # Expand wildcards. If subclasses need to mess around with parameters
+        # after merging the hjson but before expansion, they can override
+        # _expand and add the code at the start.
+        self._expand()
 
-        if self.rel_path == "":
-            self.rel_path = self.flow_cfg_file.parent.relative_to(
-                self._project_cfg.root_path,
-            )
+        # Construct the path variables after variable expansion.
+        self.results_dir = Path(self.scratch_base_path) / "reports" / self.rel_path
+        self.results_page = self.results_dir / self.results_html_name
 
     def _expand(self) -> None:
         """Expand wildcards after merging hjson.
