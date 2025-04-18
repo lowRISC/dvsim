@@ -29,6 +29,8 @@ __all__ = ()
                 "config": {
                     "flow": "flow",
                     "name": "name",
+                    "self_dir": Path("self_dir"),
+                    "rel_path": Path("rel_path"),
                 },
             },
             FlowConfig,
