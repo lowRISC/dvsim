@@ -28,7 +28,6 @@ import shlex
 import subprocess
 import sys
 import textwrap
-from collections.abc import Sequence
 from pathlib import Path
 
 from dvsim.flow.factory import make_cfg

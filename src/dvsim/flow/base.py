@@ -7,16 +7,17 @@
 import os
 import pprint
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 import hjson
 
 from dvsim.flow.hjson import set_target_attribute
+from dvsim.job.deploy import Deploy
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
 from dvsim.scheduler import Scheduler
 from dvsim.utils import (
-    clean_odirs,
     find_and_substitute_wildcards,
     md_results_to_html,
     mk_path,
@@ -93,7 +94,7 @@ class FlowCfg:
         self.timestamp = args.timestamp
 
         # Results
-        self.errors_seen = False
+        self.errors_seen: bool = False
         self.rel_path = ""
         self.results_title = ""
         self.revision = ""
@@ -401,16 +402,17 @@ class FlowCfg:
 
         return Scheduler(deploy, get_launcher_cls(), self.interactive).run()
 
-    def _gen_results(self, results) -> None:
-        """The function is called after the flow has completed. It collates
-        the status of all run targets and generates a dict. It parses the log
+    def _gen_results(self, results: Mapping[Deploy, str]) -> None:
+        """Generate results.
+
+        The function is called after the flow has completed. It collates the
+        status of all run targets and generates a dict. It parses the log
         to identify the errors, warnings and failures as applicable. It also
         prints the full list of failures for debug / triage to the final
         report, which is in markdown format.
 
         results should be a dictionary mapping deployed item to result.
         """
-        return
 
     def gen_results(self, results) -> None:
         """Public facing API for _gen_results().
@@ -435,9 +437,8 @@ class FlowCfg:
 
     def gen_results_summary(self) -> None:
         """Public facing API to generate summary results for each IP/cfg file."""
-        return
 
-    def write_results(self, html_filename, text_md, json_str=None) -> None:
+    def write_results(self, html_filename: str, text_md: str, json_str: str | None = None) -> None:
         """Write results to files.
 
         This function converts text_md to HTML and writes the result to a file
@@ -446,24 +447,23 @@ class FlowCfg:
         file with the same path and base name as the HTML file but with '.json'
         as suffix.
         """
-        # Prepare reports directory, keeping 90 day history.
-        clean_odirs(odir=self.results_dir, max_odirs=89)
-        mk_path(self.results_dir)
+        results_dir = Path(self.results_dir)
+        mk_path(results_dir)
 
         # Write results to the report area.
-        with open(self.results_dir / html_filename, "w") as f:
-            f.write(md_results_to_html(self.results_title, self.css_file, text_md))
+        (results_dir / html_filename).write_text(
+            md_results_to_html(self.results_title, self.css_file, text_md)
+        )
 
         if json_str is not None:
             filename = Path(html_filename).with_suffix(".json")
-            with open(self.results_dir / filename, "w") as f:
-                f.write(json_str)
+            (results_dir / filename).write_text(json_str)
 
-    def _get_results_page_link(self, relative_to, link_text="") -> str:
+    def _get_results_page_link(self, relative_to: str, link_text: str = "") -> str:
         """Create a relative markdown link to the results page."""
         link_text = link_text if link_text else self.name.upper()
         relative_link = os.path.relpath(self.results_page, relative_to)
         return f"[{link_text}]({relative_link})"
 
-    def has_errors(self):
+    def has_errors(self) -> bool:
         return self.errors_seen
