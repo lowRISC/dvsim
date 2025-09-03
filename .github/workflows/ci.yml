@@ -1,7 +1,6 @@
 # Copyright lowRISC contributors (OpenTitan project).
-# Licensed under the Apache License, Version 2.0, see LICENSES for details.
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-
 name: Python application
 
 on:
@@ -27,12 +26,8 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v6
 
-    - name: REUSE Compliance Check
-      uses: fsfe/reuse-action@v5
-
     - name: Nix Format Check
       run: nix fmt -- . --check
-
 
     - name: Set up Python
       run: uv python install 3.13
@@ -42,6 +37,9 @@ jobs:
         uv sync --all-extras
         source .venv/bin/activate
         echo PATH=$PATH >> $GITHUB_ENV
+
+    - name: License header check
+      run: scripts/license_check.py
 
     - name: Lint with Ruff
       run: |

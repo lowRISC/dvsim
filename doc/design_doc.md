@@ -1,3 +1,8 @@
+<!--
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+-->
 # DVSim design doc
 
 An industry-grade EDA tool flow manager / build and run system that strives to achieve a bug-free Silicon must support several [usecases](#goals).

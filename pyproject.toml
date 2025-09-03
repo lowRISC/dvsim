@@ -1,3 +1,6 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
 [project]
 name = "dvsim"
 version = "0.1.0"
@@ -73,7 +76,7 @@ extend-select = ["W391", "E303"]
 allowed-confusables = ["−"]
 ignore = [
     "D203", "D213", "COM812", "ISC001",
-    "FIX", "TD",
+    "FIX", "TD", "S603", "S607",
 ]
 
 [tool.pytest.ini_options]
