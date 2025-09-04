@@ -17,7 +17,9 @@ LICENSE = (
 )
 
 IGNORE_NAMES = [
+    "CLA",
     "LICENSE",
+    "NOTICE",
     ".python-version",
 ]
 
