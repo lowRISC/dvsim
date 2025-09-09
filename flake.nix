@@ -5,7 +5,7 @@
   description = "DVSim development environment";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     flake-utils.url = "github:numtide/flake-utils";
@@ -25,11 +25,6 @@
       inputs.uv2nix.follows = "uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    system-manager = {
-      url = "github:numtide/system-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs = {
@@ -40,7 +35,6 @@
     uv2nix,
     pyproject-nix,
     pyproject-build-systems,
-    system-manager,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (system: let
@@ -159,10 +153,5 @@
       checks = {inherit (pythonSet.dvsim.passthru.tests) pytest;};
 
       formatter = nixpkgs.legacyPackages.${system}.alejandra;
-    })
-    // {
-      systemConfigs.default = system-manager.lib.makeSystemConfig {
-        modules = [./nix];
-      };
-    };
+    });
 }
