@@ -41,6 +41,11 @@ jobs:
     - name: License header check
       run: scripts/license_check.py
 
+    - name: Dependency license check
+      run: |
+        # Ignore MPL 2.0 which is weak copy left
+        uv tool run licensecheck --zero --ignore-licenses "MPL 2.0"
+
     - name: Lint with Ruff
       run: |
         ruff format  --check
