@@ -29,8 +29,8 @@ import sys
 import textwrap
 from pathlib import Path
 
-from dvsim.Deploy import RunTest
 from dvsim.flow.factory import make_cfg
+from dvsim.job.deploy import RunTest
 from dvsim.launcher.base import Launcher
 from dvsim.launcher.factory import set_launcher_type
 from dvsim.launcher.local import LocalLauncher

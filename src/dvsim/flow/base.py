@@ -13,7 +13,7 @@ from shutil import which
 
 import hjson
 
-from dvsim.CfgJson import set_target_attribute
+from dvsim.flow.hjson import set_target_attribute
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.results_server import NoGCPError, ResultsServer
 from dvsim.scheduler import Scheduler

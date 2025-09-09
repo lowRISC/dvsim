@@ -16,8 +16,8 @@ from pathlib import Path
 
 from tabulate import tabulate
 
-from dvsim.Deploy import CompileSim, CovAnalyze, CovMerge, CovReport, CovUnr, RunTest
 from dvsim.flow.base import FlowCfg
+from dvsim.job.deploy import CompileSim, CovAnalyze, CovMerge, CovReport, CovUnr, RunTest
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
 from dvsim.results_server import ResultsServer

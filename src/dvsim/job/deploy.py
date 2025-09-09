@@ -10,7 +10,7 @@ from pathlib import Path
 
 from tabulate import tabulate
 
-from dvsim.JobTime import JobTime
+from dvsim.job.time import JobTime
 from dvsim.launcher.factory import get_launcher
 from dvsim.sim_utils import get_cov_summary_table, get_job_runtime, get_simulated_time
 from dvsim.utils import (
