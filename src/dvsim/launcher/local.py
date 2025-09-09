@@ -1,6 +1,7 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
+
 """Launcher implementation to run jobs as subprocesses on the local machine."""
 
 import datetime

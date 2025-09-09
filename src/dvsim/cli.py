@@ -1,9 +1,11 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-"""dvsim is a command line tool to deploy ASIC tool flows such as regressions
-for design verification (DV), formal property verification (FPV), linting and
-synthesis.
+
+"""dvsim is a command line tool to deploy ASIC tool flows.
+
+Examples of a supported flow is regressions for design verification (DV),
+formal property verification (FPV), linting and synthesis.
 
 It uses hjson as the format for specifying what to build and run. It is an
 end-to-end regression manager that can deploy multiple builds (where some tests

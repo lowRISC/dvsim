@@ -2,6 +2,7 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
+
 """Check all files for license header."""
 
 import subprocess
@@ -25,8 +26,10 @@ IGNORE_NAMES = [
 
 IGNORE_SUFFIXES = [".lock"]
 
+OPTIONAL_TRAILING_NEWLINE = [".nix", ".md"]
 
-def check_header(text: str) -> bool:
+
+def check_header(*, text: str, trailing_newline_optional: bool = False) -> bool:
     """Check header complies with license requirmeents."""
     lines = text.splitlines()
 
@@ -37,6 +40,7 @@ def check_header(text: str) -> bool:
                     LICENSE[0] in lines[i],
                     LICENSE[1] in lines[i + 1],
                     LICENSE[2] in lines[i + 2],
+                    trailing_newline_optional or lines[i + 3] == "",
                 ]
             ):
                 return True
@@ -75,7 +79,10 @@ for f in p.stdout.decode(encoding="utf8").splitlines():
 
     logger.debug("Checking: %s", path)
 
-    if not check_header(text):
+    if not check_header(
+        text=text,
+        trailing_newline_optional=path.suffix in OPTIONAL_TRAILING_NEWLINE,
+    ):
         failed.append(path)
 
 for path in failed:

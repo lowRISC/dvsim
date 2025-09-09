@@ -1,7 +1,8 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-r"""An abstraction for maintaining job runtime and its units."""
+
+"""An abstraction for maintaining job runtime and its units."""
 
 import unittest
 from copy import copy

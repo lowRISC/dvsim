@@ -1,7 +1,8 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-r"""Message bucket class that encapsulates information such as bucket
+
+"""Message bucket class that encapsulates information such as bucket
 category, bucket severity, the associated label for the results table, and
 a list with message signatures.
 """

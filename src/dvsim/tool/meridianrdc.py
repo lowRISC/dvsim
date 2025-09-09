@@ -2,7 +2,8 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-r"""Parses Meridian RDC report and dump filtered messages in hjson format."""
+
+"""Parses Meridian RDC report and dump filtered messages in hjson format."""
 
 import argparse
 import logging as log

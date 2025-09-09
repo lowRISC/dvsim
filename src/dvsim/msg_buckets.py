@@ -1,7 +1,8 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-r"""This class holds a dict of message buckets according to the format defined
+
+"""This class holds a dict of message buckets according to the format defined
 upon construction. It is meant to hold all message buckets of a build / tool
 run, and provides convenience functions that streamline result aggregation
 and printout in the Dvsim flow classes.
@@ -30,7 +31,7 @@ class MsgBuckets:
             b.clear()
 
     def get_labels(self, severity_filter: list[str] | None = None) -> list[str]:
-        """Returns all bucket labels as a list.
+        """Return all bucket labels as a list.
 
         If severity_filter is not empty, only the buckets with the listed
         severities will be returned.

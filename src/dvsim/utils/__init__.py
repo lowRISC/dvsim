@@ -1,7 +1,8 @@
 # Copyright lowRISC contributors (OpenTitan project).
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
-r"""Utility functions common across dvsim."""
+
+"""Utility functions common across dvsim."""
 
 import logging as log
 import os
