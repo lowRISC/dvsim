@@ -18,6 +18,8 @@ jobs:
     steps:
 
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Required so we can lint commit messages.
 
     - uses: DeterminateSystems/nix-installer-action@main
     - uses: DeterminateSystems/magic-nix-cache-action@main
@@ -37,6 +39,21 @@ jobs:
         uv sync --all-extras
         source .venv/bin/activate
         echo PATH=$PATH >> $GITHUB_ENV
+
+    - name: Commit metadata
+      run: |
+        merge_base="$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)" || {
+            echo >&2 "Failed to find fork point for origin/$GITHUB_BASE_REF."
+            exit 1
+        }
+        # Notes:
+        # * Merge commits are not checked. We always use rebases instead of
+        #   merges to keep a linear history, which makes merge commits disappear
+        #   ultimately, making them only a CI artifact which should not be
+        #   checked.
+        scripts/lint_commits.py "$merge_base"
+
+      if: ${{ github.event_name == 'pull_request' }}
 
     - name: License header check
       run: scripts/license_check.py
