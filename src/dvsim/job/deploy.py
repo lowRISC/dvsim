@@ -198,16 +198,16 @@ class Deploy:
         the entire sim_cfg object.
         """
         self.__dict__ = find_and_substitute_wildcards(
-            self.__dict__,
-            self.__dict__,
-            ignored_subst_vars,
-            True,
+            obj=self.__dict__,
+            wildcard_values=self.__dict__,
+            ignored_wildcards=ignored_subst_vars,
+            ignore_error=True,
         )
         self.__dict__ = find_and_substitute_wildcards(
-            self.__dict__,
-            self.sim_cfg.__dict__,
-            ignored_subst_vars,
-            False,
+            obj=self.__dict__,
+            wildcard_values=self.sim_cfg.__dict__,
+            ignored_wildcards=ignored_subst_vars,
+            ignore_error=False,
         )
 
     def _process_exports(self):
