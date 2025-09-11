@@ -182,7 +182,7 @@ class Launcher:
         provide a quick way to get to the job that was executed.
         """
         dest = Path(self.deploy.sim_cfg.links[status], self.deploy.qual_name)
-        mk_symlink(self.deploy.odir, dest)
+        mk_symlink(path=self.deploy.odir, link=dest)
 
         # Delete the symlink from dispatched directory if it exists.
         if status != "D":
