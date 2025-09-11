@@ -338,6 +338,10 @@ class CompileSim(Deploy):
         self.seed = sim_cfg.build_seed
         super().__init__(sim_cfg)
 
+        # Needs to be after the wildcard expansion to log anything meaningful
+        if self.build_timeout_mins:
+            log.debug('Timeout for job "%s" is %d minutes.', self.name, self.build_timeout_mins)
+
     def _define_attrs(self) -> None:
         super()._define_attrs()
         self.mandatory_cmd_attrs.update(
@@ -384,9 +388,6 @@ class CompileSim(Deploy):
         if self.sim_cfg.args.build_timeout_mins is not None:
             self.build_timeout_mins = self.sim_cfg.args.build_timeout_mins
 
-        if self.build_timeout_mins:
-            log.debug('Timeout for job "%s" is %d minutes.', self.name, self.build_timeout_mins)
-
     def pre_launch(self) -> None:
         # Delete old coverage database directories before building again. We
         # need to do this because the build directory is not 'renewed'.
@@ -408,6 +409,10 @@ class CompileOneShot(Deploy):
     def __init__(self, build_mode, sim_cfg) -> None:
         self.build_mode_obj = build_mode
         super().__init__(sim_cfg)
+
+        # Needs to be after the wildcard expansion to log anything meaningful
+        if self.build_timeout_mins:
+            log.debug('Timeout for job "%s" is %d minutes.', self.name, self.build_timeout_mins)
 
     def _define_attrs(self) -> None:
         super()._define_attrs()
@@ -450,9 +455,6 @@ class CompileOneShot(Deploy):
         if self.sim_cfg.args.build_timeout_mins is not None:
             self.build_timeout_mins = self.sim_cfg.args.build_timeout_mins
 
-        if self.build_timeout_mins:
-            log.debug('Timeout for job "%s" is %d minutes.', self.name, self.build_timeout_mins)
-
     def get_timeout_mins(self):
         """Returns the timeout in minutes.
 
@@ -479,6 +481,10 @@ class RunTest(Deploy):
         self.svseed = int(self.seed) & 0xFFFFFFFF
         self.simulated_time = JobTime()
         super().__init__(sim_cfg)
+
+        # Needs to be after the wildcard expansion to log anything meaningful
+        if self.run_timeout_mins:
+            log.debug('Timeout for job "%s" is %d minutes.', self.full_name, self.run_timeout_mins)
 
         if build_job is not None:
             self.dependencies.append(build_job)
@@ -554,9 +560,6 @@ class RunTest(Deploy):
                 self.full_name,
                 self.run_timeout_multiplier,
             )
-
-        if self.run_timeout_mins:
-            log.debug('Timeout for job "%s" is %d minutes.', self.full_name, self.run_timeout_mins)
 
     def pre_launch(self) -> None:
         self.launcher.renew_odir = True
