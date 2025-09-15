@@ -1,0 +1,14 @@
+name: Automatic Release
+
+on:
+  push:
+    branches:
+     - "master"
+
+jobs:
+  release:
+    name:
+    runs-on: ubuntu-latest
+    steps:
+
+runners:
