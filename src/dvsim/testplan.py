@@ -504,8 +504,10 @@ class Testplan:
 
         if self.covergroups:
             output.write("## Covergroups\n\n")
-            for covergroup in self.covergroups:
-                output.write(f"### {covergroup.name}\n\n{covergroup.desc.strip()}\n\n")
+            output.writelines(
+                f"### {covergroup.name}\n\n{covergroup.desc.strip()}\n\n"
+                for covergroup in self.covergroups
+            )
 
     def map_test_results(self, test_results) -> None:
         """Map test results to testpoints."""

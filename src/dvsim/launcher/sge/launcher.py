@@ -5,6 +5,7 @@
 """SgeLauncher Class."""
 
 import os
+import pathlib
 import shlex
 import subprocess
 from subprocess import PIPE, Popen
@@ -101,15 +102,14 @@ class SgeLauncher(Launcher):
             return "D"
         # -------------------------------------
         # copy SGE jobb results to log file
-        if os.path.exists(self.deploy.get_log_path() + ".sge"):
+        if pathlib.Path(self.deploy.get_log_path() + ".sge").exists():
             file1 = open(self.deploy.get_log_path() + ".sge", errors="replace")
             lines = file1.readlines()
             file1.close()
             f = open(self.deploy.get_log_path(), "a", encoding="UTF-8", errors="surrogateescape")
-            for line in lines:
-                f.write(line)
+            f.writelines(lines)
             f.flush()
-            os.remove(self.deploy.get_log_path() + ".sge")
+            pathlib.Path(self.deploy.get_log_path() + ".sge").unlink()
             f.close()
         # -------------------------------------
 

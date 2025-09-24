@@ -102,7 +102,7 @@ class FlowCfg:
         self.revision = ""
         self.results_server_prefix = ""
         self.results_server_cmd = ""
-        self.css_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "style.css")
+        self.css_file = os.path.join(Path(os.path.realpath(__file__)).parent, "style.css")
         # `self.results_*` below will be updated after `self.rel_path` and
         # `self.scratch_base_root` variables are updated.
         self.results_dir = ""
@@ -140,7 +140,7 @@ class FlowCfg:
                 self._load_child_cfg(entry, mk_config)
 
         if self.rel_path == "":
-            self.rel_path = os.path.dirname(self.flow_cfg_file).replace(self.proj_root + "/", "")
+            self.rel_path = Path(self.flow_cfg_file).parent.replace(self.proj_root + "/", "")
 
         # Process overrides before substituting wildcards
         self._process_overrides()

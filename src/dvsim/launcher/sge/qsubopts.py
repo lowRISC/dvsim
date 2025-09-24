@@ -14,6 +14,7 @@ to the command line or to a script file.
 """
 
 import argparse
+import pathlib
 
 
 class QSubOptions:
@@ -1933,7 +1934,7 @@ class QSubOptions:
         args = getattr(self.args, "command_args", [])
         args = getattr(self.args, "xterm_args", args)
         # ---------------- command file -------------
-        cwd = os.getcwd()
+        cwd = pathlib.Path.cwd()
         command_file = cwd + "/command_file_" + str(os.getpid()) + "_" + test_id
         try:
             with open(command_file, "w") as f_command:
@@ -1944,7 +1945,7 @@ class QSubOptions:
             error_msg = "Error: problem with open File: " + str(f_command)
             raise OSError(error_msg)
 
-        os.chmod(command_file, 0o0777)
+        pathlib.Path(command_file).chmod(0o0777)
         exestring = " ".join([program, *options, command_file, *args])
         exestring = exestring.replace("-pe lammpi 1", "")
         exestring = exestring.replace("-slot", "-pe make")

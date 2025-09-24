@@ -5,6 +5,7 @@
 import datetime
 import logging as log
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -43,7 +44,7 @@ class NcLauncher(Launcher):
         ]
         with open(run_file, "w") as f:
             f.write("\n".join(lines))
-        os.chmod(run_file, 0o755)
+        pathlib.Path(run_file).chmod(0o755)
 
     def get_submit_cmd(self):
         exetool = self.deploy.sim_cfg.tool

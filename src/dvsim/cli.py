@@ -218,7 +218,7 @@ def copy_repo(src, dest) -> None:
 
     # Supply `.gitignore` from the src area to skip temp files.
     ignore_patterns_file = os.path.join(src, ".gitignore")
-    if os.path.exists(ignore_patterns_file):
+    if Path(ignore_patterns_file).exists():
         # TODO: hack - include hw/foundry since it is excluded in .gitignore.
         rsync_cmd += [
             "--include=hw/foundry",
@@ -831,7 +831,7 @@ def main() -> None:
         log_level = log.DEBUG
     log.basicConfig(format=log_format, level=log_level)
 
-    if not os.path.exists(args.cfg):
+    if not Path(args.cfg).exists():
         log.fatal("Path to config file %s appears to be invalid.", args.cfg)
         sys.exit(1)
 
@@ -849,7 +849,7 @@ def main() -> None:
     # core files.
     (Path(args.scratch_root) / "FUSESOC_IGNORE").touch()
 
-    args.cfg = os.path.abspath(args.cfg)
+    args.cfg = Path(args.cfg).resolve()
     if args.remote:
         cfg_path = args.cfg.replace(proj_root_src + "/", "")
         args.cfg = os.path.join(proj_root, cfg_path)

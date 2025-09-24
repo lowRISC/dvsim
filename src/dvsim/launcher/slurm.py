@@ -4,6 +4,7 @@
 
 import logging as log
 import os
+import pathlib
 import shlex
 import shutil
 import subprocess
@@ -96,7 +97,7 @@ class SlurmLauncher(Launcher):
             return "D"
 
         # Copy slurm job results to log file
-        if os.path.exists(self.slurm_log_file):
+        if pathlib.Path(self.slurm_log_file).exists():
             try:
                 with open(self.slurm_log_file) as slurm_file:
                     try:
@@ -108,7 +109,7 @@ class SlurmLauncher(Launcher):
                             msg,
                         )
                 # Remove the temporary file from the slurm process
-                os.remove(self.slurm_log_file)
+                pathlib.Path(self.slurm_log_file).unlink()
             except OSError as e:
                 msg = f"File Error: {e} when handling {self.slurm_log_file}"
                 raise LauncherError(msg)

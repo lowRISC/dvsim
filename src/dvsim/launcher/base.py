@@ -201,8 +201,7 @@ class Launcher:
             encoding="UTF-8",
             errors="surrogateescape",
         ) as f:
-            for var in sorted(exports.keys()):
-                f.write(f"{var}={exports[var]}\n")
+            f.writelines(f"{var}={exports[var]}\n" for var in sorted(exports.keys()))
 
     def _pre_launch(self) -> None:
         """Do pre-launch activities.

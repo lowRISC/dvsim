@@ -13,8 +13,6 @@ import re
 import subprocess
 import time
 
-from dvsim.launcher.sge.qsubopts import QSubOptions
-
 
 class _JobData:
     """Internal helper class to manage job data from qstat."""

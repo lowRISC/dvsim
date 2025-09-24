@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging as log
-import os
+import pathlib
 import sys
 
 from dvsim.flow.cdc import CdcCfg
@@ -27,7 +27,7 @@ def _load_cfg(path, initial_values):
     # Set the `self_dir` template variable to the path of the currently
     # processed Hjson file.
     assert "self_dir" in initial_values
-    initial_values["self_dir"] = os.path.dirname(path)
+    initial_values["self_dir"] = pathlib.Path(path).parent
 
     # Start by loading up the hjson file and any included files
     hjson_data = load_hjson(path, initial_values)
@@ -105,7 +105,7 @@ def make_cfg(path, args, proj_root):
     """
     initial_values = {
         "proj_root": proj_root,
-        "self_dir": os.path.dirname(path),
+        "self_dir": pathlib.Path(path).parent,
     }
     if args.tool is not None:
         initial_values["tool"] = args.tool
