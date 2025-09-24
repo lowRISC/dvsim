@@ -13,12 +13,16 @@ extend-select = ["W391", "E303"]
 allowed-confusables = ["−"]
 
 ignore = [
+# Disabled permanently
     "D203",
     "D213",
     "COM812",
     "ISC001",
     "FIX",
     "TD",
+    "S603",
+    "S607",
+    "TRY003",
 
 # High priority fixes
     "N803",
@@ -99,9 +103,7 @@ ignore = [
     "S202",
     "S311",
     "S602",
-    "S603",
     "S605",
-    "S607",
     "SIM115",
     "SLF001",
     "SLOT002",
