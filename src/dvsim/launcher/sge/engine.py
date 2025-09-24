@@ -15,8 +15,6 @@ import time
 
 from dvsim.launcher.sge.qsubopts import QSubOptions
 
-sge_job_t = QSubOptions()
-
 
 class _JobData:
     """Internal helper class to manage job data from qstat."""
