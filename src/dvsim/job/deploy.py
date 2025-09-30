@@ -9,11 +9,10 @@ import random
 import shlex
 from collections.abc import Mapping
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from tabulate import tabulate
 
-from dvsim.flow.sim import SimCfg
 from dvsim.job.time import JobTime
 from dvsim.launcher.factory import get_launcher
 from dvsim.logging import log
@@ -24,6 +23,9 @@ from dvsim.utils import (
     rm_path,
     subst_wildcards,
 )
+
+if TYPE_CHECKING:
+    from dvsim.flow.sim import SimCfg
 
 
 class Deploy:
@@ -50,7 +52,7 @@ class Deploy:
         """Get a string representation of the deployment object."""
         return pprint.pformat(self.__dict__) if log.isEnabledFor(log.VERBOSE) else self.full_name
 
-    def __init__(self, sim_cfg: SimCfg) -> None:
+    def __init__(self, sim_cfg: "SimCfg") -> None:
         """Initialise deployment object.
 
         Args:
