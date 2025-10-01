@@ -132,7 +132,9 @@ class FlowCfg:
                 self._load_child_cfg(entry, mk_config)
 
         if self.rel_path == "":
-            self.rel_path = Path(self.flow_cfg_file).parent.replace(self.proj_root + "/", "")
+            self.rel_path = str(
+                Path(self.flow_cfg_file).parent.relative_to(self.proj_root),
+            )
 
         # Process overrides before substituting wildcards
         self._process_overrides()
