@@ -106,6 +106,7 @@ jobs:
         uv sync --all-extras
         source .venv/bin/activate
         echo PATH=$PATH >> $GITHUB_ENV
+        sudo apt install -y rclone
 
     - name: Test with pytest
       run: |

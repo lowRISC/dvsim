@@ -117,3 +117,6 @@ ignore = [
     # in tests and having to use kwargs in all cases will clutter the tests.
     "FBT003",
 ]
+
+[lint.pydocstyle]
+convention = "google"

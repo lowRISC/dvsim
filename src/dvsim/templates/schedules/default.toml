@@ -1,0 +1,119 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+# This is an example schedule file that will require modification before it can
+# be used. EDA tool setup and infrastructure will be company specific.
+
+[reporting.repositories.local]
+# Example report publishing to a local directory
+publish_path = "/var/lib/dvsim/pub"
+
+[reporting.repositories.bucket]
+# Example using a google bucket
+publish_path = "remote:some-report-bucket"
+
+[reporting.repositories.bucket.rclone_env]
+# rclone config is set via environment variables to to make it easy to publish
+# reports to any destination that rclone supports. There may be some limitations
+# if some destinations don't support some filesystem features.
+RCLONE_CONFIG_REMOTE_TYPE = "google cloud storage"
+RCLONE_GCS_BUCKET_POLICY_ONLY = "True"
+
+[runs.common]
+# This config is shared amongst all configured runs. This example uses the
+# opentitan DV as an example.
+
+# Git repo URL
+repo.url = "https://github.com/lowRISC/opentitan.git"
+
+# Name of the directory within the job run directory to clone into.
+repo.name = "opentitan"
+
+# Branch to switch to
+repo.branch = "master"
+
+# The scheduled DVSim runs are dispatched within a container. The container can
+# be built with the `container/build.sh` script within this repo. If you want to
+# use a different container then change the name here.
+container.image = "nightly-runner:latest"
+
+# dvsim scheduled runner use python virtual environments.
+# Choose the python version to use
+python.version = "3.13"
+
+# Path to a requirmenets.txt file that defines any extra dependencies your DV
+# tools require. DVSim will define some requirmeents, however your DV flow might
+# require further python requirmeents to be installed.
+python.requirements_file = "opentitan/python-requirements.txt"
+
+# By default the DVSim version defined in this repo is used directly. However if
+# preferred the command to run can be overridden here. This is assumed to be a
+# DVSim compliant command and arguments are passed as if it were dvsim. However
+# a proxy could be used that forwards on the arguments.
+dvsim.run_command = "dvsim run"
+dvsim.config_file = "hw/top_earlgrey/dv/top_earlgrey_sim_cfgs.hjson"
+
+# Path to the report summary page: this should ultimately be determined from the
+# HJSON or DVSim should create the summary page in a deterministic location. For
+# now though this option allows the runner to create a HTML redirect file in the
+# top level report dir.
+reports.entry_url = "hw/top_earlgrey/dv/summary/latest/report.html"
+
+# Environment Modules and where to find them are company specific. These paths
+# will need updating to match your companies infrastructure.
+# Here is the path  within the container that
+modules.modulefiles_base = "/nas/modulefiles"
+modules.modules = [ "synopsys/vcs", "cadence/xcelium" ]
+
+container.bind_mounts = [
+   ["/nas/tools/", "/nas/tools"],
+   ["<path_to_this_repo>", "/nightly/dvsim"],
+]
+
+# Where to publish the reports - select from a destination defined in the
+# [reporting.repositories] section defined above.
+reports.publish_repos = ["local"]
+
+[runs.common.container.extra_env]
+# Extra environment variables to pass to the container. This can be used to
+# configure the behaviour of the container or DVSim itself with feature flags
+# for example.
+DVSIM_SIMPLE_STATUSPRINTER = "true"
+NATIVE_DVSIM = "false"
+
+
+[runs.opentitan_test]
+# Test run that can be run any time and publishes reports locally
+enabled = true
+dvsim.max_parallel = 16
+dvsim.extra_commands = ["--fixed-seed", "1", "-i", "smoke"]
+time_windows = [
+    # Time window that will run any day, and any time
+    ["*", "*", 1],
+]
+reports.publish_repos = ["local"]
+
+
+[runs.opentitan_nightly_earlgrey]
+enabled = false
+dvsim.max_parallel = 40
+dvsim.extra_commands = ["--fixed-seed", "1"]
+# Provide a 1h window each evening to start a job.
+time_windows = [
+    ["Mon", "18:00", 1],
+    ["Tues", "18:00", 1],
+    ["Wed", "18:00", 1],
+    ["Thurs", "18:00", 1],
+]
+reports.publish_repos = ["bucket"]
+
+
+[runs.opentitan_weekly_earlgrey]
+enabled = false
+dvsim.max_parallel = 50
+dvsim.extra_commands = ["-i", "nightly", "--cov"]
+time_windows = [
+    ["Fri", "17:30", 24],
+]
+reports.publish_repos = ["bucket"]

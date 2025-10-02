@@ -133,6 +133,7 @@
             pkgs-unstable.ruff
             pkgs.pyright
             pkgs.reuse
+            pkgs.rclone
           ];
           env = {
             # Prevent uv from managing Python downloads

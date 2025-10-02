@@ -1,0 +1,71 @@
+<!--
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+-->
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nightly reports</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">Nightly Reports</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+    </nav>
+
+
+    <div class="container">
+        <div class="row">
+            <div class="col">
+                % if breadcrumbs:
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                    % for c in breadcrumbs[:-1]:
+                        <li class="breadcrumb-item"><a href="${c[0]}">${c[1]}</a></li>
+                    % endfor
+                            <li class="breadcrumb-item active"
+                                aria-current="page">${breadcrumbs[-1]}</li>
+                    </ol>
+                </nav>
+                % endif
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <h1>${title}</h1>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <table class="table table-hover table-sm">
+                <thead>
+                    <tr>
+                    <th scope="col">Name</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    % for d in dirs:
+                    <tr>
+                    <th scope="row"><a href="${d}/index.html">${d}</a></th>
+                    </tr>
+                    % endfor
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
+</html>

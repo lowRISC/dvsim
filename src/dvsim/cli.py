@@ -867,7 +867,6 @@ def main() -> None:
 
     # Build infrastructure from hjson file and create the list of items to
     # be deployed.
-    global cfg
     cfg = make_cfg(args.cfg, args, proj_root)
 
     # List items available for run if --list switch is passed, and exit.
