@@ -5,6 +5,7 @@
 import os
 
 from dvsim.launcher.base import Launcher
+from dvsim.launcher.fake import FakeLauncher
 from dvsim.launcher.local import LocalLauncher
 from dvsim.launcher.lsf import LsfLauncher
 from dvsim.launcher.nc import NcLauncher
@@ -23,7 +24,7 @@ except ImportError:
 _LAUNCHER_CLS: type[Launcher] | None = None
 
 
-def set_launcher_type(is_local: bool = False) -> None:
+def set_launcher_type(is_local: bool = False, fake: bool = False) -> None:
     """Set the launcher type that will be used to launch the jobs.
 
     The env variable `DVSIM_LAUNCHER` is used to identify what launcher system
@@ -35,6 +36,8 @@ def set_launcher_type(is_local: bool = False) -> None:
     launcher = os.environ.get("DVSIM_LAUNCHER", "local")
     if is_local:
         launcher = "local"
+    if fake:
+        launcher = "fake"
     Launcher.variant = launcher
 
     global _LAUNCHER_CLS
@@ -52,6 +55,9 @@ def set_launcher_type(is_local: bool = False) -> None:
 
     elif launcher == "slurm":
         _LAUNCHER_CLS = SlurmLauncher
+
+    elif launcher == "fake":
+        _LAUNCHER_CLS = FakeLauncher
 
     # These custom launchers are site specific. They may not be committed to
     # the open source repo.

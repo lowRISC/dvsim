@@ -34,6 +34,7 @@ from dvsim.flow.factory import make_cfg
 from dvsim.job.deploy import RunTest
 from dvsim.launcher.base import Launcher
 from dvsim.launcher.factory import set_launcher_type
+from dvsim.launcher.fake import FakeLauncher
 from dvsim.launcher.local import LocalLauncher
 from dvsim.launcher.lsf import LsfLauncher
 from dvsim.launcher.nc import NcLauncher
@@ -785,6 +786,12 @@ def parse_args():
         help=("Print dvsim tool messages but don't actually run any command"),
     )
 
+    dvg.add_argument(
+        "--fake",
+        action="store_true",
+        help=("Use a fake launcher that generates random results"),
+    )
+
     args = parser.parse_args()
 
     if args.version:
@@ -843,7 +850,7 @@ def main() -> None:
         args.cfg = os.path.join(proj_root, cfg_path)
 
     # Add timestamp to args that all downstream objects can use.
-    curr_ts = datetime.datetime.utcnow()
+    curr_ts = datetime.datetime.now(datetime.UTC)
     args.timestamp_long = curr_ts.strftime(TS_FORMAT_LONG)
     args.timestamp = curr_ts.strftime(TS_FORMAT)
 
@@ -863,11 +870,11 @@ def main() -> None:
     LsfLauncher.max_parallel = args.max_parallel
     NcLauncher.max_parallel = args.max_parallel
     Launcher.max_odirs = args.max_odirs
-    set_launcher_type(args.local)
+    FakeLauncher.max_parallel = args.max_parallel
+    set_launcher_type(is_local=args.local, fake=args.fake)
 
     # Build infrastructure from hjson file and create the list of items to
     # be deployed.
-    global cfg
     cfg = make_cfg(args.cfg, args, proj_root)
 
     # List items available for run if --list switch is passed, and exit.

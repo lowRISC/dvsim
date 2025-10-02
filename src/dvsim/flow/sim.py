@@ -807,7 +807,7 @@ class SimCfg(FlowCfg):
             return fail_msgs
 
         deployed_items = self.deploy
-        results = SimResults(deployed_items, results)
+        sim_results = SimResults(deployed_items, results)
 
         # Generate results table for runs.
         results_str = "## " + self.results_title + "\n"
@@ -857,13 +857,13 @@ class SimCfg(FlowCfg):
         if self.build_seed and not self.run_only:
             results_str += f"### Build randomization enabled with --build-seed {self.build_seed}\n"
 
-        if not results.table:
+        if not sim_results.table:
             results_str += "No results to display.\n"
 
         else:
             # Map regr results to the testplan entries.
             if not self.testplan.test_results_mapped:
-                self.testplan.map_test_results(test_results=results.table)
+                self.testplan.map_test_results(test_results=sim_results.table)
 
             results_str += self.testplan.get_test_results_table(
                 map_full_testplan=self.map_full_testplan,
@@ -889,9 +889,9 @@ class SimCfg(FlowCfg):
                 else:
                     self.results_summary["Coverage"] = "--"
 
-        if results.buckets:
+        if sim_results.buckets:
             self.errors_seen = True
-            results_str += "\n".join(create_bucket_report(results.buckets))
+            results_str += "\n".join(create_bucket_report(sim_results.buckets))
 
         self.results_md = results_str
         return results_str
