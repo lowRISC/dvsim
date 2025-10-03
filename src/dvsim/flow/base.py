@@ -4,6 +4,7 @@
 
 """Flow config base class."""
 
+import json
 import os
 import pprint
 import sys
@@ -410,6 +411,19 @@ class FlowCfg(ABC):
         if not deploy:
             log.error("Nothing to run!")
             sys.exit(1)
+
+        if os.environ.get("DVSIM_DEPLOY_DUMP", "true"):
+            filename = f"deploy_{self.branch}_{self.timestamp}.json"
+            (Path(self.scratch_root) / filename).write_text(
+                json.dumps(
+                    # Sort on full name to ensure consistent ordering
+                    sorted(
+                        [d.model_dump() for d in deploy],
+                        key=lambda d: d["full_name"],
+                    ),
+                    indent=2,
+                ),
+            )
 
         return Scheduler(
             items=deploy,

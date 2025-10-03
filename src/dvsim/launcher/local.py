@@ -9,8 +9,12 @@ import os
 import shlex
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
+
+if TYPE_CHECKING:
+    from dvsim.job.deploy import Deploy
 
 
 class LocalLauncher(Launcher):
@@ -19,7 +23,7 @@ class LocalLauncher(Launcher):
     # Poll job's completion status every this many seconds
     poll_freq = 0.025
 
-    def __init__(self, deploy) -> None:
+    def __init__(self, deploy: "Deploy") -> None:
         """Initialize common class members."""
         super().__init__(deploy)
 
