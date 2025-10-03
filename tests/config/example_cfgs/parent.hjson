@@ -1,0 +1,15 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+{
+    name: "parent",
+
+    import_cfgs: [
+        "values.hjson",
+    ],
+
+    use_cfgs: [
+        "child_1.hjson",
+        "child_2.hjson",
+    ],
+}

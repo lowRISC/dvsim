@@ -1,0 +1,19 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+{
+    name: "child_1",
+
+    import_cfgs: ["common.hjson"],
+
+    test_cases: {
+        fred: {
+            cmd: "test_runner",
+            args: ["a", "b", "c"],
+        },
+        elaine: {
+            cmd: "test_runner",
+            args: ["g", "h", "i"],
+        }
+    }
+}

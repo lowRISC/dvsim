@@ -16,6 +16,8 @@ from dvsim.utils import (
     subst_wildcards,
 )
 
+__all__ = ("TestSubstWildcards",)
+
 
 class TestSubstWildcards:
     """Test subst_wildcards."""

@@ -5,12 +5,16 @@
 """Class describing a one-shot build configuration object."""
 
 import os
+from argparse import Namespace
 from collections import OrderedDict
+from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 from dvsim.flow.base import FlowCfg
 from dvsim.job.deploy import CompileOneShot
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode
+from dvsim.project import Project
 from dvsim.utils import rm_path
 
 
@@ -21,7 +25,14 @@ class OneShotCfg(FlowCfg):
 
     ignored_wildcards = [*FlowCfg.ignored_wildcards, "build_mode", "index", "test"]
 
-    def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
+    def __init__(
+        self,
+        flow_cfg_file: Path,
+        project_cfg: Project,
+        config_data: Mapping,
+        args: Namespace,
+        child_configs: Sequence["OneShotCfg"] | None = None,
+    ) -> None:
         # Options set from command line
         self.tool = args.tool
         self.verbose = args.verbose
@@ -72,16 +83,19 @@ class OneShotCfg(FlowCfg):
         self.deploy = []
         self.cov = args.cov
 
-        super().__init__(flow_cfg_file, hjson_data, args, mk_config)
+        super().__init__(
+            flow_cfg_file=flow_cfg_file,
+            project_cfg=project_cfg,
+            config_data=config_data,
+            args=args,
+            child_configs=child_configs,
+        )
 
-    def _merge_hjson(self, hjson_data) -> None:
-        # If build_unique is set, then add current timestamp to uniquify it
+    def _expand(self) -> None:
+        """Expand wildcards."""
         if self.build_unique:
             self.build_dir += "_" + self.timestamp
 
-        super()._merge_hjson(hjson_data)
-
-    def _expand(self) -> None:
         super()._expand()
 
         # Stuff below only pertains to individual cfg (not primary cfg).
