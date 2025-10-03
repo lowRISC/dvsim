@@ -334,6 +334,27 @@ class Deploy:
         # Retain the handle to self for lookup & callbacks.
         self.launcher = get_launcher(self)
 
+    def model_dump(self) -> Mapping:
+        """Dump the deployment object to mapping object.
+
+        This method matches the interface provided by pydantic models to dump a
+        subset of the class attributes
+
+        Returns:
+            Representation of a deployment object as a dict.
+
+        """
+        return {
+            "full_name": self.full_name,
+            "type": self.__class__.__name__,
+            "exports": self.exports,
+            "interactive": self.sim_cfg.interactive,
+            "log_path": self.get_log_path(),
+            "timeout_mins": self.get_timeout_mins(),
+            "cmd": self.cmd,
+            "gui": self.gui,
+        }
+
 
 class CompileSim(Deploy):
     """Abstraction for building the simulation executable."""
