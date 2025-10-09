@@ -6,7 +6,9 @@
 
 import collections
 import re
+from collections.abc import Mapping
 
+from dvsim.scheduler import CompletedJobStatus
 from dvsim.testplan import Result
 
 _REGEX_REMOVE = [
@@ -81,18 +83,22 @@ class SimResults:
         for item in items:
             self._add_item(item, results)
 
-    def _add_item(self, item, results) -> None:
+    def _add_item(self, item, results: Mapping[str, CompletedJobStatus]) -> None:
         """Recursively add a single item to the table of results."""
-        status = results[item]
-        if status in ["F", "K"]:
-            bucket = self._bucketize(item.launcher.fail_msg.message)
+        job_status = results[item.qual_name]
+        if job_status.status in ["F", "K"]:
+            bucket = self._bucketize(job_status.fail_msg.message)
             self.buckets[bucket].append(
-                (item, item.launcher.fail_msg.line_number, item.launcher.fail_msg.context),
+                (
+                    item,
+                    job_status.fail_msg.line_number,
+                    job_status.fail_msg.context,
+                ),
             )
 
         # Runs get added to the table directly
         if item.target == "run":
-            self._add_run(item, status)
+            self._add_run(item, job_status.status)
 
     def _add_run(self, item, status) -> None:
         """Add an entry to table for item."""

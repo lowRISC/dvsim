@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, ClassVar
 from tabulate import tabulate
 
 from dvsim.job.time import JobTime
-from dvsim.launcher.factory import get_launcher
+from dvsim.launcher.base import Launcher
 from dvsim.logging import log
 from dvsim.sim_utils import get_cov_summary_table, get_job_runtime, get_simulated_time
 from dvsim.utils import (
@@ -26,7 +26,11 @@ from dvsim.utils import (
 
 if TYPE_CHECKING:
     from dvsim.flow.sim import SimCfg
-    from dvsim.launcher.base import Launcher
+
+__all__ = (
+    "CompileSim",
+    "Deploy",
+)
 
 
 class Deploy:
@@ -65,6 +69,7 @@ class Deploy:
 
         # Cross ref the whole cfg object for ease.
         self.sim_cfg = sim_cfg
+        self.flow = sim_cfg.name
 
         # A list of jobs on which this job depends.
         self.dependencies = []
@@ -91,9 +96,6 @@ class Deploy:
 
         # Construct the job's command.
         self.cmd = self._construct_cmd()
-
-        # Launcher instance created later using create_launcher() method.
-        self.launcher: Launcher | None = None
 
         # Job's wall clock time (a.k.a CPU time, or runtime).
         self.job_runtime = JobTime()
@@ -284,7 +286,7 @@ class Deploy:
         log.verbose('Deploy job "%s" is equivalent to "%s"', item.name, self.name)
         return True
 
-    def pre_launch(self) -> None:
+    def pre_launch(self, launcher: Launcher) -> None:
         """Perform additional pre-launch activities (callback).
 
         This is invoked by launcher::_pre_launch().
@@ -325,15 +327,6 @@ class Deploy:
             log.warning(f"{self.full_name}: {e} Using dvsim-maintained job_runtime instead.")
             self.job_runtime.set(self.launcher.job_runtime_secs, "s")
 
-    def create_launcher(self) -> None:
-        """Create the launcher instance.
-
-        Note that the launcher instance for ALL jobs in the same job group must
-        be created before the Scheduler starts to dispatch one by one.
-        """
-        # Retain the handle to self for lookup & callbacks.
-        self.launcher = get_launcher(self)
-
     def model_dump(self) -> Mapping:
         """Dump the deployment object to mapping object.
 
@@ -371,7 +364,11 @@ class CompileSim(Deploy):
 
         # Needs to be after the wildcard expansion to log anything meaningful
         if self.build_timeout_mins:
-            log.debug('Timeout for job "%s" is %d minutes.', self.name, self.build_timeout_mins)
+            log.debug(
+                'Timeout for job "%s" is %d minutes.',
+                self.name,
+                self.build_timeout_mins,
+            )
 
     def _define_attrs(self) -> None:
         """Define attributes."""
@@ -420,7 +417,7 @@ class CompileSim(Deploy):
         if self.sim_cfg.args.build_timeout_mins is not None:
             self.build_timeout_mins = self.sim_cfg.args.build_timeout_mins
 
-    def pre_launch(self) -> None:
+    def pre_launch(self, launcher: Launcher) -> None:
         """Perform pre-launch tasks."""
         # Delete old coverage database directories before building again. We
         # need to do this because the build directory is not 'renewed'.
@@ -446,7 +443,11 @@ class CompileOneShot(Deploy):
 
         # Needs to be after the wildcard expansion to log anything meaningful
         if self.build_timeout_mins:
-            log.debug('Timeout for job "%s" is %d minutes.', self.name, self.build_timeout_mins)
+            log.debug(
+                'Timeout for job "%s" is %d minutes.',
+                self.name,
+                self.build_timeout_mins,
+            )
 
     def _define_attrs(self) -> None:
         super()._define_attrs()
@@ -518,7 +519,11 @@ class RunTest(Deploy):
 
         # Needs to be after the wildcard expansion to log anything meaningful
         if self.run_timeout_mins:
-            log.debug('Timeout for job "%s" is %d minutes.', self.full_name, self.run_timeout_mins)
+            log.debug(
+                'Timeout for job "%s" is %d minutes.',
+                self.full_name,
+                self.run_timeout_mins,
+            )
 
         if build_job is not None:
             self.dependencies.append(build_job)
@@ -595,9 +600,9 @@ class RunTest(Deploy):
                 self.run_timeout_multiplier,
             )
 
-    def pre_launch(self) -> None:
+    def pre_launch(self, launcher: Launcher) -> None:
         """Perform pre-launch tasks."""
-        self.launcher.renew_odir = True
+        launcher.renew_odir = True
 
     def post_finish(self, status) -> None:
         """Perform tidy up tasks."""
@@ -664,7 +669,11 @@ class CovUnr(Deploy):
         )
 
         self.mandatory_misc_attrs.update(
-            {"cov_unr_dir": False, "cov_merge_db_dir": False, "build_fail_patterns": False},
+            {
+                "cov_unr_dir": False,
+                "cov_merge_db_dir": False,
+                "build_fail_patterns": False,
+            },
         )
 
     def _set_attrs(self) -> None:
@@ -749,7 +758,11 @@ class CovReport(Deploy):
         self.mandatory_cmd_attrs.update({"cov_report_cmd": False, "cov_report_opts": False})
 
         self.mandatory_misc_attrs.update(
-            {"cov_report_dir": False, "cov_merge_db_dir": False, "cov_report_txt": False},
+            {
+                "cov_report_dir": False,
+                "cov_merge_db_dir": False,
+                "cov_report_txt": False,
+            },
         )
 
     def _set_attrs(self) -> None:

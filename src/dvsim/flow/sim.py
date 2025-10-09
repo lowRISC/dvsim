@@ -18,7 +18,15 @@ from typing import ClassVar
 from tabulate import tabulate
 
 from dvsim.flow.base import FlowCfg
-from dvsim.job.deploy import CompileSim, CovAnalyze, CovMerge, CovReport, CovUnr, Deploy, RunTest
+from dvsim.job.deploy import (
+    CompileSim,
+    CovAnalyze,
+    CovMerge,
+    CovReport,
+    CovUnr,
+    Deploy,
+    RunTest,
+)
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
@@ -270,7 +278,10 @@ class SimCfg(FlowCfg):
                 self.sw_images.extend(build_mode_obj.sw_images)
                 self.sw_build_opts.extend(build_mode_obj.sw_build_opts)
             else:
-                log.error('Mode "%s" enabled on the command line is not defined', en_build_mode)
+                log.error(
+                    'Mode "%s" enabled on the command line is not defined',
+                    en_build_mode,
+                )
                 sys.exit(1)
 
         # Walk through run modes enabled on the CLI and append the opts
@@ -876,7 +887,7 @@ class SimCfg(FlowCfg):
 
             # Append coverage results if coverage was enabled.
             if self.cov_report_deploy is not None:
-                report_status = results[self.cov_report_deploy]
+                report_status = results[self.cov_report_deploy.qual_name]
                 if report_status == "P":
                     results_str += "\n## Coverage Results\n"
                     # Link the dashboard page using "cov_report_page" value.

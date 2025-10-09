@@ -2,33 +2,35 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-import collections
+"""Launcher abstract base class."""
+
 import datetime
 import os
 import re
 import sys
+from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+from pydantic import BaseModel, ConfigDict
 
 from dvsim.logging import log
 from dvsim.utils import clean_odirs, mk_symlink, rm_path
 
+if TYPE_CHECKING:
+    from dvsim.job.deploy import Deploy
+
 
 class LauncherError(Exception):
-    def __init__(self, msg) -> None:
-        self.msg = msg
+    """Error occurred during job launching."""
 
 
 class LauncherBusyError(Exception):
-    def __init__(self, msg) -> None:
-        self.msg = msg
+    """Launcher is busy and the job was not able to be launched."""
 
 
-class ErrorMessage(
-    collections.namedtuple(
-        "ErrorMessage",
-        ["line_number", "message", "context"],
-    ),
-):
+class ErrorMessage(BaseModel):
     """Contains error-related information.
 
     This support classification of failures into buckets. The message field
@@ -36,8 +38,14 @@ class ErrorMessage(
     the failing log that can be useful for quick diagnostics.
     """
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
-class Launcher:
+    line_number: int | None = None
+    message: str
+    context: Sequence[str]
+
+
+class Launcher(ABC):
     """Abstraction for launching and maintaining a job.
 
     An abstract class that provides methods to prepare a job's environment,
@@ -47,7 +55,7 @@ class Launcher:
     """
 
     # Type of launcher used as string.
-    variant = None
+    variant: str | None = None
 
     # Max jobs running at one time
     max_parallel = sys.maxsize
@@ -83,7 +91,7 @@ class Launcher:
     )
 
     @staticmethod
-    def set_pyvenv(project) -> None:
+    def set_pyvenv(project: str) -> None:
         """Activate a python virtualenv if available.
 
         The env variable <PROJECT>_PYTHON_VENV if set, points to the path
@@ -113,17 +121,22 @@ class Launcher:
             Launcher.pyvenv = os.environ.get(f"{project.upper()}_PYVENV")
 
     @staticmethod
-    def prepare_workspace(project, repo_top, args) -> None:
+    @abstractmethod
+    def prepare_workspace(project: str, repo_top: str, args: Mapping) -> None:
         """Prepare the workspace based on the chosen launcher's needs.
 
         This is done once for the entire duration for the flow run.
-        'project' is the name of the project.
-        'repo_top' is the path to the repository.
-        'args' are the command line args passed to dvsim.
+
+        Args:
+            project: the name of the project.
+            repo_top: the path to the repository.
+            args: command line args passed to dvsim.
+
         """
 
     @staticmethod
-    def prepare_workspace_for_cfg(cfg) -> None:
+    @abstractmethod
+    def prepare_workspace_for_cfg(cfg: Mapping) -> None:
         """Prepare the workspace for a cfg.
 
         This is invoked once for each cfg.
@@ -131,13 +144,21 @@ class Launcher:
         """
 
     def __str__(self) -> str:
+        """Get a string representation."""
         return self.deploy.full_name + ":launcher"
 
-    def __init__(self, deploy) -> None:
+    def __init__(self, deploy: "Deploy") -> None:
+        """Initialise launcher.
+
+        Args:
+            deploy: deployment object that will be launched.
+
+        """
         cfg = deploy.sim_cfg
 
         # One-time preparation of the workspace.
         if not Launcher.workspace_prepared:
+            # TODO: CLI args should be processed far earlier than this
             self.prepare_workspace(cfg.project, cfg.proj_root, cfg.args)
             Launcher.workspace_prepared = True
 
@@ -173,7 +194,8 @@ class Launcher:
         # If renew_odir flag is True - then move it.
         if self.renew_odir:
             clean_odirs(odir=self.deploy.odir, max_odirs=self.max_odirs)
-        os.makedirs(self.deploy.odir, exist_ok=True)
+
+        Path(self.deploy.odir).mkdir(exist_ok=True, parents=True)
 
     def _link_odir(self, status) -> None:
         """Soft-links the job's directory based on job's status.
@@ -189,7 +211,7 @@ class Launcher:
             old = Path(self.deploy.sim_cfg.links["D"], self.deploy.qual_name)
             rm_path(old)
 
-    def _dump_env_vars(self, exports) -> None:
+    def _dump_env_vars(self, exports: Mapping[str, str]) -> None:
         """Write env vars to a file for ease of debug.
 
         Each extended class computes the list of exports and invokes this
@@ -210,44 +232,58 @@ class Launcher:
         old runs, creating the output directory, dumping all env variables
         etc. This method is already invoked by launch() as the first step.
         """
-        self.deploy.pre_launch()
+        self.deploy.pre_launch(self)
         self._make_odir()
         self.start_time = datetime.datetime.now()
 
+    @abstractmethod
     def _do_launch(self) -> None:
         """Launch the job."""
-        raise NotImplementedError
 
     def launch(self) -> None:
         """Launch the job."""
         self._pre_launch()
         self._do_launch()
 
+    @abstractmethod
     def poll(self) -> str | None:
         """Poll the launched job for completion.
 
         Invokes _check_status() and _post_finish() when the job completes.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def kill(self) -> None:
         """Terminate the job."""
-        raise NotImplementedError
 
-    def _check_status(self):
+    def _check_status(self) -> tuple[str, ErrorMessage | None]:
         """Determine the outcome of the job (P/F if it ran to completion).
 
-        Returns (status, err_msg) extracted from the log, where the status is
-        "P" if the it passed, "F" otherwise. This is invoked by poll() just
-        after the job finishes. err_msg is an instance of the named tuple
-        ErrorMessage.
+        Returns:
+            (status, err_msg) extracted from the log, where the status is
+            "P" if the it passed, "F" otherwise. This is invoked by poll() just
+            after the job finishes. err_msg is an instance of the named tuple
+            ErrorMessage.
+
         """
 
-        def _find_patterns(patterns, line):
-            """Helper function that returns the pattern if any of the given
+        def _find_patterns(patterns: Sequence[str], line: str) -> Sequence[str] | None:
+            """Get all patterns that match the given line.
+
+            Helper function that returns the pattern if any of the given
             patterns is found, else None.
+
+            Args:
+                patterns: sequence of regex patterns to check
+                line: string to check matches against
+
+            Returns:
+                All matching patterns or None if there are no matches.
+
             """
-            assert patterns
+            if not patterns:
+                return None
+
             for pattern in patterns:
                 match = re.search(rf"{pattern}", line)
                 if match:
@@ -319,13 +355,15 @@ class Launcher:
             )
         return "P", None
 
-    def _post_finish(self, status, err_msg) -> None:
+    def _post_finish(self, status: str, err_msg: ErrorMessage) -> None:
         """Do post-completion activities, such as preparing the results.
 
         Must be invoked by poll(), after the job outcome is determined.
 
-        status is the status of the job, either 'P', 'F' or 'K'.
-        err_msg is an instance of the named tuple ErrorMessage.
+        Args:
+            status: status of the job, either 'P', 'F' or 'K'.
+            err_msg: an instance of the named tuple ErrorMessage.
+
         """
         assert status in ["P", "F", "K"]
         self._link_odir(status)
@@ -335,6 +373,7 @@ class Launcher:
             # Run the target-specific cleanup tasks regardless of the job's
             # outcome.
             self.deploy.post_finish(status)
+
         except Exception as e:
             # If the job had already failed, then don't do anything. If it's
             # cleanup task failed, then mark the job as failed.

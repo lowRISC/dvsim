@@ -17,14 +17,25 @@ from signal import SIGINT, SIGTERM, signal
 from types import FrameType
 from typing import TYPE_CHECKING, Any
 
+from pydantic import BaseModel, ConfigDict
+
 from dvsim.job.deploy import Deploy
-from dvsim.launcher.base import Launcher, LauncherBusyError, LauncherError
+from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
 from dvsim.logging import log
 from dvsim.utils.status_printer import get_status_printer
 from dvsim.utils.timer import Timer
 
 if TYPE_CHECKING:
     from dvsim.flow.base import FlowCfg
+
+
+class CompletedJobStatus(BaseModel):
+    """Job status."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    status: str
+    fail_msg: ErrorMessage
 
 
 def total_sub_items(
@@ -138,15 +149,21 @@ class Scheduler:
         # per-target.
         self.item_to_status: MutableMapping[Deploy, str] = {}
 
+        # TODO: Why is the deployment object asked about which launcher to use when
+        # the launcher class is explicitly passed. Either each deployment can have it's
+        # own distinct Launcher class type or all deployments must have the same
+        # Launcher class? Both can't be true.
+
         # Create the launcher instance for all items.
-        for item in self.items:
-            item.create_launcher()
+        self._launchers: Mapping[str, Launcher] = {
+            item.qual_name: launcher_cls(item) for item in self.items
+        }
 
         # The chosen launcher class. This allows us to access launcher
         # variant-specific settings such as max parallel jobs & poll rate.
         self.launcher_cls: type[Launcher] = launcher_cls
 
-    def run(self) -> Mapping[Deploy, str]:
+    def run(self) -> Mapping[str, CompletedJobStatus]:
         """Run all scheduled jobs and return the results.
 
         Returns the results (status) of all items dispatched for all
@@ -211,7 +228,13 @@ class Scheduler:
         self.status_printer.exit()
 
         # We got to the end without anything exploding. Return the results.
-        return self.item_to_status
+        return {
+            d.qual_name: CompletedJobStatus(
+                status=status,
+                fail_msg=self._launchers[d.qual_name].fail_msg,
+            )
+            for d, status in self.item_to_status.items()
+        }
 
     def add_to_scheduled(self, items: Sequence[Deploy]) -> None:
         """Add items to the schedule.
@@ -222,14 +245,14 @@ class Scheduler:
         """
         for item in items:
             target_dict = self._scheduled.setdefault(item.target, {})
-            cfg_list = target_dict.setdefault(item.sim_cfg, [])
+            cfg_list = target_dict.setdefault(item.flow, [])
             if item not in cfg_list:
                 cfg_list.append(item)
 
     def _unschedule_item(self, item: Deploy) -> None:
         """Remove deploy item from the schedule."""
         target_dict = self._scheduled[item.target]
-        cfg_list = target_dict.get(item.sim_cfg)
+        cfg_list = target_dict.get(item.flow)
         if cfg_list is not None:
             with contextlib.suppress(ValueError):
                 cfg_list.remove(item)
@@ -237,7 +260,7 @@ class Scheduler:
             # When all items in _scheduled[target][cfg] are finally removed,
             # the cfg key is deleted.
             if not cfg_list:
-                del target_dict[item.sim_cfg]
+                del target_dict[item.flow]
 
     def _enqueue_successors(self, item: Deploy | None = None) -> None:
         """Move an item's successors from _scheduled to _queued.
@@ -305,7 +328,7 @@ class Scheduler:
             if target is None:
                 return []
 
-            cfgs = {item.sim_cfg}
+            cfgs = {item.flow}
 
         # Find item's successors that can be enqueued. We assume here that
         # only the immediately succeeding target can be enqueued at this
@@ -398,7 +421,7 @@ class Scheduler:
                     self._running[target],
                     self.last_item_polled_idx[target],
                 )
-                status = item.launcher.poll()
+                status = self._launchers[item.qual_name].poll()
                 level = log.VERBOSE
 
                 if status not in ["D", "P", "F", "E", "K"]:
@@ -509,7 +532,7 @@ class Scheduler:
 
             for item in to_dispatch:
                 try:
-                    item.launcher.launch()
+                    self._launchers[item.qual_name].launch()
 
                 except LauncherError:
                     log.exception("Error launching %s", item)
@@ -605,7 +628,7 @@ class Scheduler:
 
     def _kill_item(self, item: Deploy) -> None:
         """Kill a running item and cancel all of its successors."""
-        item.launcher.kill()
+        self._launchers[item.qual_name].kill()
         self.item_to_status[item] = "K"
         self._killed[item.target].add(item)
         self._running[item.target].remove(item)
