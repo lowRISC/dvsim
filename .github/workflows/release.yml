@@ -2,31 +2,193 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-name: DVSim Release
+# Create a dvsim semantic-release according to conventional-commit directives in changeset
+name: Create a dvsim release
+
 on:
   push:
     branches:
-      - master
+      # Branch-protected, only reviewed pull-requests push to master
+      - "master"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+
   release:
+    name: Tag a new semantic-release and push
     runs-on: ubuntu-latest
+    permissions:
+      # Push release commit / tag
+      contents: write
+      # This is required for requesting the JWT for 'lowrisc_ci_app_get_token.yml'
+      id-token: write
 
     steps:
-      - name: Repository checkout
+
+      - name: Get an installation access token for the lowrisc-ci app with appropriate permissions
+        id: get-token
+        uses: ./.github/actions/lowrisc_ci_app_get_token.yml
+
+      - name: Setup | Checkout Repository at PR branch
         uses: actions/checkout@v4
         with:
+          token: ${{ steps.get-token.outputs.token }}
+          ref: ${{ github.ref_name }}
+          # Full-depth needed for semantic-release to determine version and changelog
           fetch-depth: 0
 
-      - name: Install python-semantic-release package
-        run: python3 -m pip install python-semantic-release
+      - name: Setup | Install uv
+        uses: astral-sh/setup-uv@v6
 
-      - name: Versioning and Publishing the release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup | Install Python + the python project with release dependencies
         run: |
-          semantic-release version --no-changelog
-          semantic-release publish
+          uv sync --extra release
+
+      # Create new release commit that updates CHANGELOG, version strings, creates tag
+      # Push new commit / tag to remote
+      # Do not build, that will be done in the next step by invoking uv directly
+      - name: Release | Create new release metadata, push commit/tag
+        id: version_release
+        env:
+          GH_TOKEN: ${{ steps.get-token.outputs.token }}
+        run: |
+          # First time round, just determine the new version and increment the pyproject.toml accordingly.
+          # Then, we can re-lock uv.lock with the new version, and leave the change staged
+          uv run semantic-release version --skip-build --no-changelog --no-commit --no-tag --no-push --no-vcs-release
+          uv lock --upgrade-package 'dvsim'
+          git add uv.lock
+          # The second invocation generates all other release metadata, and wraps up the lockfile change
+          # into the single tagged release commit
+          uv run semantic-release version --skip-build
+
+      - name: Release | Print if not required
+        if: ${{ steps.version_release.outputs.released == 'false' }}
+        run: |
+          echo "### Release Summary - dvsim" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "New release not required as per commits since last release. :ok:" >> $GITHUB_STEP_SUMMARY
+          # TODO - Add hyperlinks to project documentation for users who were expecting a new release now...
+
+    # Forward some outputs from 'semantic-release version' so that subsequent jobs
+    # can be conditionally run only if a new released has actually been generated.
+    outputs:
+      released: ${{ steps.version_release.outputs.released }}
+      tag: ${{ steps.version_release.outputs.tag }}
+
+  ###################
+  # DEPLOYMENT JOBS #
+  ###################
+  # 1. Separate out the deploy step from the release step to run each step at
+  #    the least amount of token privilege
+  # 2. Also, deployments can fail, and its better to have a separate job if you need to retry
+  #    and it won't require reversing the release.
+
+  build_release_artifacts:
+    name: Build dist release artifacts, push src + dist assets to GitHub release
+    needs: release
+    if: ${{ needs.release.outputs.released == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      # Upload github release artifacts
+      contents: write
+
+    steps:
+
+      - name: Setup | Checkout Repository at newly tagged release
+        uses: actions/checkout@v4
+        with:
+          # Can't checkout at the new tag, we need to match one of the configured
+          # semantic_release.branches for the publish-action to proceed.
+          # > Detached HEAD state cannot match any release groups; no release will be made
+          ref: ${{ github.ref_name }}
+          # Also need the tags for the publish step to work
+          fetch-tags: true
+
+      - name: Setup | Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Setup | Install Python + the python project with build dependencies
+        run: |
+          uv sync
+
+      # Build the newly-versioned release distribution
+      - name: Release | Build the release
+        id: build_release
+        run: |
+          uv build
+
+      - name: Publish | Create GitHub Release (src + dist)
+        uses: python-semantic-release/publish-action@v10.4.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.release.outputs.tag }}
+
+      - name: Upload | Distribution artifacts to blob store for follow-up jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: distribution-artifacts
+          path: dist
+          if-no-files-found: error
+
+      - name: Release | Print to summary
+        run: |
+          echo "### Release Summary - dvsim" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "New release ${{ needs.release.outputs.tag }} cut and deployed. :airplane:" >> $GITHUB_STEP_SUMMARY
+
+  test-pypi-publish:
+    name: Upload release to test.pypi
+    needs: build_release_artifacts
+    runs-on: ubuntu-latest
+    environment:
+      name: test.pypi
+      url: https://test.pypi.org/p/dvsim
+    permissions:
+      # IMPORTANT: this permission is mandatory for Trusted Publishing
+      id-token: write
+
+    steps:
+
+      - name: Setup | Download dist artifacts from previous job
+        uses: actions/download-artifact@v4
+        id: artifact-download
+        with:
+          name: distribution-artifacts
+          path: dist
+
+      - name: Publish | Package distribution to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist
+          print-hash: true
+          verbose: true
+
+  pypi-publish:
+    name: Upload release to pypi
+    needs: build_release_artifacts
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/dvsim
+    permissions:
+      # IMPORTANT: this permission is mandatory for Trusted Publishing
+      id-token: write
+
+    steps:
+
+      - name: Setup | Download dist artifacts from previous job
+        uses: actions/download-artifact@v4
+        id: artifact-download
+        with:
+          name: distribution-artifacts
+          path: dist
+
+      - name: Publish | Package distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          print-hash: true
+          verbose: true

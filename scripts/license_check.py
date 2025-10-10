@@ -22,6 +22,7 @@ IGNORE_NAMES = [
     "LICENSE",
     "NOTICE",
     ".python-version",
+    "CHANGELOG.md",
 ]
 
 IGNORE_SUFFIXES = [".lock"]
