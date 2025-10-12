@@ -9,6 +9,7 @@ description = "DV system"
 authors = [{name = "lowRISC contributors (OpenTitan project)"}]
 readme = "README.md"
 licence = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = [
     # Keep sorted
     "click>=8.1.7",
@@ -125,3 +126,7 @@ ignore_merge_commits = true
 match = "master"
 prerelease_token = "rc"
 prerelease = false
+
+[tool.semantic_release.remote]
+name = "origin"
+ignore_token_for_push = true
