@@ -133,6 +133,8 @@
             pkgs-unstable.ruff
             pkgs.pyright
             pkgs.reuse
+            # 'act' allows running your GitHub Actions locally for test and development.
+            pkgs.act
           ];
           env = {
             # Prevent uv from managing Python downloads
