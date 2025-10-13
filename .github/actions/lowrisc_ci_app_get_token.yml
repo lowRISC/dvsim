@@ -1,0 +1,40 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+# NOTE.
+# Requires id-token: write in the workflow to get the JWT
+
+name: Get lowrisc-ci app access token
+description: Obtain a lowrisc-ci GitHub App installation access token from the lowRISC CA
+
+inputs:
+  audience:
+    description: intended audience for the requested JWT
+    type: string
+    default: "https://ca.lowrisc.org"
+  ca_api_endpoint:
+    description: lowRISC CA endpoint from which to try and obtain a token.
+    type: string
+    default: "https://ca.lowrisc.org/api/github/repos/${{ github.repository }}/token"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get and exchange tokens
+      id: get_token
+      run: |
+        # First, manually request a JSON Web Token (JWT) from GitHub's OIDC provider for the workflow
+        # - Set our CA as the intended audience
+        ID_TOKEN=$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=${{ inputs.audience }}" | jq -r .value)
+        echo "::add-mask::$ID_TOKEN"
+        # Now use the JWT token to request the lowRISC CA to provide an lowrisc-ci app installation access token suitable for our action
+        ACCESS_TOKEN=$(curl -sSf -X POST -H "Authorization: Bearer $ID_TOKEN" ${{ inputs.ca_api_endpoint }})
+        echo "::add-mask::$ACCESS_TOKEN
+        echo "token=$ACCESS_TOKEN" >> "$GITHUB_OUTPUT"
+
+outputs:
+  token:
+    description: "Token"
+    value: ${{ steps.get_token.outputs.token }}
+
