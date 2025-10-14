@@ -29,7 +29,7 @@ jobs:
 
       - name: Get an installation access token for the lowrisc-ci app with appropriate permissions
         id: get-token
-        uses: ./.github/actions/lowrisc_ci_app_get_token.yml
+        uses: ./.github/actions/lowrisc_ci_app_get_token
 
       - name: Setup | Checkout Repository at PR branch
         uses: actions/checkout@v4
