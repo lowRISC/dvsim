@@ -4,6 +4,7 @@
 
 """Fake Launcher that returns random results."""
 
+from collections.abc import Mapping
 from random import choice, random
 from typing import TYPE_CHECKING
 
@@ -11,6 +12,8 @@ from dvsim.launcher.base import ErrorMessage, Launcher
 
 if TYPE_CHECKING:
     from dvsim.job.deploy import CovReport, Deploy, RunTest
+
+__all__ = ("FakeLauncher",)
 
 
 def _run_test_handler(deploy: "RunTest") -> str:
@@ -70,3 +73,24 @@ class FakeLauncher(Launcher):
             "K",
             ErrorMessage(line_number=None, message="Job killed!", context=[]),
         )
+
+    @staticmethod
+    def prepare_workspace(project: str, repo_top: str, args: Mapping) -> None:
+        """Prepare the workspace based on the chosen launcher's needs.
+
+        This is done once for the entire duration for the flow run.
+
+        Args:
+            project: the name of the project.
+            repo_top: the path to the repository.
+            args: command line args passed to dvsim.
+
+        """
+
+    @staticmethod
+    def prepare_workspace_for_cfg(cfg: Mapping) -> None:
+        """Prepare the workspace for a cfg.
+
+        This is invoked once for each cfg.
+        'cfg' is the flow configuration object.
+        """
