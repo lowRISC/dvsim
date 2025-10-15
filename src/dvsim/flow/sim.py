@@ -887,7 +887,7 @@ class SimCfg(FlowCfg):
 
             # Append coverage results if coverage was enabled.
             if self.cov_report_deploy is not None:
-                report_status = results[self.cov_report_deploy.qual_name]
+                report_status = results[self.cov_report_deploy.full_name]
                 if report_status == "P":
                     results_str += "\n## Coverage Results\n"
                     # Link the dashboard page using "cov_report_page" value.

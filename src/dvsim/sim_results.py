@@ -85,7 +85,7 @@ class SimResults:
 
     def _add_item(self, item, results: Mapping[str, CompletedJobStatus]) -> None:
         """Recursively add a single item to the table of results."""
-        job_status = results[item.qual_name]
+        job_status = results[item.full_name]
         if job_status.status in ["F", "K"]:
             bucket = self._bucketize(job_status.fail_msg.message)
             self.buckets[bucket].append(

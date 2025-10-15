@@ -56,11 +56,16 @@ def get_next_item(arr: Sequence, index: int) -> tuple[Any, int]:
     is already the last item on the list, it loops back to the start, thus
     implementing a circular list.
 
-    arr is a subscriptable list.
-    index is the index of the last item returned.
+    Args:
+        arr: subscriptable list.
+        index: index of the last item returned.
 
-    Returns (item, index) if successful.
-    Raises IndexError if arr is empty.
+    Returns:
+        (item, index) if successful.
+
+    Raises:
+        IndexError if arr is empty.
+
     """
     index += 1
     try:
@@ -95,7 +100,7 @@ class Scheduler:
         # they wait until slots are available for them to be dispatched.
         # When all items (in all cfgs) of a target are done, it is removed from
         # this dictionary.
-        self._scheduled: MutableMapping[str, MutableMapping[FlowCfg, MutableSequence[Deploy]]] = {}
+        self._scheduled: MutableMapping[str, MutableMapping[str, MutableSequence[Deploy]]] = {}
         self.add_to_scheduled(items)
 
         # Print status periodically using an external status printer.
@@ -143,20 +148,15 @@ class Scheduler:
             msg = self.msg_fmt.format(0, 0, 0, 0, 0, self._total[target])
             self.status_printer.init_target(target=target, msg=msg)
 
-        # A map from the Deploy objects tracked by this class to their
+        # A map from the Deploy object names tracked by this class to their
         # current status. This status is 'Q', 'D', 'P', 'F' or 'K',
         # corresponding to membership in the dicts above. This is not
         # per-target.
-        self.item_to_status: MutableMapping[Deploy, str] = {}
-
-        # TODO: Why is the deployment object asked about which launcher to use when
-        # the launcher class is explicitly passed. Either each deployment can have it's
-        # own distinct Launcher class type or all deployments must have the same
-        # Launcher class? Both can't be true.
+        self.item_status: MutableMapping[str, str] = {}
 
         # Create the launcher instance for all items.
         self._launchers: Mapping[str, Launcher] = {
-            item.qual_name: launcher_cls(item) for item in self.items
+            item.full_name: launcher_cls(item) for item in self.items
         }
 
         # The chosen launcher class. This allows us to access launcher
@@ -229,11 +229,11 @@ class Scheduler:
 
         # We got to the end without anything exploding. Return the results.
         return {
-            d.qual_name: CompletedJobStatus(
+            name: CompletedJobStatus(
                 status=status,
-                fail_msg=self._launchers[d.qual_name].fail_msg,
+                fail_msg=self._launchers[name].fail_msg,
             )
-            for d, status in self.item_to_status.items()
+            for name, status in self.item_status.items()
         }
 
     def add_to_scheduled(self, items: Sequence[Deploy]) -> None:
@@ -271,9 +271,9 @@ class Scheduler:
         them to _queued.
         """
         for next_item in self._get_successors(item):
-            assert next_item not in self.item_to_status
+            assert next_item.full_name not in self.item_status
             assert next_item not in self._queued[next_item.target]
-            self.item_to_status[next_item] = "Q"
+            self.item_status[next_item.full_name] = "Q"
             self._queued[next_item.target].append(next_item)
             self._unschedule_item(next_item)
 
@@ -356,11 +356,11 @@ class Scheduler:
                 continue
 
             # Has the dep even been enqueued?
-            if dep not in self.item_to_status:
+            if dep.full_name not in self.item_status:
                 return False
 
             # Has the dep completed?
-            if self.item_to_status[dep] not in ["P", "F", "K"]:
+            if self.item_status[dep.full_name] not in ["P", "F", "K"]:
                 return False
 
         return True
@@ -379,7 +379,7 @@ class Scheduler:
             if dep not in self.items:
                 continue
 
-            dep_status = self.item_to_status[dep]
+            dep_status = self.item_status[dep.full_name]
             if dep_status not in ["P", "F", "K"]:
                 raise ValueError("Status must be one of P, F, or K")
 
@@ -421,7 +421,7 @@ class Scheduler:
                     self._running[target],
                     self.last_item_polled_idx[target],
                 )
-                status = self._launchers[item.qual_name].poll()
+                status = self._launchers[item.full_name].poll()
                 level = log.VERBOSE
 
                 if status not in ["D", "P", "F", "E", "K"]:
@@ -445,7 +445,7 @@ class Scheduler:
 
                 self._running[target].pop(self.last_item_polled_idx[target])
                 self.last_item_polled_idx[target] -= 1
-                self.item_to_status[item] = status
+                self.item_status[item.full_name] = status
 
                 log.log(
                     level,
@@ -532,7 +532,7 @@ class Scheduler:
 
             for item in to_dispatch:
                 try:
-                    self._launchers[item.qual_name].launch()
+                    self._launchers[item.full_name].launch()
 
                 except LauncherError:
                     log.exception("Error launching %s", item)
@@ -552,7 +552,7 @@ class Scheduler:
                     continue
 
                 self._running[target].append(item)
-                self.item_to_status[item] = "D"
+                self.item_status[item.full_name] = "D"
 
     def _kill(self) -> None:
         """Kill any running items and cancel any that are waiting."""
@@ -616,7 +616,7 @@ class Scheduler:
         Supplied item may be in _scheduled list or the _queued list. From
         either, we move it straight to _killed.
         """
-        self.item_to_status[item] = "K"
+        self.item_status[item.full_name] = "K"
         self._killed[item.target].add(item)
         if item in self._queued[item.target]:
             self._queued[item.target].remove(item)
@@ -628,8 +628,8 @@ class Scheduler:
 
     def _kill_item(self, item: Deploy) -> None:
         """Kill a running item and cancel all of its successors."""
-        self._launchers[item.qual_name].kill()
-        self.item_to_status[item] = "K"
+        self._launchers[item.full_name].kill()
+        self.item_status[item.full_name] = "K"
         self._killed[item.target].add(item)
         self._running[item.target].remove(item)
         self._cancel_successors(item)
