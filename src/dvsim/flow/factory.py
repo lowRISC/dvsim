@@ -5,6 +5,7 @@
 import pathlib
 import sys
 
+from dvsim.flow.base import FlowCfg
 from dvsim.flow.cdc import CdcCfg
 from dvsim.flow.formal import FormalCfg
 from dvsim.flow.hjson import load_hjson
@@ -105,7 +106,7 @@ def _make_child_cfg(path, args, initial_values):
     return cls(path, hjson_data, args, None)
 
 
-def make_cfg(path, args, proj_root):
+def make_cfg(path, args, proj_root) -> FlowCfg:
     """Make a flow config by loading the config file at path.
 
     args is the arguments passed to the dvsim.py tool and proj_root is the top

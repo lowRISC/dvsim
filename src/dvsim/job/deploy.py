@@ -70,6 +70,7 @@ class Deploy:
         # Cross ref the whole cfg object for ease.
         self.sim_cfg = sim_cfg
         self.flow = sim_cfg.name
+        self._variant_suffix = f"_{self.sim_cfg.variant}" if self.sim_cfg.variant else ""
 
         # A list of jobs on which this job depends.
         self.dependencies = []
@@ -166,7 +167,7 @@ class Deploy:
 
         # Full name disambiguates across multiple cfg being run (example:
         # 'aes:default', 'uart:default' builds.
-        self.full_name = self.sim_cfg.name + ":" + self.qual_name
+        self.full_name = f"{self.sim_cfg.name}{self._variant_suffix}:{self.qual_name}"
 
         # Job name is used to group the job by cfg and target. The scratch path
         # directory name is assumed to be uniquified, in case there are more
@@ -574,7 +575,7 @@ class RunTest(Deploy):
         self.test = self.name
         self.build_mode = self.test_obj.build_mode.name
         self.qual_name = self.run_dir_name + "." + str(self.seed)
-        self.full_name = self.sim_cfg.name + ":" + self.qual_name
+        self.full_name = f"{self.sim_cfg.name}{self._variant_suffix}:{self.qual_name}"
         self.job_name += f"_{self.build_mode}"
         if self.sim_cfg.cov:
             self.output_dirs += [self.cov_db_dir]
@@ -679,7 +680,7 @@ class CovUnr(Deploy):
     def _set_attrs(self) -> None:
         super()._set_attrs()
         self.qual_name = self.target
-        self.full_name = self.sim_cfg.name + ":" + self.qual_name
+        self.full_name = f"{self.sim_cfg.name}{self._variant_suffix}:{self.qual_name}"
         self.input_dirs += [self.cov_merge_db_dir]
 
         # Reuse the build_fail_patterns set in the HJson.
@@ -734,7 +735,7 @@ class CovMerge(Deploy):
     def _set_attrs(self) -> None:
         super()._set_attrs()
         self.qual_name = self.target
-        self.full_name = self.sim_cfg.name + ":" + self.qual_name
+        self.full_name = f"{self.sim_cfg.name}{self._variant_suffix}:{self.qual_name}"
 
         # For merging coverage db, the precise output dir is set in the HJson.
         self.odir = self.cov_merge_db_dir
@@ -768,7 +769,7 @@ class CovReport(Deploy):
     def _set_attrs(self) -> None:
         super()._set_attrs()
         self.qual_name = self.target
-        self.full_name = self.sim_cfg.name + ":" + self.qual_name
+        self.full_name = f"{self.sim_cfg.name}{self._variant_suffix}:{self.qual_name}"
 
         # Keep track of coverage results, once the job is finished.
         self.cov_total = ""
@@ -819,5 +820,5 @@ class CovAnalyze(Deploy):
     def _set_attrs(self) -> None:
         super()._set_attrs()
         self.qual_name = self.target
-        self.full_name = self.sim_cfg.name + ":" + self.qual_name
+        self.full_name = f"{self.sim_cfg.name}{self._variant_suffix}:{self.qual_name}"
         self.input_dirs += [self.cov_merge_db_dir]

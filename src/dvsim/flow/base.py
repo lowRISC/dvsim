@@ -11,15 +11,14 @@ import sys
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import hjson
 
 from dvsim.flow.hjson import set_target_attribute
-from dvsim.job.deploy import Deploy
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
-from dvsim.scheduler import Scheduler
+from dvsim.scheduler import CompletedJobStatus, Scheduler
 from dvsim.utils import (
     find_and_substitute_wildcards,
     md_results_to_html,
@@ -27,6 +26,11 @@ from dvsim.utils import (
     rm_path,
     subst_wildcards,
 )
+
+if TYPE_CHECKING:
+    from dvsim.job.deploy import Deploy
+
+__all__ = ("FlowCfg",)
 
 
 # Interface class for extensions.
@@ -399,7 +403,7 @@ class FlowCfg(ABC):
         for item in self.cfgs:
             item._create_deploy_objects()
 
-    def deploy_objects(self) -> Mapping[Deploy, str]:
+    def deploy_objects(self) -> Mapping[str, CompletedJobStatus]:
         """Public facing API for deploying all available objects.
 
         Runs each job and returns a map from item to status.
@@ -432,7 +436,7 @@ class FlowCfg(ABC):
         ).run()
 
     @abstractmethod
-    def _gen_results(self, results: Mapping[Deploy, str]) -> str:
+    def _gen_results(self, results: Mapping[str, CompletedJobStatus]) -> str:
         """Generate flow results.
 
         The function is called after the flow has completed. It collates
@@ -441,13 +445,16 @@ class FlowCfg(ABC):
         prints the full list of failures for debug / triage to the final
         report, which is in markdown format.
 
-        results should be a dictionary mapping deployed item to result.
+        Results:
+            dictionary mapping deployed item names to job status.
+
         """
 
-    def gen_results(self, results: Mapping[Deploy, str]) -> None:
+    def gen_results(self, results: Mapping[str, CompletedJobStatus]) -> None:
         """Public facing API for _gen_results().
 
-        results should be a dictionary mapping deployed item to result.
+        Args:
+            results: dictionary mapping deployed item names to job status.
 
         """
         for item in self.cfgs:
