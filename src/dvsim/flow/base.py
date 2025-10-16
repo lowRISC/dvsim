@@ -422,7 +422,7 @@ class FlowCfg(ABC):
                 json.dumps(
                     # Sort on full name to ensure consistent ordering
                     sorted(
-                        [d.model_dump() for d in deploy],
+                        [d.dump() for d in deploy],
                         key=lambda d: d["full_name"],
                     ),
                     indent=2,

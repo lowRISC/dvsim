@@ -328,11 +328,8 @@ class Deploy:
             log.warning(f"{self.full_name}: {e} Using dvsim-maintained job_runtime instead.")
             self.job_runtime.set(job_runtime_secs, "s")
 
-    def model_dump(self) -> Mapping:
+    def dump(self) -> Mapping:
         """Dump the deployment object to mapping object.
-
-        This method matches the interface provided by pydantic models to dump a
-        subset of the class attributes
 
         Returns:
             Representation of a deployment object as a dict.
