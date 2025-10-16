@@ -11,6 +11,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from pydantic import BaseModel
+from pydantic.config import ConfigDict
 from tabulate import tabulate
 
 from dvsim.job.time import JobTime
@@ -26,6 +28,20 @@ from dvsim.utils import (
 
 if TYPE_CHECKING:
     from dvsim.flow.sim import SimCfg
+
+
+class WorkspaceConfig(BaseModel):
+    """Workspace configuration."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    project: str
+    timestamp: str
+
+    project_root: Path
+    scratch_root: Path
+    scratch_path: Path
+
 
 __all__ = (
     "CompileSim",
@@ -100,6 +116,14 @@ class Deploy:
 
         # Job's wall clock time (a.k.a CPU time, or runtime).
         self.job_runtime = JobTime()
+
+        self.workspace_cfg = WorkspaceConfig(
+            project=sim_cfg.name,
+            project_root=sim_cfg.proj_root,
+            scratch_root=Path(sim_cfg.scratch_root),
+            scratch_path=Path(sim_cfg.scratch_path),
+            timestamp=sim_cfg.args.timestamp,
+        )
 
     def _define_attrs(self) -> None:
         """Define the attributes this instance needs to have.

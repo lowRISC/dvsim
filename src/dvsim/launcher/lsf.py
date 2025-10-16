@@ -7,19 +7,27 @@ import re
 import subprocess
 import tarfile
 from pathlib import Path
+from typing import TYPE_CHECKING, ClassVar
 
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
 from dvsim.logging import log
 from dvsim.utils import clean_odirs
 
+if TYPE_CHECKING:
+    from dvsim.job.deploy import Deploy, WorkspaceConfig
+
+__all__ = ("LsfLauncher",)
+
 
 class LsfLauncher(Launcher):
+    """Launcher for IBM Spectrum LSF."""
+
     # A hidden directory specific to a cfg, where we put individual 'job'
     # scripts.
-    jobs_dir = {}
+    jobs_dir: ClassVar = {}
 
     # All launcher instances available for lookup.
-    jobs = {}
+    jobs: ClassVar = {}
 
     # When the job completes, we try to read the job script output to determine
     # the outcome. It may not have been completely written the first time we
@@ -32,7 +40,16 @@ class LsfLauncher(Launcher):
     #       `DVSIM_LSF_CFG` environment variable.
 
     @staticmethod
-    def prepare_workspace(project, repo_top, args) -> None:
+    def prepare_workspace(cfg: "WorkspaceConfig") -> None:
+        """Prepare the workspace for a cfg.
+
+        This is invoked once for each cfg.
+        'cfg' is the flow configuration object.
+
+        Args:
+            cfg: workspace configuration
+
+        """
         # Since we dispatch to remote machines, a project specific python
         # virtualenv is exists, needs to be activated when launching the job.
         Launcher.set_pyvenv(project)
@@ -52,20 +69,31 @@ class LsfLauncher(Launcher):
         if not path.is_dir():
             log.info("[prepare_workspace]: [pyvenv]: Extracting %s", Launcher.pyvenv)
             with tarfile.open(Launcher.pyvenv, mode="r") as tar:
-                tar.extractall(args.scratch_root)
+                tar.extractall(cfg.scratch_root)
+
             log.info("[prepare_workspace]: [pyvenv]: Done: %s", path)
+
         Launcher.pyvenv = path
 
     @staticmethod
-    def prepare_workspace_for_cfg(cfg) -> None:
+    def prepare_workspace_for_cfg(cfg: "WorkspaceConfig") -> None:
+        """Prepare the workspace for a cfg.
+
+        This is invoked once for each cfg.
+        'cfg' is the flow configuration object.
+
+        Args:
+            cfg: workspace configuration
+
+        """
         # Create the job dir.
         LsfLauncher.jobs_dir[cfg] = Path(cfg.scratch_path, "lsf", cfg.timestamp)
         clean_odirs(odir=LsfLauncher.jobs_dir[cfg], max_odirs=2)
         os.makedirs(Path(LsfLauncher.jobs_dir[cfg]), exist_ok=True)
 
     @staticmethod
-    def make_job_script(cfg, job_name):
-        """Creates the job script.
+    def make_job_script(cfg: "WorkspaceConfig", job_name: str):
+        """Create the job script.
 
         Once all jobs in the array are launched, the job script can be created.
         It is a bash script that takes the job index as a single argument.
@@ -76,7 +104,13 @@ class LsfLauncher(Launcher):
         creating individual scripts for each job which incurs additional file
         I/O overhead when the scratch area is on NFS, causing a slowdown.
 
-        Returns the path to the job script.
+        Args:
+            cfg: workspace configuration
+            job_name: name of the job to run
+
+        Returns:
+            the path to the job script.
+
         """
         lines = ["#!/usr/bin/env bash\nset -e\n"]
 
@@ -107,7 +141,13 @@ class LsfLauncher(Launcher):
         log.verbose("[job_script]: %s", job_script)
         return job_script
 
-    def __init__(self, deploy) -> None:
+    def __init__(self, deploy: "Deploy") -> None:
+        """Initialise the LSF Launcher.
+
+        Args:
+            deploy: job to remotely deploy.
+
+        """
         super().__init__(deploy)
 
         # Maintain the job script output as an instance variable for polling
@@ -136,10 +176,11 @@ class LsfLauncher(Launcher):
         self.index = len(job_name_list)
 
     def _do_launch(self) -> None:
+        """Launch the job."""
         # Add self to the list of jobs.
         job_name = self.deploy.job_name
-        cfg = self.deploy.sim_cfg
-        job_total = len(LsfLauncher.jobs[cfg][job_name])
+        cfg = self.deploy.workspace_cfg
+        job_total = len(LsfLauncher.jobs[cfg.project][job_name])
 
         # The actual launching of the bsub command cannot happen until the
         # Scheduler has dispatched ALL jobs in the array.
@@ -211,13 +252,15 @@ class LsfLauncher(Launcher):
             # Need to mark all jobs in this range with this fail pattern.
             err_msg = e.stderr.decode("utf-8").strip()
             self._post_finish_job_array(cfg, job_name, err_msg)
-            raise LauncherError(err_msg)
+
+            raise LauncherError(err_msg) from e
 
         # Extract the job ID.
         result = p.stdout.decode("utf-8").strip()
         job_id = result.split("Job <")[1].split(">")[0]
         if not job_id:
             self._post_finish_job_array(cfg, job_name, "Job ID not found!")
+            err_msg = f"job (id:{job_id}) not found"
             raise LauncherError(err_msg)
 
         for job in LsfLauncher.jobs[cfg][job_name]:
@@ -225,7 +268,13 @@ class LsfLauncher(Launcher):
             job.job_id = f"{job_id}[{job.index}]"
             job._link_odir("D")
 
-    def poll(self):
+    def poll(self) -> str | None:
+        """Poll the status of the job.
+
+        Returns:
+            status of the job or None
+
+        """
         # It is possible we may have determined the status already.
         if self.status:
             return self.status
@@ -243,6 +292,7 @@ class LsfLauncher(Launcher):
             try:
                 if not self.bsub_out.stat().st_size:
                     return "D"
+
             except FileNotFoundError:
                 return "D"
 
@@ -250,6 +300,7 @@ class LsfLauncher(Launcher):
             # file for reading.
             try:
                 self.bsub_out_fd = open(self.bsub_out)
+
             except OSError as e:
                 self._post_finish(
                     "F",
@@ -283,7 +334,7 @@ class LsfLauncher(Launcher):
         # will resume reading it again at the next poll. We will do this upto
         # max_poll_retries times before giving up and flagging an error.
         #
-        # TODO: Consider using the IBM Plarform LSF Python APIs instead.
+        # TODO: Consider using the IBM Platform LSF Python APIs instead.
         #       (deferred due to shortage of time / resources).
         # TODO: Parse job telemetry data for performance insights.
 
@@ -306,15 +357,18 @@ class LsfLauncher(Launcher):
         if self.num_poll_retries == LsfLauncher.max_poll_retries:
             self._post_finish(
                 "F",
-                "ERROR: Reached max retries while "
-                f"reading job script output {self.bsub_out} to determine"
-                " the outcome.",
+                ErrorMessage(
+                    message="ERROR: Reached max retries while "
+                    f"reading job script output {self.bsub_out} to determine"
+                    " the outcome.",
+                    context=[],
+                ),
             )
             return "F"
 
         return "D"
 
-    def _get_job_exit_code(self):
+    def _get_job_exit_code(self) -> int | None:
         """Read the job script output to retrieve the exit code.
 
         Also read the error message if any, which will appear at the beginning
@@ -337,7 +391,9 @@ class LsfLauncher(Launcher):
         indicating whether it was successful or it failed with an exit code
         is used to return the exit code.
 
-        Returns the exit code if found, else None.
+        Returns:
+            the exit code if found, else None.
+
         """
         # Job script output must have been opened already.
         assert self.bsub_out_fd
@@ -364,6 +420,7 @@ class LsfLauncher(Launcher):
         return None
 
     def kill(self) -> None:
+        """Kill the remote job."""
         if self.job_id:
             try:
                 subprocess.run(
@@ -376,9 +433,10 @@ class LsfLauncher(Launcher):
         else:
             log.error("Job ID for %s not found", self.deploy.full_name)
 
-        self._post_finish("K", "Job killed!")
+        self._post_finish("K", ErrorMessage(message="Job killed!", context=[]))
 
-    def _post_finish(self, status, err_msg) -> None:
+    def _post_finish(self, status: str, err_msg: ErrorMessage) -> None:
+        """Tidy up after the job is complete."""
         if self.bsub_out_fd:
             self.bsub_out_fd.close()
         if self.exit_code is None:
@@ -386,12 +444,20 @@ class LsfLauncher(Launcher):
         super()._post_finish(status, err_msg)
 
     @staticmethod
-    def _post_finish_job_array(cfg, job_name, err_msg) -> None:
+    def _post_finish_job_array(
+        cfg: "WorkspaceConfig",
+        job_name: str,
+        err_msg: str,
+    ) -> None:
         """On LSF error, mark all jobs in this array as killed.
 
-        err_msg is the error message indicating the cause of failure.
+        Args:
+            cfg: workspace configuration
+            job_name: name of the job to run
+            err_msg: is the error message indicating the cause of failure.
+
         """
-        for job in LsfLauncher.jobs[cfg][job_name]:
+        for job in LsfLauncher.jobs[cfg.project][job_name]:
             job._post_finish(
                 "F",
                 ErrorMessage(line_number=None, message=err_msg, context=[err_msg]),

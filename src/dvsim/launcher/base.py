@@ -19,7 +19,7 @@ from dvsim.logging import log
 from dvsim.utils import clean_odirs, mk_symlink, rm_path
 
 if TYPE_CHECKING:
-    from dvsim.job.deploy import Deploy
+    from dvsim.job.deploy import Deploy, WorkspaceConfig
 
 
 class LauncherError(Exception):
@@ -97,18 +97,18 @@ class Launcher(ABC):
             deploy: deployment object that will be launched.
 
         """
-        cfg = deploy.sim_cfg
+        workspace_cfg = deploy.workspace_cfg
 
         # One-time preparation of the workspace.
         if not Launcher.workspace_prepared:
-            # TODO: CLI args should be processed far earlier than this
-            self.prepare_workspace(cfg.project, cfg.proj_root, cfg.args)
+            self.prepare_workspace(workspace_cfg)
             Launcher.workspace_prepared = True
 
         # One-time preparation of the workspace, specific to the cfg.
-        if cfg not in Launcher.workspace_prepared_for_cfg:
-            self.prepare_workspace_for_cfg(cfg)
-            Launcher.workspace_prepared_for_cfg.add(cfg)
+        project = workspace_cfg.project
+        if project not in Launcher.workspace_prepared_for_cfg:
+            self.prepare_workspace_for_cfg(workspace_cfg)
+            Launcher.workspace_prepared_for_cfg.add(project)
 
         # Store the deploy object handle.
         self.deploy = deploy
@@ -155,34 +155,40 @@ class Launcher(ABC):
         # The code below allows each launcher variant to set its own virtualenv
         # because the loading / activating mechanism could be different between
         # them.
-        Launcher.pyvenv = os.environ.get(
-            f"{project.upper()}_PYVENV_{Launcher.variant.upper()}",
-        )
+        common_venv = f"{project.upper()}_PYVENV"
+        variant = Launcher.variant.upper()
+
+        venv_path = os.environ.get(f"{common_venv}_{variant}")
+
+        if not venv_path:
+            venv_path = os.environ.get(common_venv)
 
         if not Launcher.pyvenv:
             Launcher.pyvenv = os.environ.get(f"{project.upper()}_PYVENV")
 
     @staticmethod
     @abstractmethod
-    def prepare_workspace(project: str, repo_top: str, args: Mapping) -> None:
+    def prepare_workspace(cfg: "WorkspaceConfig") -> None:
         """Prepare the workspace based on the chosen launcher's needs.
 
         This is done once for the entire duration for the flow run.
 
         Args:
-            project: the name of the project.
-            repo_top: the path to the repository.
-            args: command line args passed to dvsim.
+            cfg: workspace configuration
 
         """
 
     @staticmethod
     @abstractmethod
-    def prepare_workspace_for_cfg(cfg: Mapping) -> None:
+    def prepare_workspace_for_cfg(cfg: "WorkspaceConfig") -> None:
         """Prepare the workspace for a cfg.
 
         This is invoked once for each cfg.
         'cfg' is the flow configuration object.
+
+        Args:
+            cfg: workspace configuration
+
         """
 
     def __str__(self) -> str:

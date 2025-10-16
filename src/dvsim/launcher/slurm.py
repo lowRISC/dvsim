@@ -7,10 +7,13 @@ import pathlib
 import shlex
 import shutil
 import subprocess
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
 from dvsim.logging import log
+
+if TYPE_CHECKING:
+    from dvsim.job.deploy import WorkspaceConfig
 
 SLURM_QUEUE = os.environ.get("SLURM_QUEUE", "hw-m")
 SLURM_MEM = os.environ.get("SLURM_MEM", "16G")
@@ -149,22 +152,23 @@ class SlurmLauncher(Launcher):
             self.process.stdout.close()
 
     @staticmethod
-    def prepare_workspace(project: str, repo_top: str, args: Mapping) -> None:
+    def prepare_workspace(cfg: "WorkspaceConfig") -> None:
         """Prepare the workspace based on the chosen launcher's needs.
 
         This is done once for the entire duration for the flow run.
 
         Args:
-            project: the name of the project.
-            repo_top: the path to the repository.
-            args: command line args passed to dvsim.
+            cfg: workspace configuration
 
         """
 
     @staticmethod
-    def prepare_workspace_for_cfg(cfg: Mapping) -> None:
+    def prepare_workspace_for_cfg(cfg: "WorkspaceConfig") -> None:
         """Prepare the workspace for a cfg.
 
         This is invoked once for each cfg.
-        'cfg' is the flow configuration object.
+
+        Args:
+            cfg: workspace configuration
+
         """

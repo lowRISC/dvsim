@@ -8,11 +8,14 @@ import os
 import pathlib
 import shlex
 import subprocess
-from collections.abc import Mapping
 from subprocess import PIPE, Popen
+from typing import TYPE_CHECKING
 
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
 from dvsim.launcher.sge.engine import *  # noqa: F403
+
+if TYPE_CHECKING:
+    from dvsim.job.deploy import WorkspaceConfig
 
 global job_name
 
@@ -167,22 +170,23 @@ class SgeLauncher(Launcher):
             self.process.stdout.close()
 
     @staticmethod
-    def prepare_workspace(project: str, repo_top: str, args: Mapping) -> None:
+    def prepare_workspace(cfg: "WorkspaceConfig") -> None:
         """Prepare the workspace based on the chosen launcher's needs.
 
         This is done once for the entire duration for the flow run.
 
         Args:
-            project: the name of the project.
-            repo_top: the path to the repository.
-            args: command line args passed to dvsim.
+            cfg: workspace configuration
 
         """
 
     @staticmethod
-    def prepare_workspace_for_cfg(cfg: Mapping) -> None:
+    def prepare_workspace_for_cfg(cfg: "WorkspaceConfig") -> None:
         """Prepare the workspace for a cfg.
 
         This is invoked once for each cfg.
-        'cfg' is the flow configuration object.
+
+        Args:
+            cfg: workspace configuration
+
         """
