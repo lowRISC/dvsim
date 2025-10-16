@@ -91,7 +91,14 @@ class Scheduler:
         *,
         interactive: bool,
     ) -> None:
-        """Initialise a job scheduler."""
+        """Initialise a job scheduler.
+
+        Args:
+            items: sequence of jobs to deploy.
+            launcher_cls: Launcher class to use to deploy the jobs.
+            interactive: launch the tools in interactive mode.
+
+        """
         self.items: Sequence[Deploy] = items
 
         # 'scheduled[target][cfg]' is a list of Deploy objects for the chosen
@@ -148,7 +155,7 @@ class Scheduler:
             msg = self.msg_fmt.format(0, 0, 0, 0, 0, self._total[target])
             self.status_printer.init_target(target=target, msg=msg)
 
-        # A map from the Deploy object names tracked by this class to their
+        # A map from the Deployment names tracked by this class to their
         # current status. This status is 'Q', 'D', 'P', 'F' or 'K',
         # corresponding to membership in the dicts above. This is not
         # per-target.
@@ -271,8 +278,13 @@ class Scheduler:
         them to _queued.
         """
         for next_item in self._get_successors(item):
-            assert next_item.full_name not in self.item_status
-            assert next_item not in self._queued[next_item.target]
+            if (
+                next_item.full_name in self.item_status
+                or next_item in self._queued[next_item.target]
+            ):
+                msg = f"Job {next_item.full_name} already scheduled"
+                raise RuntimeError(msg)
+
             self.item_status[next_item.full_name] = "Q"
             self._queued[next_item.target].append(next_item)
             self._unschedule_item(next_item)
@@ -281,6 +293,10 @@ class Scheduler:
         """Cancel an item's successors.
 
         Recursively move them from _scheduled or _queued to _killed.
+
+        Args:
+            item: job whose successors are to be canceled.
+
         """
         items = list(self._get_successors(item))
         while items:
@@ -291,14 +307,17 @@ class Scheduler:
     def _get_successors(self, item: Deploy | None = None) -> Sequence[Deploy]:
         """Find immediate successors of an item.
 
-        'item' is a job that has completed. We choose the target that follows
-        the 'item''s current target and find the list of successors whose
-        dependency list contains 'item'. If 'item' is None, we pick successors
-        from all cfgs, else we pick successors only from the cfg to which the
-        item belongs.
+        We choose the target that follows the 'item''s current target and find
+        the list of successors whose dependency list contains 'item'. If 'item'
+        is None, we pick successors from all cfgs, else we pick successors only
+        from the cfg to which the item belongs.
 
-        Returns the list of item's successors, or an empty list if there are
-        none.
+        Args:
+            item: is a job that has completed.
+
+        Returns:
+            list of item's successors, or an empty list if there are none.
+
         """
         if item is None:
             target = next(iter(self._scheduled))
@@ -320,8 +339,10 @@ class Scheduler:
             while not found:
                 if target == item.target:
                     found = True
+
                 try:
                     target = next(target_iterator)
+
                 except StopIteration:
                     return []
 
@@ -349,7 +370,15 @@ class Scheduler:
         return successors
 
     def _ok_to_enqueue(self, item: Deploy) -> bool:
-        """Return true if ALL dependencies of item are complete."""
+        """Check if all dependencies jobs are completed.
+
+        Args:
+            item: is a deployment job.
+
+        Returns:
+            true if ALL dependencies of item are complete.
+
+        """
         for dep in item.dependencies:
             # Ignore dependencies that were not scheduled to run.
             if dep not in self.items:
@@ -366,11 +395,18 @@ class Scheduler:
         return True
 
     def _ok_to_run(self, item: Deploy) -> bool:
-        """Return true if the required dependencies have passed.
+        """Check if a job is ready to start.
 
         The item's needs_all_dependencies_passing setting is used to figure
         out whether we can run this item or not, based on its dependent jobs'
         statuses.
+
+        Args:
+            item: is a deployment job.
+
+        Returns:
+            true if the required dependencies have passed.
+
         """
         # 'item' can run only if its dependencies have passed (their results
         # should already show up in the item to status map).
@@ -395,7 +431,9 @@ class Scheduler:
     def _poll(self, hms: str) -> bool:
         """Check for running items that have finished.
 
-        Returns True if something changed.
+        Returns:
+            True if something changed.
+
         """
         max_poll = min(
             self.launcher_cls.max_poll,
@@ -615,6 +653,11 @@ class Scheduler:
 
         Supplied item may be in _scheduled list or the _queued list. From
         either, we move it straight to _killed.
+
+        Args:
+            item: is a deployment job.
+            cancel_successors: if set then cancel successors as well (True).
+
         """
         self.item_status[item.full_name] = "K"
         self._killed[item.target].add(item)
@@ -627,7 +670,12 @@ class Scheduler:
             self._cancel_successors(item)
 
     def _kill_item(self, item: Deploy) -> None:
-        """Kill a running item and cancel all of its successors."""
+        """Kill a running item and cancel all of its successors.
+
+        Args:
+            item: is a deployment job.
+
+        """
         self._launchers[item.full_name].kill()
         self.item_status[item.full_name] = "K"
         self._killed[item.target].add(item)

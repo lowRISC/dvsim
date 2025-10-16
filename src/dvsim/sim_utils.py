@@ -6,15 +6,19 @@
 
 import re
 from collections import OrderedDict
+from collections.abc import Sequence
+from io import TextIOWrapper
 from pathlib import Path
 
 
-def get_cov_summary_table(cov_report_txt: Path, tool: str):
+def get_cov_summary_table(
+    txt_cov_report: Path,
+    tool: str,
+) -> tuple[Sequence[Sequence[str]], str]:
     """Capture the summary results as a list of lists.
 
     The text coverage report is passed as input to the function, in addition to
-    the tool used. The tool returns a 2D list if the coverage report file was read
-    and the coverage was extracted successfully.
+    the tool used.
 
     Returns:
         tuple of, List of metrics and values, and final coverage total
@@ -23,7 +27,7 @@ def get_cov_summary_table(cov_report_txt: Path, tool: str):
         the appropriate exception if the coverage summary extraction fails.
 
     """
-    with Path(cov_report_txt).open() as f:
+    with Path(txt_cov_report).open() as f:
         if tool == "xcelium":
             return xcelium_cov_summary_table(f)
 
@@ -35,7 +39,8 @@ def get_cov_summary_table(cov_report_txt: Path, tool: str):
 
 
 # Same desc as above, but specific to Xcelium and takes an opened input stream.
-def xcelium_cov_summary_table(buf):
+def xcelium_cov_summary_table(buf: TextIOWrapper) -> tuple[Sequence[Sequence[str]], str]:
+    """Capture the summary results as a list of lists from Xcelium."""
     for line in buf:
         if "name" in line:
             # Strip the line and remove the unwanted "* Covered" string.
@@ -87,7 +92,8 @@ def xcelium_cov_summary_table(buf):
 
 
 # Same desc as above, but specific to VCS and takes an opened input stream.
-def vcs_cov_summary_table(buf):
+def vcs_cov_summary_table(buf: TextIOWrapper) -> tuple[Sequence[Sequence[str]], str]:
+    """Capture the summary results as a list of lists from VCS."""
     for line in buf:
         match = re.match("total coverage summary", line, re.IGNORECASE)
         if match:
@@ -124,7 +130,7 @@ def get_job_runtime(log_text: list, tool: str) -> tuple[float, str]:
         tool: is the EDA tool used to run the job.
 
     Returns:
-        the runtime, units as a tuple.
+        a tuple of (runtime, units).
 
     Raises:
         NotImplementedError: exception if the EDA tool is not supported.
@@ -184,8 +190,7 @@ def xcelium_job_runtime(log_text: list) -> tuple[float, str]:
     """
     pattern = r"^TOOL:\s*xrun.*: Exiting on .*\(total:\s*(\d+):(\d+):(\d+)\)\s*$"
     for line in reversed(log_text):
-        m = re.search(pattern, line)
-        if m:
+        if m := re.search(pattern, line):
             t = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
             return t, "s"
     msg = "Job runtime not found in the log."
@@ -265,9 +270,10 @@ def vcs_simulated_time(log_text: list) -> tuple[float, str]:
     next_line = ""
 
     for line in reversed(log_text):
-        if "V C S   S i m u l a t i o n   R e p o r t" in line and (
-            m := re.search(pattern, next_line)
-        ):
+        if "V C S   S i m u l a t i o n   R e p o r t" not in line:
+            continue
+
+        if m := re.search(pattern, next_line):
             return float(m.group(1)), m.group(2).lower()
 
         next_line = line

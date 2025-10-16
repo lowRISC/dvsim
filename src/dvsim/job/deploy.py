@@ -293,7 +293,7 @@ class Deploy:
         This is invoked by launcher::_pre_launch().
         """
 
-    def post_finish(self, status) -> None:
+    def post_finish(self, status: str) -> None:
         """Perform additional post-finish activities (callback).
 
         This is invoked by launcher::_post_finish().

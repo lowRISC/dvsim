@@ -67,7 +67,7 @@ class Launcher(ABC):
     poll_freq = 1
 
     # Points to the python virtual env area.
-    pyvenv = None
+    pyvenv: Path | None = None
 
     # If a history of previous invocations is to be maintained, then keep no
     # more than this many directories.
@@ -250,6 +250,10 @@ class Launcher(ABC):
         """Poll the launched job for completion.
 
         Invokes _check_status() and _post_finish() when the job completes.
+
+        Returns:
+            status of the job or None
+
         """
 
     @abstractmethod
