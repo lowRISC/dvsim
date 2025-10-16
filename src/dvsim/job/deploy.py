@@ -711,6 +711,10 @@ class CovMerge(Deploy):
                 else:
                     self.cov_db_dirs.append(run.cov_db_dir)
 
+        # Sort the cov_db_dir except for the first directory
+        if len(self.cov_db_dirs) > 1:
+            self.cov_db_dirs = [self.cov_db_dirs[0], *sorted(self.cov_db_dirs[1:])]
+
         # Early lookup the cov_merge_db_dir, which is a mandatory misc
         # attribute anyway. We need it to compute additional cov db dirs.
         self.cov_merge_db_dir = subst_wildcards("{cov_merge_db_dir}", sim_cfg.__dict__)
