@@ -6,9 +6,9 @@ name: CI checks
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
   merge_group:
 
 permissions:
@@ -18,70 +18,66 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required so we can lint commit messages.
 
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0 # Required so we can lint commit messages.
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: DeterminateSystems/flake-checker-action@main
 
-    - uses: DeterminateSystems/nix-installer-action@main
-    - uses: DeterminateSystems/magic-nix-cache-action@main
-    - uses: DeterminateSystems/flake-checker-action@main
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
+      - name: Nix Format Check
+        run: nix fmt -- . --check
 
-    - name: Nix Format Check
-      run: nix fmt -- . --check
+      - name: Install the project
+        run: |
+          uv sync --all-extras --python 3.14
+          source .venv/bin/activate
+          echo PATH=$PATH >> $GITHUB_ENV
 
-    - name: Set up Python
-      run: uv python install 3.13
+      - name: Commit metadata
+        run: |
+          merge_base="$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)" || {
+              echo >&2 "Failed to find fork point for origin/$GITHUB_BASE_REF."
+              exit 1
+          }
+          # Notes:
+          # * Merge commits are not checked. We always use rebases instead of
+          #   merges to keep a linear history, which makes merge commits disappear
+          #   ultimately, making them only a CI artifact which should not be
+          #   checked.
+          scripts/lint_commits.py "$merge_base"
 
-    - name: Install the project
-      run: |
-        uv sync --all-extras
-        source .venv/bin/activate
-        echo PATH=$PATH >> $GITHUB_ENV
+        if: ${{ github.event_name == 'pull_request' }}
 
-    - name: Commit metadata
-      run: |
-        merge_base="$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)" || {
-            echo >&2 "Failed to find fork point for origin/$GITHUB_BASE_REF."
-            exit 1
-        }
-        # Notes:
-        # * Merge commits are not checked. We always use rebases instead of
-        #   merges to keep a linear history, which makes merge commits disappear
-        #   ultimately, making them only a CI artifact which should not be
-        #   checked.
-        scripts/lint_commits.py "$merge_base"
+      - name: License header check
+        run: scripts/license_check.py
 
-      if: ${{ github.event_name == 'pull_request' }}
+      - name: Dependency license check
+        run: |
+          # Ignore MPL 2.0 which is weak copy left
+          uv tool run licensecheck --zero --ignore-licenses "MPL 2.0"
 
-    - name: License header check
-      run: scripts/license_check.py
+      - name: Lint with Ruff
+        run: |
+          ruff format  --check
 
-    - name: Dependency license check
-      run: |
-        # Ignore MPL 2.0 which is weak copy left
-        uv tool run licensecheck --zero --ignore-licenses "MPL 2.0"
+      - name: Check with Ruff (All rules)
+        run: |
+          ruff check --statistics
+        continue-on-error: true
 
-    - name: Lint with Ruff
-      run: |
-        ruff format  --check
+      - name: Check with Ruff
+        run: |
+          ruff check --config=ruff-ci.toml --output-format=github
 
-    - name: Check with Ruff (All rules)
-      run: |
-        ruff check --statistics
-      continue-on-error: true
-
-    - name: Check with Ruff
-      run: |
-        ruff check --config=ruff-ci.toml --output-format=github
-
-    - name: Type check with pyright
-      run: |
-        pyright
-      continue-on-error: true
+      - name: Type check with pyright
+        run: |
+          pyright
+        continue-on-error: true
 
   test:
     runs-on: ubuntu-latest
@@ -94,21 +90,17 @@ jobs:
           - "3.13"
           - "3.14"
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
-    - name: Set up Python ${{ matrix.python-version }}
-      run: uv python install ${{ matrix.python-version }}
+      - name: Install the project
+        run: |
+          uv sync --all-extras --python ${{ matrix.python-version }}
+          source .venv/bin/activate
+          echo PATH=$PATH >> $GITHUB_ENV
 
-    - name: Install the project
-      run: |
-        uv sync --all-extras
-        source .venv/bin/activate
-        echo PATH=$PATH >> $GITHUB_ENV
-
-    - name: Test with pytest
-      run: |
-        pytest
-
+      - name: Test with pytest
+        run: |
+          pytest
