@@ -40,7 +40,7 @@ def rm_path(path: Path, *, ignore_error: bool = False) -> None:
     path = Path(path)
 
     # Nothing to do
-    if not path.exists(follow_symlinks=False):
+    if not path.exists():
         return
 
     if path.is_file() or path.is_symlink():

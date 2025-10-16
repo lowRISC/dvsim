@@ -19,13 +19,30 @@ def test_symlink_creation(tmp_path: Path) -> None:
 
     mk_symlink(path=dest_path, link=src_path)
 
+    assert_that(src_path.is_symlink(), equal_to(True))
+
+    # Despite the dest_path not yet existing the two paths should still
+    # resolve to the same path
     assert_that(src_path.resolve(), equal_to(dest_path))
+
+    # Make a temporary file in the destination directory
+    dest_path.mkdir(parents=True)
+    (dest_path / "temp").touch()
+
+    # Check the file is now visible from the symlink
+    assert_that((src_path / "temp").exists(), equal_to(True))
+
+    # remove the created file via the symlink
+    rm_path(src_path / "temp")
+
+    # Check it's gone
+    assert_that((src_path / "temp").exists(), equal_to(False))
 
     rm_path(src_path)
 
-    # Check the symlink itself exists
-    assert_that(src_path.is_symlink(), equal_to(False))
-    assert_that(src_path.exists(follow_symlinks=False), equal_to(False))
+    # Check the symlink itself has been removed and not the destination dir
+    assert_that(src_path.exists(), equal_to(False))
+    assert_that(dest_path.exists(), equal_to(True))
 
 
 def test_overwrite_file_with_symlink_raises(tmp_path: Path) -> None:
