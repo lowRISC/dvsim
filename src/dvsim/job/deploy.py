@@ -28,6 +28,7 @@ from dvsim.utils import (
 
 if TYPE_CHECKING:
     from dvsim.flow.sim import SimCfg
+    from dvsim.modes import BuildMode
 
 
 class WorkspaceConfig(BaseModel):
@@ -391,6 +392,20 @@ class CompileSim(Deploy):
                 self.name,
                 self.build_timeout_mins,
             )
+
+    @staticmethod
+    def new(build_mode_obj: "BuildMode", sim_cfg: "SimCfg") -> "CompileSim":
+        """Create a new CompileSim object.
+
+        Args:
+            build_mode_obj: build mode instance
+            sim_cfg: Simulation config object
+
+        Returns:
+            new CompileSim object.
+
+        """
+        return CompileSim(build_mode=build_mode_obj, sim_cfg=sim_cfg)
 
     def _define_attrs(self) -> None:
         """Define attributes."""
