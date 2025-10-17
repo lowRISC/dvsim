@@ -163,8 +163,8 @@ class Launcher(ABC):
         if not venv_path:
             venv_path = os.environ.get(common_venv)
 
-        if not Launcher.pyvenv:
-            Launcher.pyvenv = os.environ.get(f"{project.upper()}_PYVENV")
+        if venv_path:
+            Launcher.pyvenv = Path(venv_path)
 
     @staticmethod
     @abstractmethod

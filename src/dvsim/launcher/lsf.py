@@ -52,22 +52,25 @@ class LsfLauncher(Launcher):
         """
         # Since we dispatch to remote machines, a project specific python
         # virtualenv is exists, needs to be activated when launching the job.
-        Launcher.set_pyvenv(project)
-        if Launcher.pyvenv is None:
+        Launcher.set_pyvenv(cfg.project)
+
+        pyvenv = Launcher.pyvenv
+        if pyvenv is None:
             return
 
         # If it is already a dir, then nothing to be done.
-        if os.path.isdir(Launcher.pyvenv):  # noqa: PTH112
+        if pyvenv.is_dir():
             return
 
         # If not, then it needs to be a valid tarball. Extract it in the
         # scratch area if it does not exist.
-        stem = Path(Launcher.pyvenv).stem
+        stem = pyvenv.stem
         if stem.endswith("tar"):
             stem = stem[:-4]
-        path = Path(args.scratch_root, stem)
+
+        path = cfg.scratch_root / stem
         if not path.is_dir():
-            log.info("[prepare_workspace]: [pyvenv]: Extracting %s", Launcher.pyvenv)
+            log.info("[prepare_workspace]: [pyvenv]: Extracting %s", pyvenv)
             with tarfile.open(Launcher.pyvenv, mode="r") as tar:
                 tar.extractall(cfg.scratch_root)
 
@@ -87,9 +90,9 @@ class LsfLauncher(Launcher):
 
         """
         # Create the job dir.
-        LsfLauncher.jobs_dir[cfg] = Path(cfg.scratch_path, "lsf", cfg.timestamp)
-        clean_odirs(odir=LsfLauncher.jobs_dir[cfg], max_odirs=2)
-        os.makedirs(Path(LsfLauncher.jobs_dir[cfg]), exist_ok=True)
+        LsfLauncher.jobs_dir[cfg.project] = cfg.scratch_path / "lsf" / cfg.timestamp
+        clean_odirs(odir=LsfLauncher.jobs_dir[cfg.project], max_odirs=2)
+        os.makedirs(Path(LsfLauncher.jobs_dir[cfg.project]), exist_ok=True)
 
     @staticmethod
     def make_job_script(cfg: "WorkspaceConfig", job_name: str):
@@ -129,10 +132,11 @@ class LsfLauncher(Launcher):
         if Launcher.pyvenv:
             lines += ["deactivate\n"]
 
-        job_script = Path(LsfLauncher.jobs_dir[cfg], job_name)
+        job_script = LsfLauncher.jobs_dir[cfg] / job_name
         try:
             with open(job_script, "w", encoding="utf-8") as f:
                 f.writelines(lines)
+
         except OSError as e:
             err_msg = f"ERROR: Failed to write {job_script}:\n{e}"
             LsfLauncher._post_finish_job_array(cfg, job_name, err_msg)
