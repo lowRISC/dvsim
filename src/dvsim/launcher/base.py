@@ -318,7 +318,10 @@ class Launcher(ABC):
         # Since the log file is already opened and read to assess the job's
         # status, use this opportunity to also extract other pieces of
         # information.
-        self.deploy.extract_info_from_log(lines)
+        self.deploy.extract_info_from_log(
+            job_runtime_secs=self.job_runtime_secs,
+            log_text=lines,
+        )
 
         if chk_failed or chk_passed:
             for cnt, line in enumerate(lines):

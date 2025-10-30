@@ -306,7 +306,7 @@ class Deploy:
     def get_timeout_mins(self) -> float | None:
         """Return the timeout in minutes."""
 
-    def extract_info_from_log(self, log_text: list) -> None:
+    def extract_info_from_log(self, job_runtime_secs: int, log_text: list) -> None:
         """Extract information pertaining to the job from its log.
 
         This method parses the log text after the job has completed, for the
@@ -326,7 +326,7 @@ class Deploy:
             self.job_runtime.set(time, unit)
         except RuntimeError as e:
             log.warning(f"{self.full_name}: {e} Using dvsim-maintained job_runtime instead.")
-            self.job_runtime.set(self.launcher.job_runtime_secs, "s")
+            self.job_runtime.set(job_runtime_secs, "s")
 
     def model_dump(self) -> Mapping:
         """Dump the deployment object to mapping object.
@@ -632,12 +632,17 @@ class RunTest(Deploy):
         """
         return self.run_timeout_mins if self.run_timeout_mins is not None else 60
 
-    def extract_info_from_log(self, log_text: list) -> None:
+    def extract_info_from_log(self, job_runtime_secs: int, log_text: list) -> None:
         """Extract the time the design was simulated for, from the log."""
-        super().extract_info_from_log(log_text)
+        super().extract_info_from_log(
+            job_runtime_secs=job_runtime_secs,
+            log_text=log_text,
+        )
+
         try:
             time, unit = get_simulated_time(log_text, self.sim_cfg.tool)
             self.simulated_time.set(time, unit)
+
         except RuntimeError as e:
             log.debug(f"{self.full_name}: {e}")
 
