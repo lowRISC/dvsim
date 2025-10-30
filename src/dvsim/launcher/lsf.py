@@ -92,7 +92,7 @@ class LsfLauncher(Launcher):
         # Create the job dir.
         LsfLauncher.jobs_dir[cfg.project] = cfg.scratch_path / "lsf" / cfg.timestamp
         clean_odirs(odir=LsfLauncher.jobs_dir[cfg.project], max_odirs=2)
-        os.makedirs(Path(LsfLauncher.jobs_dir[cfg.project]), exist_ok=True)
+        Path(LsfLauncher.jobs_dir[cfg.project]).mkdir(exist_ok=True, parents=True)
 
     @staticmethod
     def make_job_script(cfg: "WorkspaceConfig", job_name: str):
@@ -124,7 +124,7 @@ class LsfLauncher(Launcher):
         lines += ["case $1 in\n"]
         for job in LsfLauncher.jobs[cfg][job_name]:
             # Redirect the job's stdout and stderr to its log file.
-            cmd = f"{job.deploy.cmd} > {job.deploy.get_log_path()} 2>&1"
+            cmd = f"{job.deploy.cmd} > {job.deploy.log_path} 2>&1"
             lines += [f"  {job.index})\n", f"    {cmd};;\n"]
 
         # Throw error as a sanity check if the job index is invalid.
@@ -134,7 +134,7 @@ class LsfLauncher(Launcher):
 
         job_script = LsfLauncher.jobs_dir[cfg] / job_name
         try:
-            with open(job_script, "w", encoding="utf-8") as f:
+            with Path(job_script).open("w", encoding="utf-8") as f:
                 f.writelines(lines)
 
         except OSError as e:
@@ -182,8 +182,8 @@ class LsfLauncher(Launcher):
     def _do_launch(self) -> None:
         """Launch the job."""
         # Add self to the list of jobs.
-        job_name = self.deploy.job_name
-        cfg = self.deploy.workspace_cfg
+        job_name = self.job_spec.job_name
+        cfg = self.job_spec.workspace_cfg
         job_total = len(LsfLauncher.jobs[cfg.project][job_name])
 
         # The actual launching of the bsub command cannot happen until the
@@ -196,7 +196,7 @@ class LsfLauncher(Launcher):
         # Update the shell's env vars with self.exports. Values in exports must
         # replace the values in the shell's env vars if the keys match.
         exports = os.environ.copy()
-        exports.update(self.deploy.exports)
+        exports.update(self.job_spec.exports)
 
         # Clear the magic MAKEFLAGS variable from exports if necessary. This
         # variable is used by recursive Make calls to pass variables from one
@@ -214,10 +214,10 @@ class LsfLauncher(Launcher):
             job_array += "%100"
 
         # TODO: This needs to be moved to a HJson.
-        if self.deploy.sim_cfg.tool == "vcs":
+        if self.job_spec.tool == "vcs":
             job_rusage = "'rusage[vcssim=1,vcssim_dynamic=1:duration=1]'"
 
-        elif self.deploy.sim_cfg.tool == "xcelium":
+        elif self.job_spec.tool == "xcelium":
             job_rusage = "'rusage[xcelium=1,xcelium_dynamic=1:duration=1]'"
 
         else:
@@ -236,8 +236,8 @@ class LsfLauncher(Launcher):
             "-eo",
             f"{job_script}.%I.out",
         ]
-        if self.deploy.get_timeout_mins():
-            cmd += ["-c", self.deploy.get_timeout_mins()]
+        if self.job_spec.timeout_mins:
+            cmd += ["-c", self.job_spec.timeout_mins]
 
         if job_rusage:
             cmd += ["-R", job_rusage]
@@ -303,7 +303,7 @@ class LsfLauncher(Launcher):
             # If we got to this point,  we can now open the job script output
             # file for reading.
             try:
-                self.bsub_out_fd = open(self.bsub_out)
+                self.bsub_out_fd = Path(self.bsub_out).open()
 
             except OSError as e:
                 self._post_finish(
@@ -435,7 +435,7 @@ class LsfLauncher(Launcher):
             except subprocess.CalledProcessError as e:
                 log.exception("Failed to kill job: {}".format(e.stderr.decode("utf-8").strip()))
         else:
-            log.error("Job ID for %s not found", self.deploy.full_name)
+            log.error("Job ID for %s not found", self.job_spec.full_name)
 
         self._post_finish("K", ErrorMessage(message="Job killed!", context=[]))
 

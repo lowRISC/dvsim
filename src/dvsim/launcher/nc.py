@@ -53,10 +53,10 @@ class NcLauncher(Launcher):
         pathlib.Path(run_file).chmod(0o755)
 
     def get_submit_cmd(self):
-        exetool = self.deploy.sim_cfg.tool
-        job_name = self.deploy.full_name
-        cmd = self.deploy.cmd
-        odir = self.deploy.odir
+        exetool = self.job_spec.tool
+        job_name = self.job_spec.full_name
+        cmd = self.job_spec.cmd
+        odir = self.job_spec.odir
 
         # TODO: These tool-specific names need moving into an hjson config
         # file.
@@ -96,7 +96,7 @@ class NcLauncher(Launcher):
         # Compute the environment for the subprocess by overriding environment
         # variables of this process with matching ones from self.deploy.exports
         exports = os.environ.copy()
-        exports.update(self.deploy.exports)
+        exports.update(self.job_spec.exports)
 
         # Clear the magic MAKEFLAGS variable from exports if necessary. This
         # variable is used by recursive Make calls to pass variables from one
@@ -111,16 +111,16 @@ class NcLauncher(Launcher):
         # For reruns, delete the log file of the past run to avoid any race
         # condition between the log file getting updated for the new run
         # versus the logic that distinguishes the job wait versus run times.
-        rm_path(self.deploy.get_log_path())
+        rm_path(self.job_spec.log_path)
         # using os.open instead of fopen as this allows
         # sharing of file descriptors across processes
-        fd = os.open(self.deploy.get_log_path(), os.O_WRONLY | os.O_CREAT)
+        fd = os.open(self.job_spec.log_path, os.O_WRONLY | os.O_CREAT)
         fobj = os.fdopen(fd, "w", encoding="UTF-8")
         os.set_inheritable(fd, True)
-        message = f"[Executing]:\n{self.deploy.cmd}\n\n"
+        message = f"[Executing]:\n{self.job_spec.cmd}\n\n"
         fobj.write(message)
         fobj.flush()
-        if self.deploy.sim_cfg.interactive:
+        if self.job_spec.interactive:
             # Interactive: Set RUN_INTERACTIVE to 1
             exports["RUN_INTERACTIVE"] = "1"
             # Line buffering (buf_size = 1) chosen to enable
@@ -147,9 +147,9 @@ class NcLauncher(Launcher):
                 stdout=std_out,
                 stderr=std_err,
                 env=exports,
-                cwd=self.deploy.odir,
+                cwd=self.job_spec.odir,
             )
-            if self.deploy.sim_cfg.interactive:
+            if self.job_spec.interactive:
                 for line in self.process.stdout:
                     fobj.write(line)
                     sys.stdout.write(line)
@@ -157,7 +157,7 @@ class NcLauncher(Launcher):
                 # the subprocess closes the stdout but still keeps running
                 self.process.wait()
         except subprocess.SubprocessError as e:
-            msg = f"IO Error: {e}\nSee {self.deploy.get_log_path()}"
+            msg = f"IO Error: {e}\nSee {self.job_spec.log_path}"
             raise LauncherError(msg)
         finally:
             self._close_process()
@@ -179,8 +179,8 @@ class NcLauncher(Launcher):
         """
         assert self.process is not None
         if self.process.poll() is None:
-            run_timeout_mins = self.deploy.get_timeout_mins()
-            if run_timeout_mins is not None and not self.deploy.gui:
+            run_timeout_mins = self.job_spec.timeout_mins
+            if run_timeout_mins is not None and not self.job_spec.gui:
                 wait_timeout_mins = 180  # max wait time in job / license queue
                 # We consider the job to have started once its log file contains
                 # something. file_size_thresh_bytes is a threshold: once the log
@@ -188,7 +188,7 @@ class NcLauncher(Launcher):
                 file_size_thresh_bytes = 5120  # log file size threshold
 
                 # query the log file size
-                f_size = os.path.getsize(self.deploy.get_log_path())  # noqa: PTH202
+                f_size = os.path.getsize(self.job_spec.log_path)  # noqa: PTH202
 
                 if f_size >= file_size_thresh_bytes:  # noqa: SIM102
                     if self.nc_job_state == "waiting":
@@ -238,9 +238,9 @@ class NcLauncher(Launcher):
         and SIGKILL.
         """
         try:
-            log.verbose(f"[Stopping] : {self.deploy.full_name}")
+            log.verbose(f"[Stopping] : {self.job_spec.full_name}")
             subprocess.run(
-                ["nc", "stop", "-set", self.deploy.full_name, "-sig", "TERM,KILL"],
+                ["nc", "stop", "-set", self.job_spec.full_name, "-sig", "TERM,KILL"],
                 check=True,
                 capture_output=True,
             )

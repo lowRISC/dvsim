@@ -8,13 +8,13 @@ import datetime
 import os
 import shlex
 import subprocess
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
 
 if TYPE_CHECKING:
-    from dvsim.job.deploy import Deploy, WorkspaceConfig
+    from dvsim.job.data import JobSpec
+    from dvsim.job.deploy import WorkspaceConfig
 
 
 class LocalLauncher(Launcher):
@@ -23,9 +23,9 @@ class LocalLauncher(Launcher):
     # Poll job's completion status every this many seconds
     poll_freq = 0.025
 
-    def __init__(self, deploy: "Deploy") -> None:
+    def __init__(self, job_spec: "JobSpec") -> None:
         """Initialize common class members."""
-        super().__init__(deploy)
+        super().__init__(job_spec)
 
         # Popen object when launching the job.
         self._process = None
@@ -35,7 +35,7 @@ class LocalLauncher(Launcher):
         # Update the shell's env vars with self.exports. Values in exports must
         # replace the values in the shell's env vars if the keys match.
         exports = os.environ.copy()
-        exports.update(self.deploy.exports)
+        exports.update(self.job_spec.exports)
 
         # Clear the magic MAKEFLAGS variable from exports if necessary. This
         # variable is used by recursive Make calls to pass variables from one
@@ -47,9 +47,9 @@ class LocalLauncher(Launcher):
 
         self._dump_env_vars(exports)
 
-        if not self.deploy.sim_cfg.interactive:
-            log_path = Path(self.deploy.get_log_path())
-            timeout_mins = self.deploy.get_timeout_mins()
+        if not self.job_spec.interactive:
+            log_path = self.job_spec.log_path
+            timeout_mins = self.job_spec.timeout_mins
 
             self.timeout_secs = timeout_mins * 60 if timeout_mins else None
 
@@ -59,11 +59,11 @@ class LocalLauncher(Launcher):
                     encoding="UTF-8",
                     errors="surrogateescape",
                 )
-                self._log_file.write(f"[Executing]:\n{self.deploy.cmd}\n\n")
+                self._log_file.write(f"[Executing]:\n{self.job_spec.cmd}\n\n")
                 self._log_file.flush()
 
                 self._process = subprocess.Popen(
-                    shlex.split(self.deploy.cmd),
+                    shlex.split(self.job_spec.cmd),
                     bufsize=4096,
                     universal_newlines=True,
                     stdout=self._log_file,
@@ -88,7 +88,7 @@ class LocalLauncher(Launcher):
             # Interactive. stdin / stdout are transparent
             # no timeout and blocking op as user controls the flow
             self._process = subprocess.Popen(
-                shlex.split(self.deploy.cmd),
+                shlex.split(self.job_spec.cmd),
                 stdin=None,
                 stdout=None,
                 stderr=subprocess.STDOUT,
@@ -121,10 +121,10 @@ class LocalLauncher(Launcher):
             if (
                 self.timeout_secs
                 and (self.job_runtime_secs > self.timeout_secs)
-                and not (self.deploy.gui)
+                and not (self.job_spec.gui)
             ):
                 self._kill()
-                timeout_mins = self.deploy.get_timeout_mins()
+                timeout_mins = self.job_spec.timeout_mins
                 timeout_message = f"Job timed out after {timeout_mins} minutes"
                 self._post_finish(
                     "K",

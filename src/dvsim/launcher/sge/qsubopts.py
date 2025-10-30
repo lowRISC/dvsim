@@ -1893,7 +1893,7 @@ class QSubOptions:
         if echo:
             pass
 
-        f = open(filename, "w")
+        f = pathlib.Path(filename).open("w")
         f.write("\n".join(buf))
         f.close()
 
@@ -1937,7 +1937,7 @@ class QSubOptions:
         cwd = pathlib.Path.cwd()
         command_file = cwd + "/command_file_" + str(os.getpid()) + "_" + test_id
         try:
-            with open(command_file, "w") as f_command:
+            with pathlib.Path(command_file).open("w") as f_command:
                 command_temp = str(self.args.command)
                 command_temp = command_temp.replace('"', "")
                 f_command.write(command_temp + "\n/bin/rm -f " + command_file)
@@ -1957,7 +1957,7 @@ class QSubOptions:
         if mode == "local":
             import subprocess
 
-            subprocess.Popen(
+            subprocess.Popen(  # noqa: S602
                 command_file,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,

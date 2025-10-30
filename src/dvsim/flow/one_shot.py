@@ -4,7 +4,7 @@
 
 """Class describing a one-shot build configuration object."""
 
-import os
+import pathlib
 from collections import OrderedDict
 
 from dvsim.flow.base import FlowCfg
@@ -135,7 +135,7 @@ class OneShotCfg(FlowCfg):
         """Create initial set of directories."""
         for link in self.links:
             rm_path(self.links[link])
-            os.makedirs(self.links[link])
+            pathlib.Path(self.links[link]).mkdir(parents=True)
 
     def _create_deploy_objects(self) -> None:
         """Create deploy objects from build modes."""

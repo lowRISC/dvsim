@@ -11,6 +11,8 @@ import pwd
 import re
 import subprocess
 import time
+from collections.abc import Generator, Sequence
+from pathlib import Path
 
 from dvsim.logging import log
 
@@ -18,7 +20,13 @@ from dvsim.logging import log
 class _JobData:
     """Internal helper class to manage job data from qstat."""
 
-    def __init__(self, qstat_job_line) -> None:
+    def __init__(self, qstat_job_line: str) -> None:
+        """Initialise a JobData object for qstat job status parsing.
+
+        Args:
+            qstat_job_line: string from qstat call
+
+        """
         # The format of the line goes like
         # job-ID prior name  user  state submit/start at queue slots ja-task-ID
 
@@ -88,32 +96,33 @@ class _JobData:
 class JobList:
     """Internal helper class to manage job lists."""
 
-    def __init__(self, qstat_output=None) -> None:
+    def __init__(self, qstat_output: str) -> None:
+        """Initialise JobList."""
         self._joblist = []
         for line in qstat_output.split("\n")[2:-1]:
             self._joblist.append(_JobData(line))
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[_JobData]:
+        """Get an Iterator over the job list."""
         yield from self._joblist
 
     def __repr__(self) -> str:
+        """Get string representation of the job list."""
         return "\n".join([str(job) for job in self._joblist])
 
 
 class SGE:
     """External system call handler for Sun Grid Engine environment."""
 
-    def __init__(
-        self,
-        q=None,
-        path="",
-    ) -> None:
+    def __init__(self, q=None, path: str | Path = "") -> None:
+        """Initialise Sun Grid Engine proxy."""
+        path = Path(path)
         if q is None:
             # No queue specified. By default, submit to all available queues.
-            self.cmd_qconf = os.path.join(path, "qconf")
+            self.cmd_qconf = path / "qconf"
 
             try:
-                qliststr = _exec(self.cmd_qconf + " -sql")
+                qliststr = _exec(f"{self.cmd_qconf} -sql")
             except OSError:
                 error_msg = "Error querying queue configuration"
                 log.exception(error_msg)
@@ -122,31 +131,42 @@ class SGE:
             self.q = qliststr.replace("\n", ",")[:-1]
 
             log.info(
-                """Sun Grid Engine handler initialized
-Queues detected: %s""",
+                "Sun Grid Engine handler initialized\nQueues detected: %s",
                 self.q,
             )
 
         else:
             self.q = q
 
-        self.cmd_qsub = os.path.join(path, "qsub")
-        self.cmd_qstat = os.path.join(path, "qstat")
+        self.cmd_qsub = path / "qsub"
+        self.cmd_qstat = path / "qstat"
 
-    def wait(self, jobid, interval=10, name=None, pbar=None, pbar_mode=None) -> None:
-        """Waits for job running on SGE Grid Engine environment to finish.
+    def wait(
+        self,
+        jobid: int,
+        interval: int = 10,
+        name: str | None = None,
+        pbar: None = None,
+    ) -> None:
+        """Wait for job running on SGE Grid Engine environment to finish.
 
         If you are just waiting for one job, this becomes a dumb substitute for
         the -sync y option which can be specified to qsub.
 
-        Inputs:
+        Args:
+            jobid: job identifier
+            interval: polling interval of SGE queue, in seconds. (Default: 10)
+            name: name of the job
+            pbar: progress bar (not implemented?)
 
-        jobid
-        interval - Polling interval of SGE queue, in seconds. (Default: 10)
         """
         dowait = True
         while dowait:
-            p = subprocess.Popen(self.cmd_qstat, shell=True, stdout=subprocess.PIPE)
+            p = subprocess.Popen(  # noqa: S602
+                self.cmd_qstat,
+                shell=True,
+                stdout=subprocess.PIPE,
+            )
             pout, _ = p.communicate()
 
             if pbar is not None:
@@ -192,9 +212,12 @@ finish",
         nproc=1,
         wait=True,
         lammpi=True,
-    ):
-        """Submits a job to SGE
-        Returns jobid as a number.
+    ) -> int:
+        """Submit a job to SGE.
+
+        Returns:
+            jobid as a number.
+
         """
         log.info(
             "Submitting job:   "
@@ -212,20 +235,28 @@ Stderr: %s",
 
         if name is not None:
             qsuboptslist.append("-N " + name)
+
         if stdin is not None:
             qsuboptslist.append("-i " + stdin)
+
         if stdout is not None:
             qsuboptslist.append("-o " + stdout)
+
         if stderr is not None:
             qsuboptslist.append("-e " + stderr)
+
         if joinstdouterr:
             qsuboptslist.append("-j")
+
         if wait:
             qsuboptslist.append("-sync y")
+
         if usecwd:
             qsuboptslist.append("-cwd")
+
         if useenvironment:
             qsuboptslist.append("-V")
+
         if array is not False:
             try:
                 n = int(array[0])
@@ -237,6 +268,7 @@ Stderr: %s",
                 error_msg = "array[0] being an out of bounds access."
                 log.exception(error_msg)
                 raise ValueError(error_msg)
+
             try:
                 m = int(array[1])
             except ValueError:
@@ -247,6 +279,7 @@ Stderr: %s",
                 m = None
                 msg = "array[1] being an out of bounds access."
                 raise IndexError(msg)
+
             try:
                 s = int(array[2])
             except IndexError:
@@ -257,22 +290,28 @@ Stderr: %s",
                 s = None
                 msg = "Could not convert data to an integer."
                 raise ValueError(msg)
+
             if m == s is None:
-                qsuboptslist.append("-t %d" % n)
+                qsuboptslist.append(f"-t {n}")
             elif s is None:
-                qsuboptslist.append("-t %d-%d" % (n, m))
+                qsuboptslist.append(f"-t {n}-{m}")
             else:
-                qsuboptslist.append("-t %d-%d:%d" % (n, m, s))
+                qsuboptslist.append(f"-t {n}-{m}:{s}")
 
         qsubopts = " ".join(qsuboptslist)
 
-        pout = _exec(self.cmd_qsub, stdin=qsubopts + "\n" + job, print_command=False)
+        pout = _exec(
+            command=str(self.cmd_qsub),
+            stdin=qsubopts + "\n" + job,
+            print_command=False,
+        )
 
         try:
             # Next to last line should be
             # "Your job 1389 (name) has been submitted"
             # parse for job id
             return int(pout.split("\n")[-2].split()[2])
+
         # except (ValueErrorValueError, IndexError, AttributeError) (e):
         except (ValueError, IndexError, AttributeError):
             error_msg = f"""Error submitting SGE job:
@@ -284,21 +323,39 @@ Output was:
             log.exception(error_msg)
             raise OSError(error_msg)
 
-    def getuserjobs(self, user=pwd.getpwuid(os.getuid())[0]):
-        """Returns a list of SGE jobids run by a specific user.
+    def getuserjobs(self, user=pwd.getpwuid(os.getuid())[0]) -> Sequence[_JobData]:
+        """Return a list of SGE jobids run by a specific user.
 
-        Inputs
-            user - SGE user to poll (Default = '', i.e. current user)
-            qstat - path to qstat binary (Default = 'qstat')
+        Args:
+            user: SGE user to poll (Default = '', i.e. current user)
+            qstat: path to qstat binary (Default = 'qstat')
+
         """
-        p = subprocess.Popen(self.cmd_qstat + " -u " + user, shell=True, stdout=subprocess.PIPE)
+        p = subprocess.Popen(  # noqa: S602
+            f"{self.cmd_qstat} -u {user}",
+            shell=True,
+            stdout=subprocess.PIPE,
+        )
         qstat_output, _ = p.communicate()
         joblist = JobList(qstat_output)
         return [job for job in joblist if job.user == user]
 
-    def run_job(self, command, name="default", logfnm="default.log", wait=True):
+    def run_job(
+        self,
+        command: str,
+        name: str = "default",
+        log_filename: str = "default.log",
+        *,
+        wait: bool = True,
+    ) -> int:
         """Run job on SGE with piped logging."""
-        return self.submit(command, name=name, stdout=logfnm, stderr=logfnm, wait=wait)
+        return self.submit(
+            command,
+            name=name,
+            stdout=log_filename,
+            stderr=log_filename,
+            wait=wait,
+        )
 
     def get_queue_instance_status(self):
         """Get loads for each queue instance."""
@@ -319,11 +376,17 @@ Output was:
         return data
 
 
-def _exec(command, print_to_screen=False, logfnm=None, stdin="", print_command=False):
-    """Runs command line using subprocess, optionally returning stdout."""
+def _exec(
+    command: str,
+    log_path: str | None = None,
+    stdin: str = "",
+    *,
+    print_command: bool = False,
+) -> bytes:
+    """Run command line using subprocess, optionally returning stdout."""
 
-    def _call_cmd(command, stdin=""):
-        p = subprocess.Popen(
+    def _call_cmd(command: str, stdin: str = "") -> bytes:
+        p = subprocess.Popen(  # noqa: S602
             command,
             shell=True,
             stdin=subprocess.PIPE,
@@ -334,26 +397,26 @@ def _exec(command, print_to_screen=False, logfnm=None, stdin="", print_command=F
         return output
 
     if print_command:
-        log.info("Executing process: \x1b[1;92m%-50s\x1b[0m Logfile: %s", command, logfnm)
+        log.info("Executing process: \x1b[1;92m%-50s\x1b[0m Logfile: %s", command, log_path)
 
     output = ""
-    if logfnm is not None:
+    if log_path is not None:
         try:
-            with open(logfnm, "a") as f:
+            with Path(log_path).open("a") as f:
                 if print_command:
                     pass
+
                 output = _call_cmd(command, stdin)
                 f.write(output)
+
         except OSError:
-            error_msg = "Error: File: " + str(logfnm) + " does not appear to exist."
+            error_msg = "Error: File: " + str(log_path) + " does not appear to exist."
             log.exception(error_msg)
             raise OSError(error_msg)
+
     else:
         output = _call_cmd(command, stdin)
 
     log.info("Output of command is:\n%s", output)
-
-    if print_to_screen:
-        pass
 
     return output

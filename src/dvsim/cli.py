@@ -82,7 +82,7 @@ def resolve_scratch_root(arg_scratch_root, proj_root):
         arg_scratch_root = os.path.realpath(arg_scratch_root)
 
     try:
-        os.makedirs(arg_scratch_root, exist_ok=True)
+        Path(arg_scratch_root).mkdir(exist_ok=True, parents=True)
     except PermissionError as e:
         log.fatal(f"Failed to create scratch root {arg_scratch_root}:\n{e}.")
         sys.exit(1)
@@ -238,7 +238,7 @@ def copy_repo(src, dest) -> None:
     log.verbose("[copy_repo] [cmd]: \n%s", " ".join(cmd))
 
     # Make sure the dest exists first.
-    os.makedirs(dest, exist_ok=True)
+    Path(dest).mkdir(exist_ok=True, parents=True)
     try:
         subprocess.run(cmd, check=True, capture_output=True)
     except subprocess.CalledProcessError as e:

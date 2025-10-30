@@ -33,12 +33,12 @@ class SlurmLauncher(Launcher):
 
         # Popen object when launching the job.
         self.process = None
-        self.slurm_log_file = self.deploy.get_log_path() + ".slurm"
+        self.slurm_log_file = f"{self.job_spec.log_path}.slurm"
 
     def _do_launch(self) -> None:
         # replace the values in the shell's env vars if the keys match.
         exports = os.environ.copy()
-        exports.update(self.deploy.exports)
+        exports.update(self.job_spec.exports)
 
         # Clear the magic MAKEFLAGS variable from exports if necessary. This
         # variable is used by recursive Make calls to pass variables from one
@@ -59,12 +59,12 @@ class SlurmLauncher(Launcher):
         slurm_cmd = (
             f"srun -p {SLURM_QUEUE} --mem={SLURM_MEM} --mincpus={SLURM_MINCPUS} "
             f"--time={SLURM_TIMEOUT} --cpus-per-task={SLURM_CPUS_PER_TASK} "
-            f'bash -c "{slurm_setup_cmd} {self.deploy.cmd}"'
+            f'bash -c "{slurm_setup_cmd} {self.job_spec.cmd}"'
         )
 
         try:
             with pathlib.Path(self.slurm_log_file).open("w") as out_file:
-                out_file.write(f"[Executing]:\n{self.deploy.cmd}\n\n")
+                out_file.write(f"[Executing]:\n{self.job_spec.cmd}\n\n")
                 out_file.flush()
 
                 log.info(f"Executing slurm command: {slurm_cmd}")
@@ -80,7 +80,7 @@ class SlurmLauncher(Launcher):
             msg = f"File Error: {e}\nError while handling {self.slurm_log_file}"
             raise LauncherError(msg)
         except subprocess.SubprocessError as e:
-            msg = f"IO Error: {e}\nSee {self.deploy.get_log_path()}"
+            msg = f"IO Error: {e}\nSee {self.job_spec.log_path}"
             raise LauncherError(msg)
         finally:
             self._close_process()
@@ -105,10 +105,10 @@ class SlurmLauncher(Launcher):
             try:
                 with pathlib.Path(self.slurm_log_file).open() as slurm_file:
                     try:
-                        with pathlib.Path(self.deploy.get_log_path()).open("a") as out_file:
+                        with self.job_spec.log_path.open("a") as out_file:
                             shutil.copyfileobj(slurm_file, out_file)
                     except OSError as e:
-                        msg = f"File Error: {e} when handling {self.deploy.get_log_path()}"
+                        msg = f"File Error: {e} when handling {self.job_spec.log_path}"
                         raise LauncherError(
                             msg,
                         )

@@ -16,9 +16,10 @@ from typing import TYPE_CHECKING, ClassVar
 import hjson
 
 from dvsim.flow.hjson import set_target_attribute
+from dvsim.job.data import CompletedJobStatus
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
-from dvsim.scheduler import CompletedJobStatus, Scheduler
+from dvsim.scheduler import Scheduler
 from dvsim.utils import (
     find_and_substitute_wildcards,
     md_results_to_html,
@@ -403,7 +404,7 @@ class FlowCfg(ABC):
         for item in self.cfgs:
             item._create_deploy_objects()
 
-    def deploy_objects(self) -> Mapping[str, CompletedJobStatus]:
+    def deploy_objects(self) -> Sequence[CompletedJobStatus]:
         """Public facing API for deploying all available objects.
 
         Runs each job and returns a map from item to status.
@@ -430,13 +431,13 @@ class FlowCfg(ABC):
             )
 
         return Scheduler(
-            items=deploy,
+            items=[d.get_job_spec() for d in deploy],
             launcher_cls=get_launcher_cls(),
             interactive=self.interactive,
         ).run()
 
     @abstractmethod
-    def _gen_results(self, results: Mapping[str, CompletedJobStatus]) -> str:
+    def _gen_results(self, results: Sequence[CompletedJobStatus]) -> str:
         """Generate flow results.
 
         The function is called after the flow has completed. It collates
@@ -446,18 +447,18 @@ class FlowCfg(ABC):
         report, which is in markdown format.
 
         Args:
-            results: dictionary mapping deployed item names to completed job status.
+            results: completed job status objects.
 
         Returns:
             Results as a formatted string
 
         """
 
-    def gen_results(self, results: Mapping[str, CompletedJobStatus]) -> None:
+    def gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
         """Generate flow results.
 
         Args:
-            results: dictionary mapping deployed item names to completed job status.
+            results: completed job status objects.
 
         """
         for item in self.cfgs:
@@ -476,7 +477,7 @@ class FlowCfg(ABC):
             self.write_results(self.results_html_name, self.results_summary_md)
 
     @abstractmethod
-    def gen_results_summary(self) -> None:
+    def gen_results_summary(self) -> str:
         """Public facing API to generate summary results for each IP/cfg file."""
 
     def write_results(self, html_filename: str, text_md: str, json_str: str | None = None) -> None:

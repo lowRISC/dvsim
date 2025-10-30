@@ -15,11 +15,13 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
+from dvsim.job.time import JobTime
 from dvsim.logging import log
+from dvsim.sim_utils import get_job_runtime, get_simulated_time
 from dvsim.utils import clean_odirs, mk_symlink, rm_path
 
 if TYPE_CHECKING:
-    from dvsim.job.deploy import Deploy, WorkspaceConfig
+    from dvsim.job.data import JobSpec, WorkspaceConfig
 
 
 class LauncherError(Exception):
@@ -90,14 +92,14 @@ class Launcher(ABC):
         context=[],
     )
 
-    def __init__(self, deploy: "Deploy") -> None:
+    def __init__(self, job_spec: "JobSpec") -> None:
         """Initialise launcher.
 
         Args:
-            deploy: deployment object that will be launched.
+            job_spec: job specification for the job to be launched.
 
         """
-        workspace_cfg = deploy.workspace_cfg
+        workspace_cfg = job_spec.workspace_cfg
 
         # One-time preparation of the workspace.
         if not Launcher.workspace_prepared:
@@ -110,8 +112,7 @@ class Launcher(ABC):
             self.prepare_workspace_for_cfg(workspace_cfg)
             Launcher.workspace_prepared_for_cfg.add(project)
 
-        # Store the deploy object handle.
-        self.deploy = deploy
+        self.job_spec = job_spec
 
         # Status of the job. This is primarily determined by the
         # _check_status() method, but eventually updated by the _post_finish()
@@ -131,6 +132,16 @@ class Launcher(ABC):
 
         # The actual job runtime computed by dvsim, in seconds.
         self.job_runtime_secs = 0
+
+        # Job's wall clock time (a.k.a CPU time, or runtime).
+        # Field copied over from Deploy
+        # TODO: factor this out
+        self.job_runtime = JobTime()
+        self.simulated_time = JobTime()
+
+    def __str__(self) -> str:
+        """Get a string representation."""
+        return self.job_spec.full_name + ":launcher"
 
     @staticmethod
     def set_pyvenv(project: str) -> None:
@@ -191,30 +202,26 @@ class Launcher(ABC):
 
         """
 
-    def __str__(self) -> str:
-        """Get a string representation."""
-        return self.deploy.full_name + ":launcher"
-
     def _make_odir(self) -> None:
         """Create the output directory."""
         # If renew_odir flag is True - then move it.
         if self.renew_odir:
-            clean_odirs(odir=self.deploy.odir, max_odirs=self.max_odirs)
+            clean_odirs(odir=self.job_spec.odir, max_odirs=self.max_odirs)
 
-        Path(self.deploy.odir).mkdir(exist_ok=True, parents=True)
+        Path(self.job_spec.odir).mkdir(exist_ok=True, parents=True)
 
-    def _link_odir(self, status) -> None:
+    def _link_odir(self, status: str) -> None:
         """Soft-links the job's directory based on job's status.
 
         The dispatched, passed and failed directories in the scratch area
         provide a quick way to get to the job that was executed.
         """
-        dest = Path(self.deploy.sim_cfg.links[status], self.deploy.qual_name)
-        mk_symlink(path=self.deploy.odir, link=dest)
+        dest = Path(self.job_spec.links[status], self.job_spec.qual_name)
+        mk_symlink(path=self.job_spec.odir, link=dest)
 
         # Delete the symlink from dispatched directory if it exists.
         if status != "D":
-            old = Path(self.deploy.sim_cfg.links["D"], self.deploy.qual_name)
+            old = Path(self.job_spec.links["D"], self.job_spec.qual_name)
             rm_path(old)
 
     def _dump_env_vars(self, exports: Mapping[str, str]) -> None:
@@ -223,8 +230,7 @@ class Launcher(ABC):
         Each extended class computes the list of exports and invokes this
         method right before launching the job.
         """
-        with open(
-            self.deploy.odir + "/env_vars",
+        with (self.job_spec.odir / "env_vars").open(
             "w",
             encoding="UTF-8",
             errors="surrogateescape",
@@ -238,7 +244,7 @@ class Launcher(ABC):
         old runs, creating the output directory, dumping all env variables
         etc. This method is already invoked by launch() as the first step.
         """
-        self.deploy.pre_launch(self)
+        self.job_spec.pre_launch(self)
         self._make_odir()
         self.start_time = datetime.datetime.now()
 
@@ -300,20 +306,19 @@ class Launcher(ABC):
                     return pattern
             return None
 
-        if self.deploy.dry_run:
+        if self.job_spec.dry_run:
             return "P", None
 
         # Only one fail pattern needs to be seen.
-        chk_failed = bool(self.deploy.fail_patterns)
+        chk_failed = bool(self.job_spec.fail_patterns)
 
         # All pass patterns need to be seen, so we replicate the list and remove
         # patterns as we encounter them.
-        pass_patterns = self.deploy.pass_patterns.copy()
+        pass_patterns = list(self.job_spec.pass_patterns).copy()
         chk_passed = bool(pass_patterns) and (self.exit_code == 0)
 
         try:
-            with open(
-                self.deploy.get_log_path(),
+            with self.job_spec.log_path.open(
                 encoding="UTF-8",
                 errors="surrogateescape",
             ) as f:
@@ -321,21 +326,46 @@ class Launcher(ABC):
         except OSError as e:
             return "F", ErrorMessage(
                 line_number=None,
-                message=f"Error opening file {self.deploy.get_log_path()}:\n{e}",
+                message=f"Error opening file {self.job_spec.log_path}:\n{e}",
                 context=[],
             )
 
         # Since the log file is already opened and read to assess the job's
         # status, use this opportunity to also extract other pieces of
         # information.
-        self.deploy.extract_info_from_log(
-            job_runtime_secs=self.job_runtime_secs,
-            log_text=lines,
-        )
+
+        # Extracts the job's runtime (i.e. the wall clock time)
+        # as reported by the tool. The tool reported runtime is the most accurate
+        # since it is devoid of the delays incurred due to infrastructure and
+        # setup overhead.
+
+        try:
+            time, unit = get_job_runtime(
+                log_text=lines,
+                tool=self.job_spec.tool,
+            )
+            self.job_runtime.set(time, unit)
+
+        except RuntimeError as e:
+            log.warning(
+                f"{self.job_spec.full_name}: {e} Using dvsim-maintained job_runtime instead."
+            )
+            self.job_runtime.set(self.job_runtime_secs, "s")
+
+        if self.job_spec.job_type == "RunTest":
+            try:
+                time, unit = get_simulated_time(
+                    log_text=lines,
+                    tool=self.job_spec.tool,
+                )
+                self.simulated_time.set(time, unit)
+
+            except RuntimeError as e:
+                log.debug(f"{self.job_spec.full_name}: {e}")
 
         if chk_failed or chk_passed:
             for cnt, line in enumerate(lines):
-                if chk_failed and _find_patterns(self.deploy.fail_patterns, line):
+                if chk_failed and _find_patterns(self.job_spec.fail_patterns, line):
                     # If failed, then nothing else to do. Just return.
                     # Provide some extra lines for context.
                     end = cnt + 5
@@ -385,7 +415,7 @@ class Launcher(ABC):
         try:
             # Run the target-specific cleanup tasks regardless of the job's
             # outcome.
-            self.deploy.post_finish(status)
+            self.job_spec.post_finish(status)
 
         except Exception as e:
             # If the job had already failed, then don't do anything. If it's

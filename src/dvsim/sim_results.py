@@ -6,9 +6,9 @@
 
 import collections
 import re
-from collections.abc import Mapping
+from collections.abc import Sequence
 
-from dvsim.scheduler import CompletedJobStatus
+from dvsim.job.data import CompletedJobStatus
 from dvsim.testplan import Result
 
 _REGEX_REMOVE = [
@@ -76,48 +76,47 @@ class SimResults:
     holding all failing tests with the same signature.
     """
 
-    def __init__(self, items, results) -> None:
+    def __init__(self, results: Sequence[CompletedJobStatus]) -> None:
         self.table = []
         self.buckets = collections.defaultdict(list)
         self._name_to_row = {}
-        for item in items:
-            self._add_item(item, results)
+        for job_status in results:
+            self._add_item(job_status=job_status)
 
-    def _add_item(self, item, results: Mapping[str, CompletedJobStatus]) -> None:
+    def _add_item(self, job_status: CompletedJobStatus) -> None:
         """Recursively add a single item to the table of results."""
-        job_status = results[item.full_name]
         if job_status.status in ["F", "K"]:
             bucket = self._bucketize(job_status.fail_msg.message)
             self.buckets[bucket].append(
                 (
-                    item,
+                    job_status,
                     job_status.fail_msg.line_number,
                     job_status.fail_msg.context,
                 ),
             )
 
         # Runs get added to the table directly
-        if item.target == "run":
-            self._add_run(item, job_status.status)
+        if job_status.target == "run":
+            self._add_run(job_status)
 
-    def _add_run(self, item, status) -> None:
+    def _add_run(self, job_status: CompletedJobStatus) -> None:
         """Add an entry to table for item."""
-        row = self._name_to_row.get(item.name)
+        row = self._name_to_row.get(job_status.name)
         if row is None:
             row = Result(
-                item.name,
-                job_runtime=item.job_runtime,
-                simulated_time=item.simulated_time,
+                job_status.name,
+                job_runtime=job_status.job_runtime,
+                simulated_time=job_status.simulated_time,
             )
             self.table.append(row)
-            self._name_to_row[item.name] = row
+            self._name_to_row[job_status.name] = row
 
         # Record the max job_runtime of all reseeds.
-        elif item.job_runtime > row.job_runtime:
-            row.job_runtime = item.job_runtime
-            row.simulated_time = item.simulated_time
+        elif job_status.job_runtime > row.job_runtime:
+            row.job_runtime = job_status.job_runtime
+            row.simulated_time = job_status.simulated_time
 
-        if status == "P":
+        if job_status.status == "P":
             row.passing += 1
         row.total += 1
 

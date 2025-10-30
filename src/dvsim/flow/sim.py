@@ -6,11 +6,10 @@
 
 import fnmatch
 import json
-import os
 import re
 import sys
 from collections import OrderedDict, defaultdict
-from collections.abc import Mapping
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import ClassVar
@@ -18,13 +17,13 @@ from typing import ClassVar
 from tabulate import tabulate
 
 from dvsim.flow.base import FlowCfg
+from dvsim.job.data import CompletedJobStatus, JobSpec
 from dvsim.job.deploy import (
     CompileSim,
     CovAnalyze,
     CovMerge,
     CovReport,
     CovUnr,
-    Deploy,
     RunTest,
 )
 from dvsim.logging import log
@@ -423,7 +422,7 @@ class SimCfg(FlowCfg):
         """Create initial set of directories."""
         for link in self.links:
             rm_path(self.links[link])
-            os.makedirs(self.links[link])
+            Path(self.links[link]).mkdir(parents=True)
 
     def _expand_run_list(self, build_map):
         """Generate a list of tests to be run.
@@ -540,8 +539,10 @@ class SimCfg(FlowCfg):
         self._create_dirs()
 
     def _cov_analyze(self) -> None:
-        """Use the last regression coverage data to open up the GUI tool to
-        analyze the coverage.
+        """Open GUI tool for coverage analysis.
+
+        Use the last regression coverage data to open up the GUI tool to analyze
+        the coverage.
         """
         # Create initial set of directories, such as dispatched, passed etc.
         self._create_dirs()
@@ -555,8 +556,10 @@ class SimCfg(FlowCfg):
             item._cov_analyze()
 
     def _cov_unr(self) -> None:
-        """Use the last regression coverage data to generate unreachable
-        coverage exclusions.
+        """Generate unreachable coverage exclusions.
+
+        Use the last regression coverage data to generate unreachable coverage
+        exclusions.
         """
         # TODO, Only support VCS
         if self.tool not in ["vcs", "xcelium"]:
@@ -573,7 +576,7 @@ class SimCfg(FlowCfg):
         for item in self.cfgs:
             item._cov_unr()
 
-    def _gen_json_results(self, run_results: Mapping[Deploy, str]) -> str:
+    def _gen_json_results(self, run_results: Sequence[CompletedJobStatus]) -> str:
         """Return the run results as json-formatted dictionary."""
 
         def _pct_str_to_float(s: str) -> float | None:
@@ -589,14 +592,8 @@ class SimCfg(FlowCfg):
 
         def _test_result_to_dict(tr) -> dict:
             """Map a test result entry to a dict."""
-            job_time_s = (
-                tr.job_runtime.with_unit("s").get()[0] if tr.job_runtime is not None else None
-            )
-            sim_time_us = (
-                tr.simulated_time.with_unit("us").get()[0]
-                if tr.simulated_time is not None
-                else None
-            )
+            job_time_s = tr.job_runtime
+            sim_time_us = tr.simulated_time
             pass_rate = tr.passing * 100.0 / tr.total if tr.total > 0 else 0
             return {
                 "name": tr.name,
@@ -644,7 +641,7 @@ class SimCfg(FlowCfg):
 
         # If the testplan does not yet have test results mapped to testpoints,
         # map them now.
-        sim_results = SimResults(self.deploy, run_results)
+        sim_results = SimResults(results=run_results)
         if not self.testplan.test_results_mapped:
             self.testplan.map_test_results(test_results=sim_results.table)
 
@@ -707,12 +704,14 @@ class SimCfg(FlowCfg):
         # Extract failure buckets.
         if sim_results.buckets:
             by_tests = sorted(sim_results.buckets.items(), key=lambda i: len(i[1]), reverse=True)
+
             for bucket, tests in by_tests:
                 unique_tests = defaultdict(list)
                 for test, line, context in tests:
-                    if not isinstance(test, RunTest):
+                    if test.job_type != "RunTest":
                         continue
                     unique_tests[test.name].append((test, line, context))
+
                 fts = []
                 for test_name, test_runs in unique_tests.items():
                     frs = []
@@ -721,12 +720,13 @@ class SimCfg(FlowCfg):
                             {
                                 "seed": str(test.seed),
                                 "failure_message": {
-                                    "log_file_path": test.get_log_path(),
+                                    "log_file_path": str(test.log_path),
                                     "log_file_line_num": line,
                                     "text": "".join(context),
                                 },
                             },
                         )
+
                     fts.append(
                         {
                             "name": test_name,
@@ -747,7 +747,7 @@ class SimCfg(FlowCfg):
         # Return the `results` dictionary as json string.
         return json.dumps(self.results_dict)
 
-    def _gen_results(self, results: Mapping[Deploy, str]) -> str:
+    def _gen_results(self, results: Sequence[CompletedJobStatus]) -> str:
         """Generate simulation results.
 
         The function is called after the regression has completed. It collates the
@@ -761,12 +761,12 @@ class SimCfg(FlowCfg):
         def indent_by(level: int) -> str:
             return " " * (4 * level)
 
-        def create_failure_message(test, line, context):
+        def create_failure_message(test: JobSpec, line, context):
             message = [f"{indent_by(2)}* {test.qual_name}\\"]
             if line:
-                message.append(f"{indent_by(2)}  Line {line}, in log " + test.get_log_path())
+                message.append(f"{indent_by(2)}  Line {line}, in log {test.log_path}")
             else:
-                message.append(f"{indent_by(2)} Log {test.get_log_path()}")
+                message.append(f"{indent_by(2)} Log {test.log_path}")
             if context:
                 message.append("")
                 lines = [f"{indent_by(4)}{c.rstrip()}" for c in context]
@@ -817,8 +817,7 @@ class SimCfg(FlowCfg):
             fail_msgs.append("")
             return fail_msgs
 
-        deployed_items = self.deploy
-        sim_results = SimResults(deployed_items, results)
+        sim_results = SimResults(results=results)
 
         # Generate results table for runs.
         results_str = "## " + self.results_title + "\n"
@@ -887,8 +886,17 @@ class SimCfg(FlowCfg):
 
             # Append coverage results if coverage was enabled.
             if self.cov_report_deploy is not None:
-                report_status = results[self.cov_report_deploy.full_name]
-                if report_status == "P":
+                report_status: CompletedJobStatus | None = None
+                for job_status in results:
+                    if job_status.full_name == self.cov_report_deploy.full_name:
+                        report_status = job_status
+                        break
+
+                if report_status is None:
+                    msg = f"Coverage report not found for {self.cov_report_deploy.full_name}"
+                    raise KeyError(msg)
+
+                if report_status.status == "P":
                     results_str += "\n## Coverage Results\n"
                     # Link the dashboard page using "cov_report_page" value.
                     if hasattr(self, "cov_report_page"):
@@ -907,7 +915,7 @@ class SimCfg(FlowCfg):
         self.results_md = results_str
         return results_str
 
-    def gen_results_summary(self):
+    def gen_results_summary(self) -> str:
         """Generate the summary results table.
 
         This method is specific to the primary cfg. It summarizes the results

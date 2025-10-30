@@ -228,7 +228,7 @@ class FormalCfg(OneShotCfg):
                 "results.hjson",
             )
             try:
-                with open(result_data) as results_file:
+                with Path(result_data).open() as results_file:
                     self.result = hjson.load(results_file, use_decimal=True)
             except OSError as err:
                 log.warning("%s", err)

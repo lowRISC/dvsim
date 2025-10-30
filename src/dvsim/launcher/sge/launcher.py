@@ -5,9 +5,9 @@
 """SgeLauncher Class."""
 
 import os
-import pathlib
 import shlex
 import subprocess
+from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import TYPE_CHECKING
 
@@ -37,7 +37,7 @@ class SgeLauncher(Launcher):
         # Update the shell's env vars with self.exports. Values in exports must
         # replace the values in the shell's env vars if the keys match.
         exports = os.environ.copy()
-        exports.update(self.deploy.exports)
+        exports.update(self.job_spec.exports)
 
         # Clear the magic MAKEFLAGS variable from exports if necessary. This
         # variable is used by recursive Make calls to pass variables from one
@@ -50,15 +50,14 @@ class SgeLauncher(Launcher):
         self._dump_env_vars(exports)
 
         try:
-            f = pathlib.Path(self.deploy.get_log_path()).open(
-                "w", encoding="UTF-8", errors="surrogateescape"
-            )
-            f.write(f"[Executing]:\n{self.deploy.cmd}\n\n")
+            f = self.job_spec.log_path.open("w", encoding="UTF-8", errors="surrogateescape")
+            f.write(f"[Executing]:\n{self.job_spec.cmd}\n\n")
             f.flush()
+
             # ---------- prepare SGE job struct -----
             sge_job = SGE.QSubOptions()  # noqa: F405
             sge_job.args.N = "VCS_RUN_" + str(pid)  # Name of Grid Engine job
-            if "build.log" in self.deploy.get_log_path():
+            if "build.log" in self.job_spec.log_path:
                 sge_job.args.N = "VCS_BUILD_" + str(pid)  # Name of Grid Engine job
 
             job_name = sge_job.args.N
@@ -68,14 +67,15 @@ class SgeLauncher(Launcher):
             sge_job.args.q = "vcs_q"  # Define the sge queue name
             sge_job.args.p = "0"  # Set priority to 0
             sge_job.args.ll = "mf=20G"  # memory req,request the given resources
+
             # pecifies a range of priorities from -1023 to 1024.
             # The higher the number, the higher the priority.
             # The default priority for jobs is zero
-            sge_job.args.command = '"' + self.deploy.cmd + '"'
+            sge_job.args.command = '"' + self.job_spec.cmd + '"'
             sge_job.args.b = "y"  # This is a binary file
-            sge_job.args.o = self.deploy.get_log_path() + ".sge"
+            sge_job.args.o = f"{self.job_spec.log_path}.sge"
             cmd = str(sge_job.execute(mode="echo"))
-            # ---------------
+
             self.process = subprocess.Popen(
                 shlex.split(cmd),
                 bufsize=4096,
@@ -85,16 +85,18 @@ class SgeLauncher(Launcher):
                 env=exports,
             )
             f.close()
+
         except subprocess.SubprocessError as e:
-            msg = f"IO Error: {e}\nSee {self.deploy.get_log_path()}"
+            msg = f"IO Error: {e}\nSee {self.job_spec.log_path}"
             raise LauncherError(msg)
+
         finally:
             self._close_process()
 
         self._link_odir("D")
         f.close()
 
-    def poll(self):
+    def poll(self) -> str:
         """Check status of the running process.
 
         This returns 'D', 'P' or 'F'. If 'D', the job is still running. If 'P',
@@ -107,17 +109,16 @@ class SgeLauncher(Launcher):
         if self.process.poll() is None:
             return "D"
         # -------------------------------------
-        # copy SGE jobb results to log file
-        if pathlib.Path(self.deploy.get_log_path() + ".sge").exists():
-            file1 = pathlib.Path(self.deploy.get_log_path() + ".sge").open(errors="replace")
+        # copy SGE job results to log file
+        sge_log_path = Path(f"{self.job_spec.log_path}.sge")
+        if sge_log_path.exists():
+            file1 = sge_log_path.open(errors="replace")
             lines = file1.readlines()
             file1.close()
-            f = pathlib.Path(self.deploy.get_log_path()).open(
-                "a", encoding="UTF-8", errors="surrogateescape"
-            )
+            f = self.job_spec.log_path.open("a", encoding="UTF-8", errors="surrogateescape")
             f.writelines(lines)
             f.flush()
-            pathlib.Path(self.deploy.get_log_path() + ".sge").unlink()
+            sge_log_path.unlink()
             f.close()
         # -------------------------------------
 
@@ -146,13 +147,13 @@ class SgeLauncher(Launcher):
             # ----------------------------
             # qdel -f kill sge job_name
             cmd = "qstatus -a | grep " + job_name
-            with Popen(cmd, stdout=PIPE, stderr=None, shell=True) as process:
+            with Popen(cmd, stdout=PIPE, stderr=None, shell=True) as process:  # noqa: S602
                 output = process.communicate()[0].decode("utf-8")
                 output = output.rstrip("\n")
                 if output != "":
                     output_l = output.split()
                     cmd = "qdel " + output_l[0]
-                    with Popen(cmd, stdout=PIPE, stderr=None, shell=True) as process:
+                    with Popen(cmd, stdout=PIPE, stderr=None, shell=True) as process:  # noqa: S602
                         output = process.communicate()[0].decode("utf-8")
                         output = output.rstrip("\n")
             # ----------------------------
