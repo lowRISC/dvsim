@@ -422,7 +422,7 @@ class FlowCfg(ABC):
                 json.dumps(
                     # Sort on full name to ensure consistent ordering
                     sorted(
-                        [d.model_dump() for d in deploy],
+                        [d.dump() for d in deploy],
                         key=lambda d: d["full_name"],
                     ),
                     indent=2,
@@ -445,16 +445,19 @@ class FlowCfg(ABC):
         prints the full list of failures for debug / triage to the final
         report, which is in markdown format.
 
-        Results:
-            dictionary mapping deployed item names to job status.
+        Args:
+            results: dictionary mapping deployed item names to completed job status.
+
+        Returns:
+            Results as a formatted string
 
         """
 
     def gen_results(self, results: Mapping[str, CompletedJobStatus]) -> None:
-        """Public facing API for _gen_results().
+        """Generate flow results.
 
         Args:
-            results: dictionary mapping deployed item names to job status.
+            results: dictionary mapping deployed item names to completed job status.
 
         """
         for item in self.cfgs:

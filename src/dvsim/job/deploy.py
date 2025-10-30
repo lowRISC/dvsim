@@ -11,6 +11,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from pydantic import BaseModel
+from pydantic.config import ConfigDict
 from tabulate import tabulate
 
 from dvsim.job.time import JobTime
@@ -26,6 +28,21 @@ from dvsim.utils import (
 
 if TYPE_CHECKING:
     from dvsim.flow.sim import SimCfg
+    from dvsim.modes import BuildMode
+
+
+class WorkspaceConfig(BaseModel):
+    """Workspace configuration."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    project: str
+    timestamp: str
+
+    project_root: Path
+    scratch_root: Path
+    scratch_path: Path
+
 
 __all__ = (
     "CompileSim",
@@ -100,6 +117,14 @@ class Deploy:
 
         # Job's wall clock time (a.k.a CPU time, or runtime).
         self.job_runtime = JobTime()
+
+        self.workspace_cfg = WorkspaceConfig(
+            project=sim_cfg.name,
+            project_root=sim_cfg.proj_root,
+            scratch_root=Path(sim_cfg.scratch_root),
+            scratch_path=Path(sim_cfg.scratch_path),
+            timestamp=sim_cfg.args.timestamp,
+        )
 
     def _define_attrs(self) -> None:
         """Define the attributes this instance needs to have.
@@ -293,7 +318,7 @@ class Deploy:
         This is invoked by launcher::_pre_launch().
         """
 
-    def post_finish(self, status) -> None:
+    def post_finish(self, status: str) -> None:
         """Perform additional post-finish activities (callback).
 
         This is invoked by launcher::_post_finish().
@@ -328,11 +353,8 @@ class Deploy:
             log.warning(f"{self.full_name}: {e} Using dvsim-maintained job_runtime instead.")
             self.job_runtime.set(job_runtime_secs, "s")
 
-    def model_dump(self) -> Mapping:
+    def dump(self) -> Mapping:
         """Dump the deployment object to mapping object.
-
-        This method matches the interface provided by pydantic models to dump a
-        subset of the class attributes
 
         Returns:
             Representation of a deployment object as a dict.
@@ -370,6 +392,20 @@ class CompileSim(Deploy):
                 self.name,
                 self.build_timeout_mins,
             )
+
+    @staticmethod
+    def new(build_mode_obj: "BuildMode", sim_cfg: "SimCfg") -> "CompileSim":
+        """Create a new CompileSim object.
+
+        Args:
+            build_mode_obj: build mode instance
+            sim_cfg: Simulation config object
+
+        Returns:
+            new CompileSim object.
+
+        """
+        return CompileSim(build_mode=build_mode_obj, sim_cfg=sim_cfg)
 
     def _define_attrs(self) -> None:
         """Define attributes."""
@@ -710,6 +746,10 @@ class CovMerge(Deploy):
                     self.cov_db_dirs.insert(0, run.cov_db_dir)
                 else:
                     self.cov_db_dirs.append(run.cov_db_dir)
+
+        # Sort the cov_db_dir except for the first directory
+        if len(self.cov_db_dirs) > 1:
+            self.cov_db_dirs = [self.cov_db_dirs[0], *sorted(self.cov_db_dirs[1:])]
 
         # Early lookup the cov_merge_db_dir, which is a mandatory misc
         # attribute anyway. We need it to compute additional cov db dirs.
