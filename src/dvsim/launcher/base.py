@@ -90,6 +90,48 @@ class Launcher(ABC):
         context=[],
     )
 
+    def __init__(self, deploy: "Deploy") -> None:
+        """Initialise launcher.
+
+        Args:
+            deploy: deployment object that will be launched.
+
+        """
+        cfg = deploy.sim_cfg
+
+        # One-time preparation of the workspace.
+        if not Launcher.workspace_prepared:
+            # TODO: CLI args should be processed far earlier than this
+            self.prepare_workspace(cfg.project, cfg.proj_root, cfg.args)
+            Launcher.workspace_prepared = True
+
+        # One-time preparation of the workspace, specific to the cfg.
+        if cfg not in Launcher.workspace_prepared_for_cfg:
+            self.prepare_workspace_for_cfg(cfg)
+            Launcher.workspace_prepared_for_cfg.add(cfg)
+
+        # Store the deploy object handle.
+        self.deploy = deploy
+
+        # Status of the job. This is primarily determined by the
+        # _check_status() method, but eventually updated by the _post_finish()
+        # method, in case any of the cleanup tasks fails. This value is finally
+        # returned to the Scheduler by the poll() method.
+        self.status = None
+
+        # Return status of the process running the job.
+        self.exit_code = None
+
+        # Flag to indicate whether to 'overwrite' if odir already exists,
+        # or to backup the existing one and create a new one.
+        # For builds, we want to overwrite existing to leverage the tools'
+        # incremental / partition compile features. For runs, we may want to
+        # create a new one.
+        self.renew_odir = False
+
+        # The actual job runtime computed by dvsim, in seconds.
+        self.job_runtime_secs = 0
+
     @staticmethod
     def set_pyvenv(project: str) -> None:
         """Activate a python virtualenv if available.
@@ -146,48 +188,6 @@ class Launcher(ABC):
     def __str__(self) -> str:
         """Get a string representation."""
         return self.deploy.full_name + ":launcher"
-
-    def __init__(self, deploy: "Deploy") -> None:
-        """Initialise launcher.
-
-        Args:
-            deploy: deployment object that will be launched.
-
-        """
-        cfg = deploy.sim_cfg
-
-        # One-time preparation of the workspace.
-        if not Launcher.workspace_prepared:
-            # TODO: CLI args should be processed far earlier than this
-            self.prepare_workspace(cfg.project, cfg.proj_root, cfg.args)
-            Launcher.workspace_prepared = True
-
-        # One-time preparation of the workspace, specific to the cfg.
-        if cfg not in Launcher.workspace_prepared_for_cfg:
-            self.prepare_workspace_for_cfg(cfg)
-            Launcher.workspace_prepared_for_cfg.add(cfg)
-
-        # Store the deploy object handle.
-        self.deploy = deploy
-
-        # Status of the job. This is primarily determined by the
-        # _check_status() method, but eventually updated by the _post_finish()
-        # method, in case any of the cleanup tasks fails. This value is finally
-        # returned to the Scheduler by the poll() method.
-        self.status = None
-
-        # Return status of the process running the job.
-        self.exit_code = None
-
-        # Flag to indicate whether to 'overwrite' if odir already exists,
-        # or to backup the existing one and create a new one.
-        # For builds, we want to overwrite existing to leverage the tools'
-        # incremental / partition compile features. For runs, we may want to
-        # create a new one.
-        self.renew_odir = False
-
-        # The actual job runtime computed by dvsim, in seconds.
-        self.job_runtime_secs = 0
 
     def _make_odir(self) -> None:
         """Create the output directory."""
