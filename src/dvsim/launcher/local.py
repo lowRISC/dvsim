@@ -8,6 +8,7 @@ import datetime
 import os
 import shlex
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -181,3 +182,24 @@ class LocalLauncher(Launcher):
         """Close the file descriptors associated with the process."""
         if self._log_file:
             self._log_file.close()
+
+    @staticmethod
+    def prepare_workspace(project: str, repo_top: str, args: Mapping) -> None:
+        """Prepare the workspace based on the chosen launcher's needs.
+
+        This is done once for the entire duration for the flow run.
+
+        Args:
+            project: the name of the project.
+            repo_top: the path to the repository.
+            args: command line args passed to dvsim.
+
+        """
+
+    @staticmethod
+    def prepare_workspace_for_cfg(cfg: Mapping) -> None:
+        """Prepare the workspace for a cfg.
+
+        This is invoked once for each cfg.
+        'cfg' is the flow configuration object.
+        """

@@ -8,6 +8,7 @@ import os
 import pathlib
 import shlex
 import subprocess
+from collections.abc import Mapping
 from subprocess import PIPE, Popen
 
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
@@ -46,7 +47,9 @@ class SgeLauncher(Launcher):
         self._dump_env_vars(exports)
 
         try:
-            f = open(self.deploy.get_log_path(), "w", encoding="UTF-8", errors="surrogateescape")
+            f = pathlib.Path(self.deploy.get_log_path()).open(
+                "w", encoding="UTF-8", errors="surrogateescape"
+            )
             f.write(f"[Executing]:\n{self.deploy.cmd}\n\n")
             f.flush()
             # ---------- prepare SGE job struct -----
@@ -103,10 +106,12 @@ class SgeLauncher(Launcher):
         # -------------------------------------
         # copy SGE jobb results to log file
         if pathlib.Path(self.deploy.get_log_path() + ".sge").exists():
-            file1 = open(self.deploy.get_log_path() + ".sge", errors="replace")
+            file1 = pathlib.Path(self.deploy.get_log_path() + ".sge").open(errors="replace")
             lines = file1.readlines()
             file1.close()
-            f = open(self.deploy.get_log_path(), "a", encoding="UTF-8", errors="surrogateescape")
+            f = pathlib.Path(self.deploy.get_log_path()).open(
+                "a", encoding="UTF-8", errors="surrogateescape"
+            )
             f.writelines(lines)
             f.flush()
             pathlib.Path(self.deploy.get_log_path() + ".sge").unlink()
@@ -160,3 +165,24 @@ class SgeLauncher(Launcher):
         assert self.process
         if self.process.stdout:
             self.process.stdout.close()
+
+    @staticmethod
+    def prepare_workspace(project: str, repo_top: str, args: Mapping) -> None:
+        """Prepare the workspace based on the chosen launcher's needs.
+
+        This is done once for the entire duration for the flow run.
+
+        Args:
+            project: the name of the project.
+            repo_top: the path to the repository.
+            args: command line args passed to dvsim.
+
+        """
+
+    @staticmethod
+    def prepare_workspace_for_cfg(cfg: Mapping) -> None:
+        """Prepare the workspace for a cfg.
+
+        This is invoked once for each cfg.
+        'cfg' is the flow configuration object.
+        """

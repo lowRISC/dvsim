@@ -7,6 +7,7 @@ import pathlib
 import shlex
 import shutil
 import subprocess
+from collections.abc import Mapping
 
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
 from dvsim.logging import log
@@ -59,7 +60,7 @@ class SlurmLauncher(Launcher):
         )
 
         try:
-            with open(self.slurm_log_file, "w") as out_file:
+            with pathlib.Path(self.slurm_log_file).open("w") as out_file:
                 out_file.write(f"[Executing]:\n{self.deploy.cmd}\n\n")
                 out_file.flush()
 
@@ -99,9 +100,9 @@ class SlurmLauncher(Launcher):
         # Copy slurm job results to log file
         if pathlib.Path(self.slurm_log_file).exists():
             try:
-                with open(self.slurm_log_file) as slurm_file:
+                with pathlib.Path(self.slurm_log_file).open() as slurm_file:
                     try:
-                        with open(self.deploy.get_log_path(), "a") as out_file:
+                        with pathlib.Path(self.deploy.get_log_path()).open("a") as out_file:
                             shutil.copyfileobj(slurm_file, out_file)
                     except OSError as e:
                         msg = f"File Error: {e} when handling {self.deploy.get_log_path()}"
@@ -146,3 +147,24 @@ class SlurmLauncher(Launcher):
         assert self.process
         if self.process.stdout:
             self.process.stdout.close()
+
+    @staticmethod
+    def prepare_workspace(project: str, repo_top: str, args: Mapping) -> None:
+        """Prepare the workspace based on the chosen launcher's needs.
+
+        This is done once for the entire duration for the flow run.
+
+        Args:
+            project: the name of the project.
+            repo_top: the path to the repository.
+            args: command line args passed to dvsim.
+
+        """
+
+    @staticmethod
+    def prepare_workspace_for_cfg(cfg: Mapping) -> None:
+        """Prepare the workspace for a cfg.
+
+        This is invoked once for each cfg.
+        'cfg' is the flow configuration object.
+        """
