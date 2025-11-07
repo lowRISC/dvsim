@@ -417,21 +417,30 @@ class FlowCfg(ABC):
             log.error("Nothing to run!")
             sys.exit(1)
 
+        jobs = [d.get_job_spec() for d in deploy]
+
         if os.environ.get("DVSIM_DEPLOY_DUMP", "true"):
             filename = f"deploy_{self.branch}_{self.timestamp}.json"
             (Path(self.scratch_root) / filename).write_text(
                 json.dumps(
                     # Sort on full name to ensure consistent ordering
                     sorted(
-                        [d.dump() for d in deploy],
-                        key=lambda d: d["full_name"],
+                        [
+                            j.model_dump(
+                                # callback functions can't be serialised
+                                exclude={"pre_launch", "post_finish"},
+                                mode="json",
+                            )
+                            for j in jobs
+                        ],
+                        key=lambda j: j["full_name"],
                     ),
                     indent=2,
                 ),
             )
 
         return Scheduler(
-            items=[d.get_job_spec() for d in deploy],
+            items=jobs,
             launcher_cls=get_launcher_cls(),
             interactive=self.interactive,
         ).run()

@@ -350,25 +350,6 @@ class Deploy:
     def get_timeout_mins(self) -> float | None:
         """Return the timeout in minutes."""
 
-    def dump(self) -> Mapping:
-        """Dump the deployment object to mapping object.
-
-        Returns:
-            Representation of a deployment object as a dict.
-
-        """
-        job_spec = self.get_job_spec()
-        return {
-            "full_name": job_spec.full_name,
-            "type": self.__class__.__name__,
-            "exports": job_spec.exports,
-            "interactive": job_spec.interactive,
-            "log_path": str(job_spec.log_path),
-            "timeout_mins": job_spec.timeout_mins,
-            "cmd": job_spec.cmd,
-            "gui": job_spec.gui,
-        }
-
 
 class CompileSim(Deploy):
     """Abstraction for building the simulation executable."""
