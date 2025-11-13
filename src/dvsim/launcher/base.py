@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict
 
 from dvsim.job.time import JobTime
 from dvsim.logging import log
-from dvsim.sim_utils import get_job_runtime, get_simulated_time
+from dvsim.tool.utils import get_sim_tool_plugin
 from dvsim.utils import clean_odirs, mk_symlink, rm_path
 
 if TYPE_CHECKING:
@@ -339,11 +339,10 @@ class Launcher(ABC):
         # since it is devoid of the delays incurred due to infrastructure and
         # setup overhead.
 
+        plugin = get_sim_tool_plugin(tool=self.job_spec.tool)
+
         try:
-            time, unit = get_job_runtime(
-                log_text=lines,
-                tool=self.job_spec.tool,
-            )
+            time, unit = plugin.get_job_runtime(log_text=lines)
             self.job_runtime.set(time, unit)
 
         except RuntimeError as e:
@@ -354,10 +353,7 @@ class Launcher(ABC):
 
         if self.job_spec.job_type == "RunTest":
             try:
-                time, unit = get_simulated_time(
-                    log_text=lines,
-                    tool=self.job_spec.tool,
-                )
+                time, unit = plugin.get_simulated_time(log_text=lines)
                 self.simulated_time.set(time, unit)
 
             except RuntimeError as e:

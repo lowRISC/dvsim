@@ -17,7 +17,7 @@ from dvsim.job.data import JobSpec, WorkspaceConfig
 from dvsim.job.time import JobTime
 from dvsim.launcher.base import Launcher
 from dvsim.logging import log
-from dvsim.sim_utils import get_cov_summary_table
+from dvsim.tool.utils import get_sim_tool_plugin
 from dvsim.utils import (
     clean_odirs,
     find_and_substitute_wildcards,
@@ -813,7 +813,11 @@ class CovReport(Deploy):
             if self.dry_run or status != "P":
                 return
 
-            results, self.cov_total = get_cov_summary_table(self.cov_report_txt, self.sim_cfg.tool)
+            plugin = get_sim_tool_plugin(tool=self.sim_cfg.tool)
+
+            results, self.cov_total = plugin.get_cov_summary_table(
+                cov_report_path=self.cov_report_txt,
+            )
 
             colalign = ("center",) * len(results[0])
             self.cov_results = tabulate(
