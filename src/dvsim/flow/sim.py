@@ -5,7 +5,6 @@
 """Class describing simulation configuration object."""
 
 import fnmatch
-import json
 import re
 import sys
 from collections import OrderedDict, defaultdict
@@ -14,10 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import ClassVar
 
-from tabulate import tabulate
-
 from dvsim.flow.base import FlowCfg
-from dvsim.job.data import CompletedJobStatus, JobSpec
+from dvsim.job.data import CompletedJobStatus
 from dvsim.job.deploy import (
     CompileSim,
     CovAnalyze,
@@ -29,6 +26,7 @@ from dvsim.job.deploy import (
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
+from dvsim.report.data import FlowResults, IPMeta, ToolMeta
 from dvsim.sim_results import SimResults
 from dvsim.test import Test
 from dvsim.testplan import Testplan
@@ -576,8 +574,8 @@ class SimCfg(FlowCfg):
         for item in self.cfgs:
             item._cov_unr()
 
-    def _gen_json_results(self, run_results: Sequence[CompletedJobStatus]) -> str:
-        """Return the run results as json-formatted dictionary."""
+    def _gen_json_results(self, run_results: Sequence[CompletedJobStatus]) -> FlowResults:
+        """Return the run flow results."""
 
         def _pct_str_to_float(s: str) -> float | None:
             """Extract percent or None.
@@ -741,218 +739,93 @@ class SimCfg(FlowCfg):
                     },
                 )
 
-        # Store the `results` dictionary in this object.
-        self.results_dict = results
+        # Pull out the test results per stage
+        stages = {}
+        for testpoint_data in results["results"]["testpoints"]:
+            stage = testpoint_data["stage"]
+            testpoint = testpoint_data["name"]
+            tests = testpoint_data["tests"]
 
-        # Return the `results` dictionary as json string.
-        return json.dumps(self.results_dict)
+            if stage not in stages:
+                stages[stage] = {"testpoints": {}}
 
-    def _gen_results(self, results: Sequence[CompletedJobStatus]) -> str:
-        """Generate simulation results.
+            stages[stage]["testpoints"][testpoint] = {
+                "tests": {
+                    test["name"]: {
+                        "max_time": test["max_runtime_s"],
+                        "sim_time": test["simulated_time_us"],
+                        "passed": test["passing_runs"],
+                        "total": test["total_runs"],
+                        "percent": 100 * test["passing_runs"] / test["total_runs"],
+                    }
+                    for test in tests
+                },
+            }
 
-        The function is called after the regression has completed. It collates the
-        status of all run targets and generates a dict. It parses the testplan and
-        maps the generated result to the testplan entries to generate a final table
-        (list). It also prints the full list of failures for debug / triage. If cov
-        is enabled, then the summary coverage report is also generated. The final
-        result is in markdown format.
-        """
+        # unmapped tests that are not part of the test plan?
+        # Why are they not part of a test plan?
+        if results["results"]["unmapped_tests"]:
+            stages["unmapped"] = {
+                "testpoints": {
+                    "None": {
+                        "tests": {
+                            test["name"]: {
+                                "max_time": test["max_runtime_s"],
+                                "sim_time": test["simulated_time_us"],
+                                "passed": test["passing_runs"],
+                                "total": test["total_runs"],
+                                "percent": 100 * test["passing_runs"] / test["total_runs"],
+                            }
+                            for test in results["results"]["unmapped_tests"]
+                        },
+                    },
+                },
+            }
 
-        def indent_by(level: int) -> str:
-            return " " * (4 * level)
+        # Gather stats
+        f_total = 0
+        f_passed = 0
+        for stage in stages:  # noqa: PLC0206
+            s_total = 0
+            s_passed = 0
 
-        def create_failure_message(test: JobSpec, line, context):
-            message = [f"{indent_by(2)}* {test.qual_name}\\"]
-            if line:
-                message.append(f"{indent_by(2)}  Line {line}, in log {test.log_path}")
-            else:
-                message.append(f"{indent_by(2)} Log {test.log_path}")
-            if context:
-                message.append("")
-                lines = [f"{indent_by(4)}{c.rstrip()}" for c in context]
-                message.extend(lines)
-            message.append("")
-            return message
+            for testpoint in stages[stage]["testpoints"]:
+                tp_total = 0
+                tp_passed = 0
+                tp_data = stages[stage]["testpoints"][testpoint]
 
-        def create_bucket_report(buckets):
-            """Create a report based on the given buckets.
+                for test in tp_data["tests"].values():
+                    tp_total += test["total"]
+                    tp_passed += test["passed"]
 
-            The buckets are sorted by descending number of failures. Within
-            buckets this also group tests by unqualified name, and just a few
-            failures are shown per unqualified name.
+                s_total += tp_total
+                s_passed += tp_passed
+                tp_data["total"] = tp_total
+                tp_data["passed"] = tp_passed
+                tp_data["percent"] = 100 * tp_passed / tp_total
 
-            Args:
-              buckets: A dictionary by bucket containing triples
-                (test, line, context).
+            f_total += s_total
+            f_passed += s_passed
+            stages[stage]["total"] = s_total
+            stages[stage]["passed"] = s_passed
+            stages[stage]["percent"] = 100 * s_passed / s_total
 
-            Returns:
-              A list of text lines for the report.
-
-            """
-            by_tests = sorted(buckets.items(), key=lambda i: len(i[1]), reverse=True)
-            fail_msgs = ["\n## Failure Buckets", ""]
-            for bucket, tests in by_tests:
-                fail_msgs.append(f"* `{bucket}` has {len(tests)} failures:")
-                unique_tests = defaultdict(list)
-                for test, line, context in tests:
-                    unique_tests[test.name].append((test, line, context))
-                for name, test_reseeds in list(unique_tests.items())[:_MAX_UNIQUE_TESTS]:
-                    fail_msgs.append(
-                        f"{indent_by(1)}* Test {name} has {len(test_reseeds)} failures.",
-                    )
-                    for test, line, context in test_reseeds[:_MAX_TEST_RESEEDS]:
-                        fail_msgs.extend(create_failure_message(test, line, context))
-                    if len(test_reseeds) > _MAX_TEST_RESEEDS:
-                        fail_msgs.append(
-                            f"{indent_by(2)}* ... and "
-                            f"{len(test_reseeds) - _MAX_TEST_RESEEDS} "
-                            "more failures.",
-                        )
-                if len(unique_tests) > _MAX_UNIQUE_TESTS:
-                    fail_msgs.append(
-                        f"{indent_by(1)}* ... and "
-                        f"{len(unique_tests) - _MAX_UNIQUE_TESTS} more tests.",
-                    )
-
-            fail_msgs.append("")
-            return fail_msgs
-
-        sim_results = SimResults(results=results)
-
-        # Generate results table for runs.
-        results_str = "## " + self.results_title + "\n"
-        results_str += "### " + self.timestamp_long + "\n"
-        if self.revision:
-            results_str += "### " + self.revision + "\n"
-        results_str += "### Branch: " + self.branch + "\n"
-
-        # Add path to testplan, only if it has entries (i.e., its not dummy).
-        if self.testplan.testpoints:
-            if hasattr(self, "testplan_doc_path"):
-                # The key 'testplan_doc_path' can override the path to the testplan file
-                # if it's not in the default location relative to the sim_cfg.
-                relative_path_to_testplan = Path(self.testplan_doc_path).relative_to(
-                    Path(self.proj_root),
-                )
-                testplan = "https://{}/{}".format(
-                    self.book,
-                    str(relative_path_to_testplan).replace("hjson", "html"),
-                )
-            else:
-                # Default filesystem layout for an ip block
-                # ├── data
-                # │   ├── gpio_testplan.hjson
-                # │   └── <...>
-                # ├── doc
-                # │   ├── checklist.md
-                # │   ├── programmers_guide.md
-                # │   ├── theory_of_operation.md
-                # │   └── <...>
-                # ├── dv
-                # │   ├── gpio_sim_cfg.hjson
-                # │   └── <...>
-
-                # self.rel_path gives us the path to the directory
-                # containing the sim_cfg file...
-                testplan = "https://{}/{}".format(
-                    self.book,
-                    Path(self.rel_path).parent / "data" / f"{self.name}_testplan.html",
-                )
-
-            results_str += f"### [Testplan]({testplan})\n"
-
-        results_str += f"### Simulator: {self.tool.upper()}\n"
-
-        # Print the build seed used for clarity.
-        if self.build_seed and not self.run_only:
-            results_str += f"### Build randomization enabled with --build-seed {self.build_seed}\n"
-
-        if not sim_results.table:
-            results_str += "No results to display.\n"
-
-        else:
-            # Map regr results to the testplan entries.
-            if not self.testplan.test_results_mapped:
-                self.testplan.map_test_results(test_results=sim_results.table)
-
-            results_str += self.testplan.get_test_results_table(
-                map_full_testplan=self.map_full_testplan,
-            )
-
-            if self.map_full_testplan:
-                results_str += self.testplan.get_progress_table()
-
-            self.results_summary = self.testplan.get_test_results_summary()
-
-            # Append coverage results if coverage was enabled.
-            if self.cov_report_deploy is not None:
-                report_status: CompletedJobStatus | None = None
-                for job_status in results:
-                    if job_status.full_name == self.cov_report_deploy.full_name:
-                        report_status = job_status
-                        break
-
-                if report_status is None:
-                    msg = f"Coverage report not found for {self.cov_report_deploy.full_name}"
-                    raise KeyError(msg)
-
-                if report_status.status == "P":
-                    results_str += "\n## Coverage Results\n"
-                    # Link the dashboard page using "cov_report_page" value.
-                    if hasattr(self, "cov_report_page"):
-                        results_str += "\n### [Coverage Dashboard]"
-                        cov_report_page_path = self.cov_report_dir + "/" + self.cov_report_page
-                        results_str += f"({cov_report_page_path})\n\n"
-                    results_str += self.cov_report_deploy.cov_results
-                    self.results_summary["Coverage"] = self.cov_report_deploy.cov_total
-                else:
-                    self.results_summary["Coverage"] = "--"
-
-        if sim_results.buckets:
-            self.errors_seen = True
-            results_str += "\n".join(create_bucket_report(sim_results.buckets))
-
-        self.results_md = results_str
-        return results_str
-
-    def gen_results_summary(self) -> str:
-        """Generate the summary results table.
-
-        This method is specific to the primary cfg. It summarizes the results
-        from each individual cfg in a markdown table.
-
-        Prints the generated summary markdown text to stdout and returns it.
-        """
-        lines = [f"## {self.results_title} (Summary)"]
-        lines += [f"### {self.timestamp_long}"]
-        if self.revision:
-            lines += [f"### {self.revision}"]
-        lines += [f"### Branch: {self.branch}"]
-
-        table = []
-        header = []
-        for cfg in self.cfgs:
-            row = cfg.results_summary
-            if row:
-                # convert name entry to relative link
-                row = cfg.results_summary
-                row["Name"] = cfg._get_results_page_link(self.results_dir, row["Name"])
-
-                # If header is set, ensure its the same for all cfgs.
-                if header:
-                    assert header == cfg.results_summary.keys()
-                else:
-                    header = cfg.results_summary.keys()
-                table.append(row.values())
-
-        if table:
-            assert header
-            colalign = ("center",) * len(header)
-            table_txt = tabulate(table, headers=header, tablefmt="pipe", colalign=colalign)
-            lines += ["", table_txt, ""]
-
-        else:
-            lines += ["\nNo results to display.\n"]
-
-        self.results_summary_md = "\n".join(lines)
-        return self.results_summary_md
+        return FlowResults(
+            block=IPMeta(
+                name=results["block_name"],
+                variant=results["block_variant"],
+                commit=results["git_revision"],
+                branch=results["git_branch_name"],
+                url=f"https://github.com/lowrisc/opentitan/tree/{results['git_revision']}",
+            ),
+            tool=ToolMeta(
+                name=results["tool"],
+                version="???",
+            ),
+            timestamp=results["report_timestamp"],
+            stages=stages,
+            passed=f_passed,
+            total=f_total,
+            percent=100 * f_passed / f_total,
+            coverage=results["results"]["coverage"],
+        )

@@ -21,12 +21,11 @@ from dvsim.flow.hjson import set_target_attribute
 from dvsim.job.data import CompletedJobStatus
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
-from dvsim.report.data import IPMeta, ResultsSummary
+from dvsim.report.data import FlowResults, IPMeta, ResultsSummary
+from dvsim.report.generate import gen_block_report, gen_summary_report
 from dvsim.scheduler import Scheduler
 from dvsim.utils import (
     find_and_substitute_wildcards,
-    md_results_to_html,
-    mk_path,
     rm_path,
     subst_wildcards,
 )
@@ -90,7 +89,7 @@ class FlowCfg(ABC):
         self.overrides = []
 
         # List of cfgs if the parsed cfg is a primary cfg list
-        self.cfgs = []
+        self.cfgs: Sequence[FlowCfg] = []
 
         # Add a notion of "primary" cfg - this is indicated using
         # a special key 'use_cfgs' within the hjson cfg.
@@ -448,24 +447,6 @@ class FlowCfg(ABC):
             interactive=self.interactive,
         ).run()
 
-    @abstractmethod
-    def _gen_results(self, results: Sequence[CompletedJobStatus]) -> str:
-        """Generate flow results.
-
-        The function is called after the flow has completed. It collates
-        the status of all run targets and generates a dict. It parses the log
-        to identify the errors, warnings and failures as applicable. It also
-        prints the full list of failures for debug / triage to the final
-        report, which is in markdown format.
-
-        Args:
-            results: completed job status objects.
-
-        Returns:
-            Results as a formatted string
-
-        """
-
     def gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
         """Generate flow results.
 
@@ -473,100 +454,60 @@ class FlowCfg(ABC):
             results: completed job status objects.
 
         """
+        reports_dir = Path(self.scratch_base_path) / "reports"
+        all_flow_results: Mapping[str, FlowResults] = {}
+
         for item in self.cfgs:
             project = item.name
             item_results = [r for r in results if r.project == project]
 
-            json_str = (
-                item._gen_json_results(item_results) if hasattr(item, "_gen_json_results") else None
+            flow_results: FlowResults = item._gen_json_results(item_results)
+            all_flow_results[project] = flow_results
+
+            # Write results to the report area.
+            gen_block_report(
+                results=flow_results,
+                path=reports_dir,
             )
-            result = item._gen_results(item_results)
-
-            log.info("[results]: [%s]:\n%s\n", project, result)
-            log.info("[scratch_path]: [%s] [%s]", project, item.scratch_path)
-
-            item.write_results(
-                self.results_html_name,
-                item.results_md,
-                json_str=json_str,
-            )
-
-            log.verbose("[report]: [%s] [%s/report.html]", project, item.results_dir)
 
             self.errors_seen |= item.errors_seen
 
         if self.is_primary_cfg:
-            json_str = self._gen_json_results_summary()
-            self.gen_results_summary()
-
-            self.write_results(
-                html_filename=self.results_html_name,
-                text_md=self.results_summary_md,
-                json_str=json_str,
+            # The timestamp for this run has been taken with `utcnow()` and is
+            # stored in a custom format.  Store it in standard ISO format with
+            # explicit timezone annotation.
+            timestamp = (
+                datetime.strptime(self.timestamp, "%Y%m%d_%H%M%S")
+                .replace(tzinfo=timezone.utc)
+                .isoformat()
             )
 
-    def _gen_json_results_summary(self) -> str:
-        """Generate results summary in JSON format."""
-        # The timestamp for this run has been taken with `utcnow()` and is
-        # stored in a custom format.  Store it in standard ISO format with
-        # explicit timezone annotation.
-        timestamp = (
-            datetime.strptime(self.timestamp, "%Y%m%d_%H%M%S")
-            .replace(tzinfo=timezone.utc)
-            .isoformat()
-        )
+            # Extract Git properties.
+            m = re.search(
+                r"https://github.com/.+?/tree/([0-9a-fA-F]+)",
+                self.revision,
+            )
+            commit = m.group(1) if m else None
 
-        # Extract Git properties.
-        m = re.search(
-            r"https://github.com/.+?/tree/([0-9a-fA-F]+)",
-            self.revision,
-        )
-        commit = m.group(1) if m else None
+            results_summary = ResultsSummary(
+                top=IPMeta(
+                    name=self.name,
+                    variant=self.variant,
+                    commit=str(commit),
+                    branch=self.branch,
+                    url=self.revision,
+                ),
+                timestamp=timestamp,
+                report_index={item.name: f"{item.name}.html" for item in self.cfgs},
+                flow_results=all_flow_results,
+                report_path=reports_dir,
+            )
 
-        reports_dir = Path(self.scratch_base_path) / "reports"
-
-        return ResultsSummary(
-            top=IPMeta(
-                name=self.name,
-                variant=self.variant,
-                commit=str(commit),
-                branch=self.branch,
-                url=self.revision,
-            ),
-            timestamp=timestamp,
-            report_index={
-                item.name: (item.results_dir / item.results_html_name).relative_to(reports_dir)
-                for item in self.cfgs
-            },
-            report_path=(Path(self.results_dir) / self.results_html_name)
-            .with_suffix(".json")
-            .relative_to(reports_dir),
-        ).model_dump_json()
-
-    @abstractmethod
-    def gen_results_summary(self) -> str:
-        """Public facing API to generate summary results for each IP/cfg file."""
-
-    def write_results(self, html_filename: str, text_md: str, json_str: str | None = None) -> None:
-        """Write results to files.
-
-        This function converts text_md to HTML and writes the result to a file
-        in self.results_dir with the file name given by html_filename.  If
-        json_str is not None, this function additionally writes json_str to a
-        file with the same path and base name as the HTML file but with '.json'
-        as suffix.
-        """
-        results_dir = Path(self.results_dir)
-        mk_path(results_dir)
-
-        # Write results to the report area.
-        (results_dir / html_filename).write_text(
-            md_results_to_html(self.results_title, self.css_file, text_md)
-        )
-
-        if json_str is not None:
-            filename = Path(html_filename).with_suffix(".json")
-            (results_dir / filename).write_text(json_str)
+            # Write results to the report area.
+            gen_summary_report(
+                summary=results_summary,
+                path=reports_dir,
+            )
 
     def _get_results_page_link(self, relative_to: str, link_text: str = "") -> str:
         """Create a relative markdown link to the results page."""
