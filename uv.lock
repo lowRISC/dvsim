@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.11'",
@@ -349,6 +349,7 @@ dependencies = [
     { name = "click" },
     { name = "enlighten" },
     { name = "hjson" },
+    { name = "jinja2" },
     { name = "logzero" },
     { name = "mistletoe" },
     { name = "premailer" },
@@ -415,6 +416,7 @@ requires-dist = [
     { name = "gitpython", marker = "extra == 'nix'" },
     { name = "hjson", specifier = ">=3.1.0" },
     { name = "ipython", marker = "extra == 'debug'", specifier = ">=8.18.1" },
+    { name = "jinja2", specifier = ">=3.1.6" },
     { name = "logzero", specifier = ">=1.7.0" },
     { name = "mistletoe", specifier = ">=1.4.0" },
     { name = "premailer", specifier = ">=3.10.0" },
