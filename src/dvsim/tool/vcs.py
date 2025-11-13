@@ -49,7 +49,7 @@ class VCS:
         raise SyntaxError(msg)
 
     @staticmethod
-    def get_job_runtime(log_text: list) -> tuple[float, str]:
+    def get_job_runtime(log_text: Sequence[str]) -> tuple[float, str]:
         """Return the job runtime (wall clock time) along with its units.
 
         EDA tools indicate how long the job ran in terms of CPU time in the log
@@ -74,7 +74,7 @@ class VCS:
         raise RuntimeError(msg)
 
     @staticmethod
-    def get_simulated_time(log_text: list) -> tuple[float, str]:
+    def get_simulated_time(log_text: Sequence[str]) -> tuple[float, str]:
         """Return the simulated time along with its units.
 
         EDA tools indicate how long the design was simulated for in the log file.
