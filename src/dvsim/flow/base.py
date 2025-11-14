@@ -7,9 +7,11 @@
 import json
 import os
 import pprint
+import re
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -19,6 +21,7 @@ from dvsim.flow.hjson import set_target_attribute
 from dvsim.job.data import CompletedJobStatus
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
+from dvsim.report.data import IPMeta, ResultsSummary
 from dvsim.scheduler import Scheduler
 from dvsim.utils import (
     find_and_substitute_wildcards,
@@ -493,8 +496,52 @@ class FlowCfg(ABC):
             self.errors_seen |= item.errors_seen
 
         if self.is_primary_cfg:
+            json_str = self._gen_json_results_summary()
             self.gen_results_summary()
-            self.write_results(self.results_html_name, self.results_summary_md)
+
+            self.write_results(
+                html_filename=self.results_html_name,
+                text_md=self.results_summary_md,
+                json_str=json_str,
+            )
+
+    def _gen_json_results_summary(self) -> str:
+        """Generate results summary in JSON format."""
+        # The timestamp for this run has been taken with `utcnow()` and is
+        # stored in a custom format.  Store it in standard ISO format with
+        # explicit timezone annotation.
+        timestamp = (
+            datetime.strptime(self.timestamp, "%Y%m%d_%H%M%S")
+            .replace(tzinfo=timezone.utc)
+            .isoformat()
+        )
+
+        # Extract Git properties.
+        m = re.search(
+            r"https://github.com/.+?/tree/([0-9a-fA-F]+)",
+            self.revision,
+        )
+        commit = m.group(1) if m else None
+
+        reports_dir = Path(self.scratch_base_path) / "reports"
+
+        return ResultsSummary(
+            top=IPMeta(
+                name=self.name,
+                variant=self.variant,
+                commit=str(commit),
+                branch=self.branch,
+                url=self.revision,
+            ),
+            timestamp=timestamp,
+            report_index={
+                item.name: (item.results_dir / item.results_html_name).relative_to(reports_dir)
+                for item in self.cfgs
+            },
+            report_path=(Path(self.results_dir) / self.results_html_name)
+            .with_suffix(".json")
+            .relative_to(reports_dir),
+        ).model_dump_json()
 
     @abstractmethod
     def gen_results_summary(self) -> str:
