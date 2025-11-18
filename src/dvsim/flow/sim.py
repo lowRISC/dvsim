@@ -29,6 +29,7 @@ from dvsim.report.data import FlowResults, IPMeta, Testpoint, TestResult, TestSt
 from dvsim.sim_results import SimResults
 from dvsim.test import Test
 from dvsim.testplan import Testplan
+from dvsim.tool.utils import get_sim_tool_plugin
 from dvsim.utils import TS_FORMAT, rm_path
 
 # This affects the bucketizer failure report.
@@ -684,6 +685,7 @@ class SimCfg(FlowCfg):
 
         # --- Coverage ---
         coverage: dict[str, float | None] = {}
+        coverage_model = None
         if self.cov_report_deploy:
             for k, v in self.cov_report_deploy.cov_results_dict.items():
                 try:
@@ -691,13 +693,17 @@ class SimCfg(FlowCfg):
                 except (ValueError, TypeError, AttributeError):
                     coverage[k.lower()] = None
 
+        coverage_model = get_sim_tool_plugin(self.tool).get_coverage_metrics(
+            raw_metrics=coverage,
+        )
+
         # --- Final result ---
         return FlowResults(
             block=block,
             tool=tool,
             timestamp=timestamp,
             stages=stages,
-            coverage=coverage,
+            coverage=coverage_model,
             passed=total_passed,
             total=total_runs,
             percent=100.0 * total_passed / total_runs if total_runs else 0.0,

@@ -91,21 +91,39 @@
             </span>
         </div>
 
+{% macro coverage_stat(cov, kind, label) %}
+    {% if cov and cov|attr(kind) is not none %}
+        {% set value = cov|attr(kind) %}
+        <div class="col">
+            <ul class="list-group list-group-horizontal">
+                <li class="list-group-item list-group-item-secondary px-2 py-1">
+                    {{ label }}
+                </li>
+                <li class="list-group-item py-1">{{ "%.2f"|format(value) }} %</li>
+            </ul>
+        </div>
+    {% endif %}
+{% endmacro %}
+
+
         {% if coverage %}
         <div class="col-4 col-md-6">
             <div class="text-center mb-2">Coverage statistics</div>
             <div class="container small">
                 <div class="row g-0 row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4">
-                    {% for name, val in coverage.items() %}
-                    <div class="col">
-                        <ul class="list-group list-group-horizontal">
-                            <li class="list-group-item list-group-item-secondary px-2 py-1">
-                                {{ name }}
-                            </li>
-                            <li class="list-group-item py-1">{{ val }}</li>
-                        </ul>
-                    </div>
-                    {% endfor %}
+                    {{ coverage_stat(coverage, "average", "Total") }}
+
+                    {% set code = coverage.code %}
+                    {{ coverage_stat(code, "average", "code") }}
+                    {{ coverage_stat(coverage, "assertion", "assert") }}
+                    {{ coverage_stat(coverage, "functional", "func") }}
+
+                    {{ coverage_stat(code, "block", "block") }}
+                    {{ coverage_stat(code, "line_statement", "line") }}
+                    {{ coverage_stat(code, "branch", "branch") }}
+                    {{ coverage_stat(code, "condition_expression", "cond") }}
+                    {{ coverage_stat(code, "toggle", "toggle") }}
+                    {{ coverage_stat(code, "fsm", "FSM") }}
                 </div>
             </div>
         </div>

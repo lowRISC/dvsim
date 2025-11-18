@@ -6,8 +6,10 @@
 
 import re
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+
+from dvsim.report.data import CodeCoverageMetrics, CoverageMetrics
 
 __all__ = ("Xcelium",)
 
@@ -128,3 +130,30 @@ class Xcelium:
 
         msg = "Simulated time not found in the log."
         raise RuntimeError(msg)
+
+    @staticmethod
+    def get_coverage_metrics(raw_metrics: Mapping[str, float | None] | None) -> CoverageMetrics:
+        """Get a CoverageMetrics model from raw coverage data.
+
+        Args:
+            raw_metrics: raw coverage metrics as parsed from the tool.
+
+        Returns:
+            CoverageMetrics model.
+
+        """
+        if raw_metrics is None:
+            return CoverageMetrics(code=None, assertion=None, functional=None)
+
+        return CoverageMetrics(
+            functional=raw_metrics.get("covergroup"),
+            assertion=raw_metrics.get("assertion"),
+            code=CodeCoverageMetrics(
+                block=raw_metrics.get("block"),
+                line_statement=raw_metrics.get("statement"),
+                branch=raw_metrics.get("branch"),
+                condition_expression=raw_metrics.get("cond"),
+                toggle=raw_metrics.get("toggle"),
+                fsm=raw_metrics.get("fsm"),
+            ),
+        )

@@ -88,16 +88,44 @@
         </div>
     </div>
 
+{% macro coverage_cell(cov, kind) %}
+    {% if cov and cov|attr(kind) is not none %}
+        {% set value = cov|attr(kind) %}
+        <td class="c{{ (value / 10)|int }}">{{ "%.2f"|format(value) }}</td>
+    {% else %}
+        <td class="text-muted">-</td>
+    {% endif %}
+{% endmacro %}
+
     <div class="row py-3">
         <div class="col">
-            <table class="table table-sm table-hover">
-                <thead>
+            <table class="table table-sm table-hover text-center">
+                <thead class="table-light align-middle">
                     <tr>
-                        <th>Block</th>
+                        <th rowspan="2">Block</th>
+                        <th colspan="3">Tests</th>
+                        <th colspan="4" class="bg-secondary text-white">Coverage Summary</th>
+                        <th colspan="6">Code Coverage</th>
+                    </tr>
+                    <tr>
+                        <!-- Tests sub-headers -->
                         <th>Pass</th>
                         <th>Total</th>
                         <th>%</th>
-                        <th>Cov</th>
+
+                        <!-- Coverage Summary sub-headers -->
+                        <th class="bg-secondary text-white">Overall</th>
+                        <th class="bg-secondary text-white">Code</th>
+                        <th class="bg-secondary text-white">Functional</th>
+                        <th class="bg-secondary text-white">Assertion</th>
+
+                        <!-- Code Coverage sub-headers -->
+                        <th>Block</th>
+                        <th>Line</th>
+                        <th>Branch</th>
+                        <th>Condition</th>
+                        <th>Toggle</th>
+                        <th>FSM</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -114,19 +142,20 @@
                             <td class="c{{ (flow.percent / 10)|int }}">
                                 {{ "%.2f" | format(flow.percent) }}
                             </td>
-                            <td class="
-                                {% if flow.coverage and flow.coverage.get('score') is not none %}
-                                    c{{ (flow.coverage.score / 10)|int }}
-                                {% else %}
-                                    text-muted
-                                {% endif %}
-                            ">
-                                {% if flow.coverage and flow.coverage.get('score') is not none %}
-                                    {{ "%.2f" | format(flow.coverage.score) }}
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </td>
+                            {% set cov = flow.coverage %}
+                            {{ coverage_cell(cov, "average") }}
+
+                            {% set code = cov|attr("code") %}
+                            {{ coverage_cell(code, "average") }}
+                            {{ coverage_cell(cov, "functional") }}
+                            {{ coverage_cell(cov, "assertion") }}
+
+                            {{ coverage_cell(code, "block") }}
+                            {{ coverage_cell(code, "line_statement") }}
+                            {{ coverage_cell(code, "branch") }}
+                            {{ coverage_cell(code, "condition_expression") }}
+                            {{ coverage_cell(code, "toggle") }}
+                            {{ coverage_cell(code, "fsm") }}
                         </tr>
                     {% endfor %}
                 </tbody>

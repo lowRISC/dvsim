@@ -4,9 +4,11 @@
 
 """EDA simulation tool interface."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Protocol, runtime_checkable
+
+from dvsim.report.data import CoverageMetrics
 
 __all__ = ("SimTool",)
 
@@ -64,6 +66,19 @@ class SimTool(Protocol):
 
         Raises:
             RuntimeError: exception if the search pattern is not found.
+
+        """
+        ...
+
+    @staticmethod
+    def get_coverage_metrics(raw_metrics: Mapping[str, float | None] | None) -> CoverageMetrics:
+        """Get a CoverageMetrics model from raw coverage data.
+
+        Args:
+            raw_metrics: raw coverage metrics as parsed from the tool.
+
+        Returns:
+            CoverageMetrics model.
 
         """
         ...

@@ -95,6 +95,75 @@ class TestStage(BaseModel):
     """Percentage test pass rate."""
 
 
+class CodeCoverageMetrics(BaseModel):
+    """CodeCoverage metrics."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    block: float | None
+    """Block Coverage (%) - did this part of the code execute?"""
+    line_statement: float | None
+    """Line/Statement Coverage (%) - did this part of the code execute?"""
+    branch: float | None
+    """Branch Coverage (%) - did this if/case take all paths?"""
+    condition_expression: float | None
+    """Condition/Expression Coverage (%) - did the logic evaluate to 0 & 1?"""
+    toggle: float | None
+    """Toggle Coverage (%) - did the signal wiggle?"""
+    fsm: float | None
+    """FSM Coverage (%) - did the state machine transition?"""
+
+    @property
+    def average(self) -> float | None:
+        """Average code coverage (%)."""
+        all_cov = [
+            c
+            for c in [
+                self.line_statement,
+                self.branch,
+                self.condition_expression,
+                self.toggle,
+                self.fsm,
+            ]
+            if c is not None
+        ]
+
+        if len(all_cov) == 0:
+            return None
+
+        return sum(all_cov) / len(all_cov)
+
+
+class CoverageMetrics(BaseModel):
+    """Coverage metrics."""
+
+    code: CodeCoverageMetrics | None
+    """Code Coverage."""
+    assertion: float | None
+    """Assertion Coverage."""
+    functional: float | None
+    """Functional coverage."""
+
+    @property
+    def average(self) -> float | None:
+        """Average code coverage (%) or None if there is no coverage."""
+        code = self.code.average if self.code is not None else None
+        all_cov = [
+            c
+            for c in [
+                code,
+                self.assertion,
+                self.functional,
+            ]
+            if c is not None
+        ]
+
+        if len(all_cov) == 0:
+            return None
+
+        return sum(all_cov) / len(all_cov)
+
+
 class FlowResults(BaseModel):
     """Flow results data."""
 
@@ -109,7 +178,7 @@ class FlowResults(BaseModel):
 
     stages: Mapping[str, TestStage]
     """Results per test stage."""
-    coverage: Mapping[str, float | None]
+    coverage: CoverageMetrics | None
     """Coverage metrics."""
 
     passed: int
