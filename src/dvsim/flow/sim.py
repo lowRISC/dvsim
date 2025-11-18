@@ -26,7 +26,7 @@ from dvsim.job.deploy import (
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
-from dvsim.report.data import FlowResults, IPMeta, ToolMeta
+from dvsim.report.data import FlowResults, IPMeta, Testpoint, TestResult, TestStage, ToolMeta
 from dvsim.sim_results import SimResults
 from dvsim.test import Test
 from dvsim.testplan import Testplan
@@ -575,257 +575,127 @@ class SimCfg(FlowCfg):
             item._cov_unr()
 
     def _gen_json_results(self, run_results: Sequence[CompletedJobStatus]) -> FlowResults:
-        """Return the run flow results."""
+        """Generate structured FlowResults from simulation run data.
 
-        def _pct_str_to_float(s: str) -> float | None:
-            """Extract percent or None.
+        Args:
+            run_results: completed job status.
 
-            Map a percentage value stored in a string with ` %` suffix to a
-            float or to None if the conversion to Float fails.
-            """
-            try:
-                return float(s[:-2])
-            except ValueError:
-                return None
+        Returns:
+            Flow results object.
 
-        def _test_result_to_dict(tr) -> dict:
-            """Map a test result entry to a dict."""
-            job_time_s = tr.job_runtime
-            sim_time_us = tr.simulated_time
-            pass_rate = tr.passing * 100.0 / tr.total if tr.total > 0 else 0
-            return {
-                "name": tr.name,
-                "max_runtime_s": job_time_s,
-                "simulated_time_us": sim_time_us,
-                "passing_runs": tr.passing,
-                "total_runs": tr.total,
-                "pass_rate": pass_rate,
-            }
-
-        results = {}
-
-        # Describe name of hardware block targeted by this run and optionally
-        # the variant of the hardware block.
-        results["block_name"] = self.name.lower()
-        results["block_variant"] = self.variant.lower() or None
-
-        # The timestamp for this run has been taken with `utcnow()` and is
-        # stored in a custom format.  Store it in standard ISO format with
-        # explicit timezone annotation.
-        timestamp = datetime.strptime(self.timestamp, TS_FORMAT)
-        timestamp = timestamp.replace(tzinfo=timezone.utc)
-        results["report_timestamp"] = timestamp.isoformat()
-
-        # Extract Git properties.
-        m = re.search(r"https://github.com/.+?/tree/([0-9a-fA-F]+)", self.revision)
-        results["git_revision"] = m.group(1) if m else None
-        results["git_branch_name"] = self.branch or None
-
-        # Describe type of report and tool used.
-        results["report_type"] = "simulation"
-        results["tool"] = self.tool.lower()
-
-        if self.build_seed and not self.run_only:
-            results["build_seed"] = str(self.build_seed)
-
-        # Create dictionary to store results.
-        results["results"] = {
-            "testpoints": [],
-            "unmapped_tests": [],
-            "testplan_stage_summary": [],
-            "coverage": {},
-            "failure_buckets": [],
-        }
-
-        # If the testplan does not yet have test results mapped to testpoints,
-        # map them now.
+        """
         sim_results = SimResults(results=run_results)
         if not self.testplan.test_results_mapped:
-            self.testplan.map_test_results(test_results=sim_results.table)
+            self.testplan.map_test_results(sim_results.table)
 
-        # Extract results of testpoints and tests into the `testpoints` field.
-        for tp in self.testplan.testpoints:
-            # Ignore testpoints that contain unmapped tests, because those will
-            # be handled separately.
-            if tp.name in ["Unmapped tests", "N.A."]:
-                continue
+        # --- Metadata ---
+        timestamp = datetime.strptime(self.timestamp, TS_FORMAT).replace(tzinfo=timezone.utc)
 
-            # Extract test results for this testpoint.
-            tests = []
-            for tr in tp.test_results:
-                # Ignore test results with zero total runs unless we are told
-                # to "map the full testplan".
-                if tr.total == 0 and not self.map_full_testplan:
-                    continue
+        commit_match = re.search(r"github.com/.+?/tree/([0-9a-f]{7,40})", self.revision)
+        commit = commit_match.group(1) if commit_match else None
 
-                # Map test result metrics and append it to the collecting list.
-                tests.append(_test_result_to_dict(tr))
+        block = IPMeta(
+            name=self.name.lower(),
+            variant=(self.variant or "").lower() or None,
+            commit=commit or "",
+            branch=self.branch or "",
+            url=f"https://github.com/lowrisc/opentitan/tree/{commit}" if commit else "",
+        )
+        tool = ToolMeta(name=self.tool.lower(), version="unknown")
 
-            # Ignore testpoints for which no tests have been run unless we are
-            # told to "map the full testplan".
-            if len(tests) == 0 and not self.map_full_testplan:
-                continue
+        # --- Build stages only from testpoints that have at least one executed test ---
+        stage_to_tps: defaultdict[str, dict[str, Testpoint]] = defaultdict(dict)
 
-            # Append testpoint to results.
-            results["results"]["testpoints"].append(
-                {
-                    "name": tp.name,
-                    "stage": tp.stage,
-                    "tests": tests,
-                },
+        def make_test_result(tr) -> TestResult | None:
+            if tr.total == 0 and not self.map_full_testplan:
+                return None
+
+            return TestResult(
+                max_time=tr.job_runtime,
+                sim_time=tr.simulated_time,
+                passed=tr.passing,
+                total=tr.total,
+                percent=100.0 * tr.passing / (tr.total or 1),
             )
 
-        # Extract unmapped tests.
-        unmapped_trs = [tr for tr in sim_results.table if not tr.mapped]
-        for tr in unmapped_trs:
-            results["results"]["unmapped_tests"].append(_test_result_to_dict(tr))
+        # 1. Mapped testpoints — only include if at least one test ran
+        for tp in self.testplan.testpoints:
+            if tp.name in {"Unmapped tests", "N.A."}:
+                continue
 
-        # Extract summary of testplan stages.
-        if self.map_full_testplan:
-            for k, d in self.testplan.progress.items():
-                results["results"]["testplan_stage_summary"].append(
-                    {
-                        "name": k,
-                        "total_tests": d["total"],
-                        "written_tests": d["written"],
-                        "passing_tests": d["passing"],
-                        "pass_rate": _pct_str_to_float(d["progress"]),
-                    },
-                )
+            test_results: dict[str, TestResult] = {}
+            for tr in tp.test_results:
+                if test := make_test_result(tr):
+                    test_results[tr.name] = test
 
-        # Extract coverage results if coverage has been collected in this run.
-        if self.cov_report_deploy is not None:
-            cov = self.cov_report_deploy.cov_results_dict
-            for k, v in cov.items():
-                results["results"]["coverage"][k.lower()] = _pct_str_to_float(v)
+            # Critical: skip entire testpoint if no tests actually ran
+            if not test_results and not self.map_full_testplan:
+                continue
 
-        # Extract failure buckets.
-        if sim_results.buckets:
-            by_tests = sorted(sim_results.buckets.items(), key=lambda i: len(i[1]), reverse=True)
+            # Aggregate testpoint stats
+            tp_passed = sum(t.passed for t in test_results.values())
+            tp_total = sum(t.total for t in test_results.values())
 
-            for bucket, tests in by_tests:
-                unique_tests = defaultdict(list)
-                for test, line, context in tests:
-                    if test.job_type != "RunTest":
-                        continue
-                    unique_tests[test.name].append((test, line, context))
+            stage_to_tps[tp.stage][tp.name] = Testpoint(
+                tests=test_results,
+                passed=tp_passed,
+                total=tp_total,
+                percent=100.0 * tp_passed / tp_total if tp_total else 0.0,
+            )
 
-                fts = []
-                for test_name, test_runs in unique_tests.items():
-                    frs = []
-                    for test, line, context in test_runs:
-                        frs.append(
-                            {
-                                "seed": str(test.seed),
-                                "failure_message": {
-                                    "log_file_path": str(test.log_path),
-                                    "log_file_line_num": line,
-                                    "text": "".join(context),
-                                },
-                            },
-                        )
+        # 2. Unmapped tests — only if they actually ran
+        unmapped_tests: dict[str, TestResult] = {}
+        for tr in sim_results.table:
+            if not tr.mapped and (test := make_test_result(tr)):
+                unmapped_tests[tr.name] = test
 
-                    fts.append(
-                        {
-                            "name": test_name,
-                            "failing_runs": frs,
-                        },
-                    )
+        if unmapped_tests:
+            tp_passed = sum(t.passed for t in unmapped_tests.values())
+            tp_total = sum(t.total for t in unmapped_tests.values())
+            stage_to_tps["unmapped"]["Unmapped"] = Testpoint(
+                tests=unmapped_tests,
+                passed=tp_passed,
+                total=tp_total,
+                percent=100.0 * tp_passed / tp_total if tp_total else 0.0,
+            )
 
-                results["results"]["failure_buckets"].append(
-                    {
-                        "identifier": bucket,
-                        "failing_tests": fts,
-                    },
-                )
+        # --- Final stage aggregation ---
+        stages: dict[str, TestStage] = {}
+        total_passed = total_runs = 0
 
-        # Pull out the test results per stage
-        stages = {}
-        for testpoint_data in results["results"]["testpoints"]:
-            stage = testpoint_data["stage"]
-            testpoint = testpoint_data["name"]
-            tests = testpoint_data["tests"]
+        for stage_name, testpoints in stage_to_tps.items():
+            stage_passed = stage_total = 0
+            for tp in testpoints.values():
+                stage_passed += tp.passed
+                stage_total += tp.total
 
-            if stage not in stages:
-                stages[stage] = {"testpoints": {}}
+            stages[stage_name] = TestStage(
+                testpoints=testpoints,
+                passed=stage_passed,
+                total=stage_total,
+                percent=100.0 * stage_passed / stage_total if stage_total else 0.0,
+            )
 
-            stages[stage]["testpoints"][testpoint] = {
-                "tests": {
-                    test["name"]: {
-                        "max_time": test["max_runtime_s"],
-                        "sim_time": test["simulated_time_us"],
-                        "passed": test["passing_runs"],
-                        "total": test["total_runs"],
-                        "percent": 100 * test["passing_runs"] / test["total_runs"],
-                    }
-                    for test in tests
-                },
-            }
+            total_passed += stage_passed
+            total_runs += stage_total
 
-        # unmapped tests that are not part of the test plan?
-        # Why are they not part of a test plan?
-        if results["results"]["unmapped_tests"]:
-            stages["unmapped"] = {
-                "testpoints": {
-                    "None": {
-                        "tests": {
-                            test["name"]: {
-                                "max_time": test["max_runtime_s"],
-                                "sim_time": test["simulated_time_us"],
-                                "passed": test["passing_runs"],
-                                "total": test["total_runs"],
-                                "percent": 100 * test["passing_runs"] / test["total_runs"],
-                            }
-                            for test in results["results"]["unmapped_tests"]
-                        },
-                    },
-                },
-            }
+        # --- Coverage ---
+        coverage: dict[str, float | None] = {}
+        if self.cov_report_deploy:
+            for k, v in self.cov_report_deploy.cov_results_dict.items():
+                try:
+                    coverage[k.lower()] = float(v.rstrip("% "))
+                except (ValueError, TypeError, AttributeError):
+                    coverage[k.lower()] = None
 
-        # Gather stats
-        f_total = 0
-        f_passed = 0
-        for stage in stages:  # noqa: PLC0206
-            s_total = 0
-            s_passed = 0
-
-            for testpoint in stages[stage]["testpoints"]:
-                tp_total = 0
-                tp_passed = 0
-                tp_data = stages[stage]["testpoints"][testpoint]
-
-                for test in tp_data["tests"].values():
-                    tp_total += test["total"]
-                    tp_passed += test["passed"]
-
-                s_total += tp_total
-                s_passed += tp_passed
-                tp_data["total"] = tp_total
-                tp_data["passed"] = tp_passed
-                tp_data["percent"] = 100 * tp_passed / tp_total
-
-            f_total += s_total
-            f_passed += s_passed
-            stages[stage]["total"] = s_total
-            stages[stage]["passed"] = s_passed
-            stages[stage]["percent"] = 100 * s_passed / s_total
-
+        # --- Final result ---
         return FlowResults(
-            block=IPMeta(
-                name=results["block_name"],
-                variant=results["block_variant"],
-                commit=results["git_revision"],
-                branch=results["git_branch_name"],
-                url=f"https://github.com/lowrisc/opentitan/tree/{results['git_revision']}",
-            ),
-            tool=ToolMeta(
-                name=results["tool"],
-                version="???",
-            ),
-            timestamp=results["report_timestamp"],
+            block=block,
+            tool=tool,
+            timestamp=timestamp,
             stages=stages,
-            passed=f_passed,
-            total=f_total,
-            percent=100 * f_passed / f_total,
-            coverage=results["results"]["coverage"],
+            coverage=coverage,
+            passed=total_passed,
+            total=total_runs,
+            percent=100.0 * total_passed / total_runs if total_runs else 0.0,
         )
