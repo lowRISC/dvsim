@@ -509,12 +509,6 @@ class FlowCfg(ABC):
                 path=reports_dir,
             )
 
-    def _get_results_page_link(self, relative_to: str, link_text: str = "") -> str:
-        """Create a relative markdown link to the results page."""
-        link_text = link_text if link_text else self.name.upper()
-        relative_link = os.path.relpath(self.results_page, relative_to)
-        return f"[{link_text}]({relative_link})"
-
     def has_errors(self) -> bool:
         """Return error state."""
         return self.errors_seen

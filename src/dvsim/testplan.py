@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import TextIO
 
 import hjson
-import mistletoe
 from tabulate import tabulate
 
 
@@ -762,9 +761,6 @@ class Testplan:
         cov_results = sim_results.get("cov_results", [])
         text += self.get_cov_results_table(cov_results)
 
-        if fmt == "html":
-            text = self.get_dv_style_css() + mistletoe.markdown(text)
-            text = text.replace("<table>", '<table class="dv">')
         return text
 
 

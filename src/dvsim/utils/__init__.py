@@ -14,7 +14,6 @@ from dvsim.utils.fs import (
     rm_path,
 )
 from dvsim.utils.hjson import parse_hjson
-from dvsim.utils.html import htmc_color_pc_cells, md_results_to_html
 from dvsim.utils.status_printer import (
     EnlightenStatusPrinter,
     StatusPrinter,
@@ -37,8 +36,6 @@ __all__ = (
     "check_int",
     "clean_odirs",
     "find_and_substitute_wildcards",
-    "htmc_color_pc_cells",
-    "md_results_to_html",
     "mk_path",
     "mk_symlink",
     "parse_hjson",
