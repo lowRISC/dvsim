@@ -17,6 +17,7 @@ from dvsim.job.data import JobSpec, WorkspaceConfig
 from dvsim.job.time import JobTime
 from dvsim.launcher.base import Launcher
 from dvsim.logging import log
+from dvsim.report.data import IPMeta, ToolMeta
 from dvsim.tool.utils import get_sim_tool_plugin
 from dvsim.utils import (
     clean_odirs,
@@ -101,27 +102,34 @@ class Deploy:
         # Construct the job's command.
         self.cmd = self._construct_cmd()
 
-        self.workspace_cfg = WorkspaceConfig(
-            project=sim_cfg.name,
-            project_root=sim_cfg.proj_root,
-            scratch_root=Path(sim_cfg.scratch_root),
-            scratch_path=Path(sim_cfg.scratch_path),
-            timestamp=sim_cfg.args.timestamp,
-        )
-
     def get_job_spec(self) -> "JobSpec":
         """Get the job spec for this deployment."""
         return JobSpec(
+            name=self.name,
             job_type=self.__class__.__name__,
             target=self.target,
-            flow=self.flow,
-            tool=self.sim_cfg.tool,
-            name=self.name,
             seed=getattr(self, "seed", None),
             full_name=self.full_name,
             qual_name=self.qual_name,
-            workspace_cfg=self.workspace_cfg,
+            block=IPMeta(
+                name=self.sim_cfg.name,
+                variant=self.sim_cfg.variant,
+                commit=self.sim_cfg.revision,
+                branch=self.sim_cfg.branch,
+                url="",
+            ),
+            tool=ToolMeta(
+                name=self.sim_cfg.tool,
+                version="",
+            ),
+            workspace_cfg=WorkspaceConfig(
+                timestamp=self.sim_cfg.args.timestamp,
+                project_root=self.sim_cfg.proj_root,
+                scratch_root=Path(self.sim_cfg.scratch_root),
+                scratch_path=Path(self.sim_cfg.scratch_path),
+            ),
             dependencies=[d.full_name for d in self.dependencies],
+            needs_all_dependencies_passing=self.needs_all_dependencies_passing,
             weight=self.weight,
             timeout_mins=self.get_timeout_mins(),
             cmd=self.cmd,
@@ -129,12 +137,11 @@ class Deploy:
             dry_run=self.dry_run,
             interactive=self.sim_cfg.interactive,
             gui=self.gui,
-            needs_all_dependencies_passing=self.needs_all_dependencies_passing,
+            odir=self.odir,
+            log_path=Path(f"{self.odir}/{self.target}.log"),
+            links=self.sim_cfg.links,
             pre_launch=self.pre_launch(),
             post_finish=self.post_finish(),
-            odir=self.odir,
-            links=self.sim_cfg.links,
-            log_path=Path(f"{self.odir}/{self.target}.log"),
             pass_patterns=self.pass_patterns,
             fail_patterns=self.fail_patterns,
         )

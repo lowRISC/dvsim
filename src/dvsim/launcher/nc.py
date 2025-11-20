@@ -53,7 +53,7 @@ class NcLauncher(Launcher):
         pathlib.Path(run_file).chmod(0o755)
 
     def get_submit_cmd(self):
-        exetool = self.job_spec.tool
+        exetool = self.job_spec.tool.name
         job_name = self.job_spec.full_name
         cmd = self.job_spec.cmd
         odir = self.job_spec.odir

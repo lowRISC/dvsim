@@ -237,18 +237,20 @@ class Scheduler:
 
             results.append(
                 CompletedJobStatus(
-                    project=job_spec.workspace_cfg.project,
-                    job_type=job_spec.job_type,
                     name=job_spec.name,
+                    job_type=job_spec.job_type,
                     seed=job_spec.seed,
+                    block=job_spec.block,
+                    tool=job_spec.tool,
+                    workspace_cfg=job_spec.workspace_cfg,
                     full_name=name,
                     qual_name=job_spec.qual_name,
                     target=job_spec.target,
-                    status=status,
-                    fail_msg=launcher.fail_msg,
+                    log_path=job_spec.log_path,
                     job_runtime=launcher.job_runtime.with_unit("s").get()[0],
                     simulated_time=launcher.simulated_time.with_unit("us").get()[0],
-                    log_path=job_spec.log_path,
+                    status=status,
+                    fail_msg=launcher.fail_msg,
                 )
             )
 
@@ -263,7 +265,7 @@ class Scheduler:
         """
         for full_name, job_spec in jobs.items():
             target_dict = self._scheduled.setdefault(job_spec.target, {})
-            cfg_list = target_dict.setdefault(job_spec.flow, [])
+            cfg_list = target_dict.setdefault(job_spec.block.name, [])
 
             if job_spec not in cfg_list:
                 cfg_list.append(full_name)
@@ -272,7 +274,7 @@ class Scheduler:
         """Remove deploy item from the schedule."""
         job = self._jobs[job_name]
         target_dict = self._scheduled[job.target]
-        cfg_list = target_dict.get(job.flow)
+        cfg_list = target_dict.get(job.block.name)
 
         if cfg_list is not None:
             with contextlib.suppress(ValueError):
@@ -281,7 +283,7 @@ class Scheduler:
             # When all items in _scheduled[target][cfg] are finally removed,
             # the cfg key is deleted.
             if not cfg_list:
-                del target_dict[job.flow]
+                del target_dict[job.block.name]
 
     def _enqueue_successors(self, job_name: str | None = None) -> None:
         """Move an item's successors from _scheduled to _queued.
@@ -363,7 +365,7 @@ class Scheduler:
             if target is None:
                 return []
 
-            cfgs = {job.flow}
+            cfgs = {job.block.name}
 
         # Find item's successors that can be enqueued. We assume here that
         # only the immediately succeeding target can be enqueued at this

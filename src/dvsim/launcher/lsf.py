@@ -214,10 +214,10 @@ class LsfLauncher(Launcher):
             job_array += "%100"
 
         # TODO: This needs to be moved to a HJson.
-        if self.job_spec.tool == "vcs":
+        if self.job_spec.tool.name == "vcs":
             job_rusage = "'rusage[vcssim=1,vcssim_dynamic=1:duration=1]'"
 
-        elif self.job_spec.tool == "xcelium":
+        elif self.job_spec.tool.name == "xcelium":
             job_rusage = "'rusage[xcelium=1,xcelium_dynamic=1:duration=1]'"
 
         else:

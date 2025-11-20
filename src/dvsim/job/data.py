@@ -15,6 +15,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from dvsim.launcher.base import ErrorMessage, Launcher
+from dvsim.report.data import IPMeta, ToolMeta
 
 __all__ = (
     "CompletedJobStatus",
@@ -28,8 +29,6 @@ class WorkspaceConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    project: str
-    """Name of the project"""
     timestamp: str
     """Time stamp of the run."""
 
@@ -46,18 +45,14 @@ class JobSpec(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    job_type: str
-    """Deployment type"""
-
-    target: str
-    """run phase [build, run, ...]"""
-    flow: str
-    """Name of the flow config (e.g. tl_agent)"""
-    tool: str
-    """EDA tool used"""
-
     name: str
     """Name of the job"""
+
+    job_type: str
+    """Deployment type"""
+    target: str
+    """run phase [build, run, ...]"""
+
     seed: int | None
     """Seed if there is one."""
 
@@ -65,13 +60,16 @@ class JobSpec(BaseModel):
     """Full name disambiguates across multiple cfg being run (example:
     'aes:default', 'uart:default' builds.
     """
-
     qual_name: str
     """Qualified name disambiguates the instance name with other instances
     of the same class (example: 'uart_smoke' reseeded multiple times
     needs to be disambiguated using the index -> '0.uart_smoke'.
     """
 
+    block: IPMeta
+    """IP block metadata."""
+    tool: ToolMeta
+    """Tool used in the simulation run."""
     workspace_cfg: WorkspaceConfig
     """Workspace configuration."""
 
@@ -119,14 +117,19 @@ class CompletedJobStatus(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    project: str
-    """Name of the project"""
-    job_type: str
-    """Deployment type"""
     name: str
     """Name of the job"""
+    job_type: str
+    """Deployment type"""
     seed: int | None
     """Seed if there is one."""
+
+    block: IPMeta
+    """IP block metadata."""
+    tool: ToolMeta
+    """Tool used in the simulation run."""
+    workspace_cfg: WorkspaceConfig
+    """Workspace configuration."""
 
     full_name: str
     """Full name disambiguates across multiple cfg being run (example:

@@ -107,7 +107,7 @@ class Launcher(ABC):
             Launcher.workspace_prepared = True
 
         # One-time preparation of the workspace, specific to the cfg.
-        project = workspace_cfg.project
+        project = job_spec.block.name
         if project not in Launcher.workspace_prepared_for_cfg:
             self.prepare_workspace_for_cfg(workspace_cfg)
             Launcher.workspace_prepared_for_cfg.add(project)
@@ -339,7 +339,7 @@ class Launcher(ABC):
         # since it is devoid of the delays incurred due to infrastructure and
         # setup overhead.
 
-        plugin = get_sim_tool_plugin(tool=self.job_spec.tool)
+        plugin = get_sim_tool_plugin(tool=self.job_spec.tool.name)
 
         try:
             time, unit = plugin.get_job_runtime(log_text=lines)

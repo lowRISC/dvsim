@@ -459,7 +459,7 @@ class FlowCfg(ABC):
 
         for item in self.cfgs:
             project = item.name
-            item_results = [r for r in results if r.project == project]
+            item_results = [r for r in results if r.block.name == project]
 
             flow_results: FlowResults = item._gen_json_results(item_results)
             all_flow_results[project] = flow_results
