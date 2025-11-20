@@ -458,11 +458,20 @@ class FlowCfg(ABC):
         all_flow_results: Mapping[str, FlowResults] = {}
 
         for item in self.cfgs:
-            project = item.name
-            item_results = [r for r in results if r.block.name == project]
+            item_results = [
+                res
+                for res in results
+                if res.block.name == item.name and res.block.variant == item.variant
+            ]
 
             flow_results: FlowResults = item._gen_json_results(item_results)
-            all_flow_results[project] = flow_results
+
+            # Convert to lowercase to match filename
+            block_result_index = (
+                f"{item.name}_{item.variant}" if item.variant else item.name
+            ).lower()
+
+            all_flow_results[block_result_index] = flow_results
 
             # Write results to the report area.
             gen_block_report(
@@ -498,7 +507,6 @@ class FlowCfg(ABC):
                     url=self.revision,
                 ),
                 timestamp=timestamp,
-                report_index={item.name: f"{item.name}.html" for item in self.cfgs},
                 flow_results=all_flow_results,
                 report_path=reports_dir,
             )

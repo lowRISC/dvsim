@@ -147,9 +147,6 @@ class ResultsSummary(BaseModel):
     flow_results: Mapping[str, FlowResults]
     """Flow results."""
 
-    report_index: Mapping[str, Path]
-    """Index of the IP block reports."""
-
     report_path: Path
     """Path to the report JSON file."""
 

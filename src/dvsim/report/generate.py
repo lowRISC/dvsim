@@ -24,15 +24,21 @@ def gen_block_report(results: FlowResults, path: Path) -> None:
         path: output directory path
 
     """
-    log.debug("generating report '%s'", results.block.name)
+    file_name = (
+        f"{results.block.name}_{results.block.variant}"
+        if results.block.variant
+        else results.block.name
+    )
+
+    log.debug("generating report '%s'", file_name)
 
     path.mkdir(parents=True, exist_ok=True)
 
     # Save the JSON version
-    (path / f"{results.block.name}.json").write_text(results.model_dump_json())
+    (path / f"{file_name}.json").write_text(results.model_dump_json())
 
     # Generate HTML report
-    (path / f"{results.block.name}.html").write_text(
+    (path / f"{file_name}.html").write_text(
         render_template(
             path="reports/block_report.html",
             data={"results": results},
