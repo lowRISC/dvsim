@@ -5,7 +5,6 @@
 """Class describing simulation configuration object."""
 
 import fnmatch
-import re
 import sys
 from collections import OrderedDict, defaultdict
 from collections.abc import Sequence
@@ -574,11 +573,18 @@ class SimCfg(FlowCfg):
         for item in self.cfgs:
             item._cov_unr()
 
-    def _gen_json_results(self, run_results: Sequence[CompletedJobStatus]) -> FlowResults:
+    def _gen_json_results(
+        self,
+        run_results: Sequence[CompletedJobStatus],
+        commit: str,
+        url: str,
+    ) -> FlowResults:
         """Generate structured FlowResults from simulation run data.
 
         Args:
             run_results: completed job status.
+            commit: git commit Hash
+            url: for the IP source
 
         Returns:
             Flow results object.
@@ -591,15 +597,12 @@ class SimCfg(FlowCfg):
         # --- Metadata ---
         timestamp = datetime.strptime(self.timestamp, TS_FORMAT).replace(tzinfo=timezone.utc)
 
-        commit_match = re.search(r"github.com/.+?/tree/([0-9a-f]{7,40})", self.revision)
-        commit = commit_match.group(1) if commit_match else None
-
         block = IPMeta(
             name=self.name.lower(),
             variant=(self.variant or "").lower() or None,
-            commit=commit or "",
+            commit=commit,
             branch=self.branch or "",
-            url=f"https://github.com/lowrisc/opentitan/tree/{commit}" if commit else "",
+            url=url,
         )
         tool = ToolMeta(name=self.tool.lower(), version="unknown")
 

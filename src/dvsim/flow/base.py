@@ -7,7 +7,6 @@
 import json
 import os
 import pprint
-import re
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
@@ -29,6 +28,7 @@ from dvsim.utils import (
     rm_path,
     subst_wildcards,
 )
+from dvsim.utils.git import git_commit_hash
 
 if TYPE_CHECKING:
     from dvsim.job.deploy import Deploy
@@ -455,6 +455,9 @@ class FlowCfg(ABC):
 
         """
         reports_dir = Path(self.scratch_base_path) / "reports"
+        commit = git_commit_hash(path=Path(self.proj_root))
+        url = f"https://github.com/lowrisc/opentitan/tree/{commit}"
+
         all_flow_results: Mapping[str, FlowResults] = {}
 
         for item in self.cfgs:
@@ -464,7 +467,11 @@ class FlowCfg(ABC):
                 if res.block.name == item.name and res.block.variant == item.variant
             ]
 
-            flow_results: FlowResults = item._gen_json_results(item_results)
+            flow_results: FlowResults = item._gen_json_results(
+                run_results=item_results,
+                commit=commit,
+                url=url,
+            )
 
             # Convert to lowercase to match filename
             block_result_index = (
@@ -491,20 +498,13 @@ class FlowCfg(ABC):
                 .isoformat()
             )
 
-            # Extract Git properties.
-            m = re.search(
-                r"https://github.com/.+?/tree/([0-9a-fA-F]+)",
-                self.revision,
-            )
-            commit = m.group(1) if m else None
-
             results_summary = ResultsSummary(
                 top=IPMeta(
                     name=self.name,
                     variant=self.variant,
-                    commit=str(commit),
+                    commit=commit,
                     branch=self.branch,
-                    url=self.revision,
+                    url=url,
                 ),
                 timestamp=timestamp,
                 flow_results=all_flow_results,
