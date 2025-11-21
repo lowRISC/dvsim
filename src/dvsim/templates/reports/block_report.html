@@ -96,7 +96,7 @@
             <div class="text-center mb-2">Coverage statistics</div>
             <div class="container small">
                 <div class="row g-0 row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4">
-                    {% for name, val in coverage.items() %}
+                    {% for name, val in coverage.raw.items() %}
                     <div class="col">
                         <ul class="list-group list-group-horizontal">
                             <li class="list-group-item list-group-item-secondary px-2 py-1">

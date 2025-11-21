@@ -5,8 +5,11 @@
 """EDA tool plugin providing VCS support to DVSim."""
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import cast
+
+from dvsim.report.data import CoverageMetrics
 
 __all__ = ("VCS",)
 
@@ -103,3 +106,39 @@ class VCS:
 
         msg = "Simulated time not found in the log."
         raise RuntimeError(msg)
+
+    @staticmethod
+    def get_coverage_metrics(raw_metrics: Mapping[str, float | None] | None) -> CoverageMetrics:
+        """Get a CoverageMetrics model from raw coverage data.
+
+        Args:
+            raw_metrics: raw coverage metrics as parsed from the tool.
+
+        Returns:
+            CoverageMetrics model.
+
+        """
+        if raw_metrics is None:
+            return CoverageMetrics(raw={})
+
+        code_cov = cast(
+            "Sequence[float]",
+            [
+                raw_metrics[m]
+                for m in (
+                    "line",
+                    "cond",
+                    "fsm",
+                    "branch",
+                )
+                if raw_metrics.get(m) is not None
+            ],
+        )
+
+        return CoverageMetrics(
+            functional=raw_metrics.get("group"),
+            assertion=raw_metrics.get("assert"),
+            toggle=raw_metrics.get("toggle"),
+            code=sum(code_cov) / len(code_cov) if code_cov else None,
+            raw=raw_metrics,
+        )

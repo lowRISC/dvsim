@@ -88,17 +88,29 @@
         </div>
     </div>
 
+{% macro coverage_cell(flow, kind="score") %}
+    {% set cov = flow.coverage %}
+    {% if cov and cov|attr(kind) is not none %}
+        {% set value = cov|attr(kind) %}
+        <td class="c{{ (value / 10)|int }}">{{ "%.2f"|format(value) }}</td>
+    {% else %}
+        <td class="text-muted">-</td>
+    {% endif %}
+{% endmacro %}
+
     <div class="row py-3">
         <div class="col">
             <table class="table table-sm table-hover">
                 <thead>
-                    <tr>
-                        <th>Block</th>
-                        <th>Pass</th>
-                        <th>Total</th>
-                        <th>%</th>
-                        <th>Cov</th>
-                    </tr>
+                    <th>Block</th>
+                    <th>Pass</th>
+                    <th>Total</th>
+                    <th>%</th>
+                    <th>Code Coverage</th>
+                    <th>Toggle Coverage</th>
+                    <th>Assert Coverage</th>
+                    <th>Functional Coverage</th>
+                    <th>Overall Coverage</th>
                 </thead>
                 <tbody>
                     {% for block_name in summary.flow_results.keys()|sort %}
@@ -114,19 +126,11 @@
                             <td class="c{{ (flow.percent / 10)|int }}">
                                 {{ "%.2f" | format(flow.percent) }}
                             </td>
-                            <td class="
-                                {% if flow.coverage and flow.coverage.get('score') is not none %}
-                                    c{{ (flow.coverage.score / 10)|int }}
-                                {% else %}
-                                    text-muted
-                                {% endif %}
-                            ">
-                                {% if flow.coverage and flow.coverage.get('score') is not none %}
-                                    {{ "%.2f" | format(flow.coverage.score) }}
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </td>
+                            {{ coverage_cell(flow, "code") }}
+                            {{ coverage_cell(flow, "toggle") }}
+                            {{ coverage_cell(flow, "assertion") }}
+                            {{ coverage_cell(flow, "functional") }}
+                            {{ coverage_cell(flow, "score") }}
                         </tr>
                     {% endfor %}
                 </tbody>

@@ -95,6 +95,27 @@ class TestStage(BaseModel):
     """Percentage test pass rate."""
 
 
+class CoverageMetrics(BaseModel):
+    """Coverage metrics."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    code: float | None = None
+    """Code Coverage."""
+    toggle: float | None = None
+    """Toggle Coverage."""
+    assertion: float | None = None
+    """Assert Coverage."""
+    functional: float | None = None
+    """Functional coverage."""
+
+    score: float | None = None
+    """Overall coverage score."""
+
+    raw: Mapping[str, float | None]
+    """Raw tool specific coverage kv pairs."""
+
+
 class FlowResults(BaseModel):
     """Flow results data."""
 
@@ -109,7 +130,7 @@ class FlowResults(BaseModel):
 
     stages: Mapping[str, TestStage]
     """Results per test stage."""
-    coverage: Mapping[str, float | None]
+    coverage: CoverageMetrics | None
     """Coverage metrics."""
 
     passed: int
