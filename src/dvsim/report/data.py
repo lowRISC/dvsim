@@ -10,6 +10,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
+from dvsim.sim_results import BucketedFailures
+
 __all__ = (
     "IPMeta",
     "ResultsSummary",
@@ -180,6 +182,9 @@ class FlowResults(BaseModel):
     """Results per test stage."""
     coverage: CoverageMetrics | None
     """Coverage metrics."""
+
+    failed_jobs: BucketedFailures
+    """Bucketed failed job overview."""
 
     passed: int
     """Number of tests passed."""

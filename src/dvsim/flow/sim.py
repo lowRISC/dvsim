@@ -26,7 +26,7 @@ from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
 from dvsim.report.data import FlowResults, IPMeta, Testpoint, TestResult, TestStage, ToolMeta
-from dvsim.sim_results import SimResults
+from dvsim.sim_results import BucketedFailures, SimResults
 from dvsim.test import Test
 from dvsim.testplan import Testplan
 from dvsim.tool.utils import get_sim_tool_plugin
@@ -697,6 +697,8 @@ class SimCfg(FlowCfg):
             raw_metrics=coverage,
         )
 
+        failures = BucketedFailures.from_job_status(results=run_results)
+
         # --- Final result ---
         return FlowResults(
             block=block,
@@ -704,6 +706,7 @@ class SimCfg(FlowCfg):
             timestamp=timestamp,
             stages=stages,
             coverage=coverage_model,
+            failed_jobs=failures,
             passed=total_passed,
             total=total_runs,
             percent=100.0 * total_passed / total_runs if total_runs else 0.0,

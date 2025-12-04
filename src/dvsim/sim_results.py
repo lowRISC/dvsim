@@ -4,12 +4,18 @@
 
 """Class describing simulation results."""
 
-import collections
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING
 
-from dvsim.job.data import CompletedJobStatus
+from pydantic import BaseModel, ConfigDict
+
 from dvsim.testplan import Result
+
+if TYPE_CHECKING:
+    from dvsim.job.data import CompletedJobStatus
+
+__all__ = ()
 
 _REGEX_REMOVE = [
     # Remove UVM time.
@@ -66,6 +72,78 @@ _REGEX_STAR = [
 ]
 
 
+def _bucketize(fail_msg: str) -> str:
+    """Generalise error messages to create common error buckets."""
+    bucket = fail_msg
+    # Remove stuff.
+    for regex in _REGEX_REMOVE:
+        bucket = regex.sub("", bucket)
+    # Strip stuff.
+    for regex in _REGEX_STRIP:
+        bucket = regex.sub(r"\g<1>", bucket)
+    # Replace with '*'.
+    for regex in _REGEX_STAR:
+        bucket = regex.sub("*", bucket)
+
+    return bucket
+
+
+class JobFailureOverview(BaseModel):
+    """Overview of the Job failure."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    """Name of the job."""
+
+    seed: int | None
+    """Test seed."""
+
+    line: int | None
+    """Line number within the log if there is one."""
+
+    log_context: Sequence[str]
+    """Context within the log."""
+
+
+class BucketedFailures(BaseModel):
+    """Bucketed failed runs.
+
+    The runs are grouped into failure buckets based on the error messages they
+    reported. This makes it easier to see the classes of errors.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    buckets: Mapping[str, Sequence["JobFailureOverview"]]
+    """Mapping of common error message strings to the full job failure summary."""
+
+    @staticmethod
+    def from_job_status(results: Sequence["CompletedJobStatus"]) -> "BucketedFailures":
+        """Construct from CompletedJobStatus objects."""
+        buckets = {}
+
+        for job_status in results:
+            if job_status.status in ["F", "K"]:
+                bucket = _bucketize(job_status.fail_msg.message)
+
+                if bucket not in buckets:
+                    buckets[bucket] = []
+
+                buckets[bucket].append(
+                    JobFailureOverview(
+                        name=job_status.full_name,
+                        seed=job_status.seed,
+                        line=job_status.fail_msg.line_number,
+                        log_context=job_status.fail_msg.context,
+                    ),
+                )
+
+        return BucketedFailures(
+            buckets=buckets,
+        )
+
+
 class SimResults:
     """An object wrapping up a table of results for some tests.
 
@@ -76,30 +154,22 @@ class SimResults:
     holding all failing tests with the same signature.
     """
 
-    def __init__(self, results: Sequence[CompletedJobStatus]) -> None:
+    def __init__(self, results: Sequence["CompletedJobStatus"]) -> None:
         self.table = []
-        self.buckets = collections.defaultdict(list)
+        self.buckets: Mapping[str, JobFailureOverview] = {}
+
         self._name_to_row = {}
+
         for job_status in results:
             self._add_item(job_status=job_status)
 
-    def _add_item(self, job_status: CompletedJobStatus) -> None:
+    def _add_item(self, job_status: "CompletedJobStatus") -> None:
         """Recursively add a single item to the table of results."""
-        if job_status.status in ["F", "K"]:
-            bucket = self._bucketize(job_status.fail_msg.message)
-            self.buckets[bucket].append(
-                (
-                    job_status,
-                    job_status.fail_msg.line_number,
-                    job_status.fail_msg.context,
-                ),
-            )
-
         # Runs get added to the table directly
         if job_status.target == "run":
             self._add_run(job_status)
 
-    def _add_run(self, job_status: CompletedJobStatus) -> None:
+    def _add_run(self, job_status: "CompletedJobStatus") -> None:
         """Add an entry to table for item."""
         row = self._name_to_row.get(job_status.name)
         if row is None:
@@ -119,16 +189,3 @@ class SimResults:
         if job_status.status == "P":
             row.passing += 1
         row.total += 1
-
-    def _bucketize(self, fail_msg):
-        bucket = fail_msg
-        # Remove stuff.
-        for regex in _REGEX_REMOVE:
-            bucket = regex.sub("", bucket)
-        # Strip stuff.
-        for regex in _REGEX_STRIP:
-            bucket = regex.sub(r"\g<1>", bucket)
-        # Replace with '*'.
-        for regex in _REGEX_STAR:
-            bucket = regex.sub("*", bucket)
-        return bucket
