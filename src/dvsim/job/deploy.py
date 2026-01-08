@@ -74,6 +74,10 @@ class Deploy:
         # Cross ref the whole cfg object for ease.
         self.sim_cfg = sim_cfg
         self.flow = sim_cfg.name
+
+        if not hasattr(self.sim_cfg, "variant"):
+            self.sim_cfg.variant = ""
+
         self._variant_suffix = f"_{self.sim_cfg.variant}" if self.sim_cfg.variant else ""
 
         # A list of jobs on which this job depends.

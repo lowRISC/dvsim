@@ -339,25 +339,28 @@ class Launcher(ABC):
         # since it is devoid of the delays incurred due to infrastructure and
         # setup overhead.
 
-        plugin = get_sim_tool_plugin(tool=self.job_spec.tool.name)
+        time = self.job_runtime_secs
+        unit = "s"
 
-        try:
-            time, unit = plugin.get_job_runtime(log_text=lines)
-            self.job_runtime.set(time, unit)
+        if self.job_spec.job_type in [
+            "CompileSim",
+            "RunTest",
+            "CovUnr",
+            "CovMerge",
+            "CovReport",
+            "CovAnalyze",
+        ]:
+            plugin = get_sim_tool_plugin(tool=self.job_spec.tool.name)
 
-        except RuntimeError as e:
-            log.warning(
-                f"{self.job_spec.full_name}: {e} Using dvsim-maintained job_runtime instead."
-            )
-            self.job_runtime.set(self.job_runtime_secs, "s")
-
-        if self.job_spec.job_type == "RunTest":
             try:
-                time, unit = plugin.get_simulated_time(log_text=lines)
-                self.simulated_time.set(time, unit)
+                time, unit = plugin.get_job_runtime(log_text=lines)
 
             except RuntimeError as e:
-                log.debug(f"{self.job_spec.full_name}: {e}")
+                log.warning(
+                    f"{self.job_spec.full_name}: {e} Using dvsim-maintained job_runtime instead."
+                )
+
+        self.job_runtime.set(time, unit)
 
         if chk_failed or chk_passed:
             for cnt, line in enumerate(lines):
