@@ -4,9 +4,10 @@
 
 """Class describing a one-shot build configuration object."""
 
-import pathlib
+from abc import abstractmethod
 from collections import OrderedDict
 from collections.abc import Sequence
+from pathlib import Path
 
 from dvsim.flow.base import FlowCfg
 from dvsim.job.data import CompletedJobStatus
@@ -17,9 +18,7 @@ from dvsim.utils import rm_path
 
 
 class OneShotCfg(FlowCfg):
-    """Simple one-shot build flow for non-simulation targets like
-    linting, synthesis and FPV.
-    """
+    """Simple one-shot build flow for non-simulation targets like linting, synthesis and FPV."""
 
     ignored_wildcards = [*FlowCfg.ignored_wildcards, "build_mode", "index", "test"]
 
@@ -136,8 +135,10 @@ class OneShotCfg(FlowCfg):
     def _create_dirs(self) -> None:
         """Create initial set of directories."""
         for link in self.links:
-            rm_path(self.links[link])
-            pathlib.Path(self.links[link]).mkdir(parents=True)
+            link_path = Path(self.links[link])
+
+            rm_path(link_path)
+            link_path.mkdir(parents=True)
 
     def _create_deploy_objects(self) -> None:
         """Create deploy objects from build modes."""
@@ -152,6 +153,14 @@ class OneShotCfg(FlowCfg):
         # Create initial set of directories before kicking off the regression.
         self._create_dirs()
 
+    @abstractmethod
+    def _gen_results(self):
+        """Generate results for this config."""
+
+    @abstractmethod
+    def gen_results_summary(self):
+        """Gathers the aggregated results from all sub configs."""
+
     def gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
         """Generate flow results.
 
@@ -159,3 +168,33 @@ class OneShotCfg(FlowCfg):
             results: completed job status objects.
 
         """
+        for item in self.cfgs:
+            project = item.name
+
+            item_results = [
+                res
+                for res in results
+                if res.block.name == item.name and res.block.variant == item.variant
+            ]
+
+            result = item._gen_results(item_results)
+
+            log.info("[results]: [%s]:\n%s\n", project, result)
+            log.info("[scratch_path]: [%s] [%s]", project, item.scratch_path)
+
+            # TODO: Implement HTML report using templates
+
+            results_dir = Path(self.results_dir)
+            results_dir.mkdir(exist_ok=True, parents=True)
+
+            # (results_dir / self.results_html_name).write_text(
+            #     md_results_to_html(self.results_title, self.css_file, item.results_md)
+            # )
+
+            log.verbose("[report]: [%s] [%s/report.html]", project, item.results_dir)
+
+            self.errors_seen |= item.errors_seen
+
+        if self.is_primary_cfg:
+            self.gen_results_summary()
+            # self.write_results(self.results_html_name, self.results_summary_md)
