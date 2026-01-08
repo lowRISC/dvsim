@@ -10,6 +10,7 @@ DVSim. Templates can be referenced relative to this directory.
 
 from collections.abc import Mapping
 from importlib import resources
+from pathlib import Path
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -28,9 +29,11 @@ def render_static(path: str) -> str:
         string containing the static file content
 
     """
+    full_path = Path("dvsim/templates/static") / path
+
     return resources.read_text(
-        "dvsim",
-        f"templates/static/{path}",
+        ".".join(full_path.parts[:-1]),  # Module path
+        full_path.name,
     )
 
 
