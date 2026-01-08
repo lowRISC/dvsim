@@ -8,7 +8,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from dvsim.report.data import CoverageMetrics
+from dvsim.sim.data import CoverageMetrics
 
 __all__ = ("SimTool",)
 

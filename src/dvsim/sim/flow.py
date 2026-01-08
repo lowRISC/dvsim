@@ -7,7 +7,7 @@
 import fnmatch
 import sys
 from collections import OrderedDict, defaultdict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import ClassVar
@@ -25,12 +25,24 @@ from dvsim.job.deploy import (
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
-from dvsim.report.data import FlowResults, IPMeta, Testpoint, TestResult, TestStage, ToolMeta
+from dvsim.sim.data import (
+    IPMeta,
+    SimFlowResults,
+    SimResultsSummary,
+    Testpoint,
+    TestResult,
+    TestStage,
+    ToolMeta,
+)
+from dvsim.sim.report import gen_block_report, gen_reports
 from dvsim.sim_results import BucketedFailures, SimResults
 from dvsim.test import Test
 from dvsim.testplan import Testplan
 from dvsim.tool.utils import get_sim_tool_plugin
 from dvsim.utils import TS_FORMAT, rm_path
+from dvsim.utils.git import git_commit_hash
+
+__all__ = ("SimCfg",)
 
 # This affects the bucketizer failure report.
 _MAX_UNIQUE_TESTS = 5
@@ -574,13 +586,83 @@ class SimCfg(FlowCfg):
         for item in self.cfgs:
             item._cov_unr()
 
+    def gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
+        """Generate flow results.
+
+        Args:
+            results: completed job status objects.
+
+        """
+        reports_dir = Path(self.scratch_base_path) / "reports"
+        commit = git_commit_hash(path=Path(self.proj_root))
+        url = f"https://github.com/lowrisc/opentitan/tree/{commit}"
+
+        all_flow_results: Mapping[str, SimFlowResults] = {}
+
+        for item in self.cfgs:
+            item_results = [
+                res
+                for res in results
+                if res.block.name == item.name and res.block.variant == item.variant
+            ]
+
+            flow_results: SimFlowResults = item._gen_json_results(
+                run_results=item_results,
+                commit=commit,
+                url=url,
+            )
+
+            # Convert to lowercase to match filename
+            block_result_index = (
+                f"{item.name}_{item.variant}" if item.variant else item.name
+            ).lower()
+
+            all_flow_results[block_result_index] = flow_results
+
+            # Generate the block's JSON/HTML reports to the report area.
+            gen_block_report(
+                results=flow_results,
+                path=reports_dir,
+            )
+
+            self.errors_seen |= item.errors_seen
+
+        if self.is_primary_cfg:
+            # The timestamp for this run has been taken with `utcnow()` and is
+            # stored in a custom format.  Store it in standard ISO format with
+            # explicit timezone annotation.
+            timestamp = (
+                datetime.strptime(self.timestamp, "%Y%m%d_%H%M%S")
+                .replace(tzinfo=timezone.utc)
+                .isoformat()
+            )
+
+            results_summary = SimResultsSummary(
+                top=IPMeta(
+                    name=self.name,
+                    variant=self.variant,
+                    commit=commit,
+                    branch=self.branch,
+                    url=url,
+                ),
+                timestamp=timestamp,
+                flow_results=all_flow_results,
+                report_path=reports_dir,
+            )
+
+            # Generate all the JSON/HTML reports to the report area.
+            gen_reports(
+                summary=results_summary,
+                path=reports_dir,
+            )
+
     def _gen_json_results(
         self,
         run_results: Sequence[CompletedJobStatus],
         commit: str,
         url: str,
-    ) -> FlowResults:
-        """Generate structured FlowResults from simulation run data.
+    ) -> SimFlowResults:
+        """Generate structured SimFlowResults from simulation run data.
 
         Args:
             run_results: completed job status.
@@ -700,7 +782,7 @@ class SimCfg(FlowCfg):
         failures = BucketedFailures.from_job_status(results=run_results)
 
         # --- Final result ---
-        return FlowResults(
+        return SimFlowResults(
             block=block,
             tool=tool,
             timestamp=timestamp,

@@ -6,8 +6,10 @@
 
 import pathlib
 from collections import OrderedDict
+from collections.abc import Sequence
 
 from dvsim.flow.base import FlowCfg
+from dvsim.job.data import CompletedJobStatus
 from dvsim.job.deploy import CompileOneShot
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode
@@ -149,3 +151,11 @@ class OneShotCfg(FlowCfg):
 
         # Create initial set of directories before kicking off the regression.
         self._create_dirs()
+
+    def gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
+        """Generate flow results.
+
+        Args:
+            results: completed job status objects.
+
+        """

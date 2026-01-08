@@ -7,7 +7,7 @@
 import pytest
 from hamcrest import assert_that, equal_to, instance_of
 
-from dvsim.tool.sim import SimTool
+from dvsim.sim.tool.base import SimTool
 from dvsim.tool.utils import _SUPPORTED_SIM_TOOLS, get_sim_tool_plugin
 
 __all__ = ("TestEDAToolPlugins",)

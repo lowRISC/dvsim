@@ -11,9 +11,9 @@ from dvsim.flow.formal import FormalCfg
 from dvsim.flow.hjson import load_hjson
 from dvsim.flow.lint import LintCfg
 from dvsim.flow.rdc import RdcCfg
-from dvsim.flow.sim import SimCfg
 from dvsim.flow.syn import SynCfg
 from dvsim.logging import log
+from dvsim.sim.flow import SimCfg
 
 FLOW_HANDLERS = {
     "cdc": CdcCfg,

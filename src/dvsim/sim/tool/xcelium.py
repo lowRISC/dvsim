@@ -2,19 +2,20 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-"""EDA tool plugin providing VCS support to DVSim."""
+"""EDA tool plugin providing Xcelium support to DVSim."""
 
 import re
+from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from dvsim.report.data import CodeCoverageMetrics, CoverageMetrics
+from dvsim.sim.data import CodeCoverageMetrics, CoverageMetrics
 
-__all__ = ("VCS",)
+__all__ = ("Xcelium",)
 
 
-class VCS:
-    """Implement VCS tool support."""
+class Xcelium:
+    """Implement Xcelium tool support."""
 
     @staticmethod
     def get_cov_summary_table(cov_report_path: Path) -> tuple[Sequence[Sequence[str]], str]:
@@ -29,25 +30,52 @@ class VCS:
         """
         with Path(cov_report_path).open() as buf:
             for line in buf:
-                match = re.match("total coverage summary", line, re.IGNORECASE)
-                if match:
-                    # Metrics on the next line.
-                    line = buf.readline().strip()
-                    metrics = line.split()
-                    # Values on the next.
-                    line = buf.readline().strip()
-                    # Pretty up the values - add % sign for ease of post
-                    # processing.
+                if "name" in line:
+                    # Strip the line and remove the unwanted "* Covered" string.
+                    metrics = line.strip().replace("* Covered", "").split()
+                    # Change first item to 'Score'.
+                    metrics[0] = "Score"
+
+                    # Gather the list of metrics.
+                    items = OrderedDict()
+                    for metric in metrics:
+                        items[metric] = {}
+                        items[metric]["covered"] = 0
+                        items[metric]["total"] = 0
+
+                    # Next line is a separator.
+                    line = buf.readline()
+
+                    # Subsequent lines are coverage items to be aggregated.
+                    for line in buf:
+                        line = re.sub(r"%\s+\(", "%(", line)
+                        values = line.strip().split()
+                        for i, value in enumerate(values):
+                            value = value.strip()
+                            m = re.search(r"\((\d+)/(\d+).*\)", value)
+                            if m:
+                                items[metrics[i]]["covered"] += int(m.group(1))
+                                items[metrics[i]]["total"] += int(m.group(2))
+                                items["Score"]["covered"] += int(m.group(1))
+                                items["Score"]["total"] += int(m.group(2))
+
+                    # Capture the percentages and the aggregate.
                     values = []
-                    for val in line.split():
-                        val += " %"
-                        values.append(val)
-                    # first row is coverage total
-                    cov_total = values[0]
-                    return [metrics, values], cov_total
+                    cov_total = None
+                    for metric in items:
+                        if items[metric]["total"] == 0:
+                            values.append("-- %")
+                        else:
+                            value = items[metric]["covered"] / items[metric]["total"] * 100
+                            value = f"{round(value, 2):.2f} %"
+                            values.append(value)
+                            if metric == "Score":
+                                cov_total = value
+
+                    return [items.keys(), values], cov_total
 
         # If we reached here, then we were unable to extract the coverage.
-        msg = f"Coverage data not found in {cov_report_path}!"
+        msg = f"Coverage data not found in {buf.name}!"
         raise SyntaxError(msg)
 
     @staticmethod
@@ -67,11 +95,12 @@ class VCS:
             a tuple of (runtime, units).
 
         """
-        pattern = r"^CPU [tT]ime:\s*(\d+\.?\d*?)\s*(seconds|minutes|hours).*$"
+        pattern = r"^TOOL:\s*xrun.*: Exiting on .*\(total:\s*(\d+):(\d+):(\d+)\)\s*$"
         for line in reversed(log_text):
-            m = re.search(pattern, line)
-            if m:
-                return float(m.group(1)), m.group(2)[0]
+            if m := re.search(pattern, line):
+                t = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
+                return t, "s"
+
         msg = "Job runtime not found in the log."
         raise RuntimeError(msg)
 
@@ -94,13 +123,9 @@ class VCS:
             RuntimeError: exception if the search pattern is not found.
 
         """
-        pattern = re.compile(r"^Time:\s*(\d+\.?\d*?)\s*(.?[sS])\s*$")
-
+        pattern = r"^Simulation complete .* at time (\d+\.?\d*?)\s*(.?[sS]).*$"
         for line in reversed(log_text):
-            if "V C S   S i m u l a t i o n   R e p o r t" in line:
-                raise RuntimeError("Header found before sim time value")
-
-            if m := pattern.search(line):
+            if m := re.search(pattern, line):
                 return float(m.group(1)), m.group(2).lower()
 
         msg = "Simulated time not found in the log."
@@ -121,11 +146,11 @@ class VCS:
             return CoverageMetrics(code=None, assertion=None, functional=None)
 
         return CoverageMetrics(
-            functional=raw_metrics.get("group"),
-            assertion=raw_metrics.get("assert"),
+            functional=raw_metrics.get("covergroup"),
+            assertion=raw_metrics.get("assertion"),
             code=CodeCoverageMetrics(
-                block=None,
-                line_statement=raw_metrics.get("line"),
+                block=raw_metrics.get("block"),
+                line_statement=raw_metrics.get("statement"),
                 branch=raw_metrics.get("branch"),
                 condition_expression=raw_metrics.get("cond"),
                 toggle=raw_metrics.get("toggle"),

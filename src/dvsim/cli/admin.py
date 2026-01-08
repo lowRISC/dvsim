@@ -35,9 +35,9 @@ def report() -> None:
 )
 def gen(json_path: Path, output_dir: Path) -> None:
     """Generate a report from a existing results JSON."""
-    from dvsim.report.data import ResultsSummary
-    from dvsim.report.generate import gen_reports
+    from dvsim.sim.data import SimResultsSummary
+    from dvsim.sim.report import gen_reports
 
-    results: ResultsSummary = ResultsSummary.load(path=json_path)
+    results: SimResultsSummary = SimResultsSummary.load(path=json_path)
 
     gen_reports(summary=results, path=output_dir)

@@ -7,7 +7,7 @@
 from pathlib import Path
 
 from dvsim.logging import log
-from dvsim.report.data import FlowResults, ResultsSummary
+from dvsim.sim.data import SimFlowResults, SimResultsSummary
 from dvsim.templates.render import render_static, render_template
 
 __all__ = (
@@ -17,7 +17,7 @@ __all__ = (
 )
 
 
-def gen_block_report(results: FlowResults, path: Path) -> None:
+def gen_block_report(results: SimFlowResults, path: Path) -> None:
     """Generate a block report.
 
     Args:
@@ -47,7 +47,7 @@ def gen_block_report(results: FlowResults, path: Path) -> None:
     )
 
 
-def gen_summary_report(summary: ResultsSummary, path: Path) -> None:
+def gen_summary_report(summary: SimResultsSummary, path: Path) -> None:
     """Generate a summary report.
 
     Args:
@@ -88,7 +88,7 @@ def gen_summary_report(summary: ResultsSummary, path: Path) -> None:
     )
 
 
-def gen_reports(summary: ResultsSummary, path: Path) -> None:
+def gen_reports(summary: SimResultsSummary, path: Path) -> None:
     """Generate a full set of reports for the given regression run.
 
     Args:

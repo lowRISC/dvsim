@@ -10,7 +10,6 @@ import pprint
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -20,15 +19,12 @@ from dvsim.flow.hjson import set_target_attribute
 from dvsim.job.data import CompletedJobStatus
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
-from dvsim.report.data import FlowResults, IPMeta, ResultsSummary
-from dvsim.report.generate import gen_block_report, gen_reports
 from dvsim.scheduler import Scheduler
 from dvsim.utils import (
     find_and_substitute_wildcards,
     rm_path,
     subst_wildcards,
 )
-from dvsim.utils.git import git_commit_hash
 
 if TYPE_CHECKING:
     from dvsim.job.deploy import Deploy
@@ -447,6 +443,7 @@ class FlowCfg(ABC):
             interactive=self.interactive,
         ).run()
 
+    @abstractmethod
     def gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
         """Generate flow results.
 
@@ -454,68 +451,6 @@ class FlowCfg(ABC):
             results: completed job status objects.
 
         """
-        reports_dir = Path(self.scratch_base_path) / "reports"
-        commit = git_commit_hash(path=Path(self.proj_root))
-        url = f"https://github.com/lowrisc/opentitan/tree/{commit}"
-
-        all_flow_results: Mapping[str, FlowResults] = {}
-
-        for item in self.cfgs:
-            item_results = [
-                res
-                for res in results
-                if res.block.name == item.name and res.block.variant == item.variant
-            ]
-
-            flow_results: FlowResults = item._gen_json_results(
-                run_results=item_results,
-                commit=commit,
-                url=url,
-            )
-
-            # Convert to lowercase to match filename
-            block_result_index = (
-                f"{item.name}_{item.variant}" if item.variant else item.name
-            ).lower()
-
-            all_flow_results[block_result_index] = flow_results
-
-            # Generate the block's JSON/HTML reports to the report area.
-            gen_block_report(
-                results=flow_results,
-                path=reports_dir,
-            )
-
-            self.errors_seen |= item.errors_seen
-
-        if self.is_primary_cfg:
-            # The timestamp for this run has been taken with `utcnow()` and is
-            # stored in a custom format.  Store it in standard ISO format with
-            # explicit timezone annotation.
-            timestamp = (
-                datetime.strptime(self.timestamp, "%Y%m%d_%H%M%S")
-                .replace(tzinfo=timezone.utc)
-                .isoformat()
-            )
-
-            results_summary = ResultsSummary(
-                top=IPMeta(
-                    name=self.name,
-                    variant=self.variant,
-                    commit=commit,
-                    branch=self.branch,
-                    url=url,
-                ),
-                timestamp=timestamp,
-                flow_results=all_flow_results,
-                report_path=reports_dir,
-            )
-
-            # Generate all the JSON/HTML reports to the report area.
-            gen_reports(
-                summary=results_summary,
-                path=reports_dir,
-            )
 
     def has_errors(self) -> bool:
         """Return error state."""

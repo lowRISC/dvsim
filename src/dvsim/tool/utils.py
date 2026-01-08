@@ -5,9 +5,9 @@
 """EDA Tool base."""
 
 from dvsim.logging import log
-from dvsim.tool.sim import SimTool
-from dvsim.tool.vcs import VCS
-from dvsim.tool.xcelium import Xcelium
+from dvsim.sim.tool.base import SimTool
+from dvsim.sim.tool.vcs import VCS
+from dvsim.sim.tool.xcelium import Xcelium
 
 __all__ = ("get_sim_tool_plugin",)
 
