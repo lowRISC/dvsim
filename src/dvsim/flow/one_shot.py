@@ -154,7 +154,7 @@ class OneShotCfg(FlowCfg):
         self._create_dirs()
 
     @abstractmethod
-    def _gen_results(self):
+    def _gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
         """Generate results for this config."""
 
     @abstractmethod

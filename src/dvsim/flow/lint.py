@@ -4,11 +4,13 @@
 
 """Class describing lint configuration object."""
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
+from dvsim.job.data import CompletedJobStatus
 from dvsim.logging import log
 from dvsim.msg_buckets import MsgBuckets
 from dvsim.utils import check_bool, subst_wildcards
@@ -99,26 +101,26 @@ class LintCfg(OneShotCfg):
 
     # TODO(#9079): This way of parsing out messages into an intermediate
     # results.hjson file will be replaced by a native parser mechanism.
-    def _gen_results(self, results):
-        # '''
-        # The function is called after the regression has completed. It looks
-        # for a results.hjson file with aggregated results from the lint run.
-        # The hjson needs to have the following format:
-        #
-        # {
-        #     bucket_key: [str],
-        #     // other buckets according to message_buckets configuration
-        # }
-        #
-        # Each bucket key points to a list of signatures (strings).
-        # The bucket categories and severities are defined in the
-        # message_buckets class variable, and can be set via Hjson Dvsim
-        # config files.
-        #
-        # Note that if this is a primary config, the results will
-        # be generated using the _gen_results_summary function
-        # '''
+    def _gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
+        """Generate results.
 
+        The function is called after the regression has completed. It looks
+        for a results.hjson file with aggregated results from the lint run.
+        The hjson needs to have the following format:
+
+        {
+            bucket_key: [str],
+            // other buckets according to message_buckets configuration
+        }
+
+        Each bucket key points to a list of signatures (strings).
+        The bucket categories and severities are defined in the
+        message_buckets class variable, and can be set via Hjson Dvsim
+        config files.
+
+        Note that if this is a primary config, the results will
+        be generated using the _gen_results_summary function
+        """
         # Generate results table for runs.
         results_str = f"## {self.results_title}\n\n"
         results_str += f"### {self.timestamp_long}\n"

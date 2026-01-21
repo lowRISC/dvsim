@@ -2,12 +2,14 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import hjson
 from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
+from dvsim.job.data import CompletedJobStatus
 from dvsim.logging import log
 from dvsim.utils import subst_wildcards
 
@@ -176,41 +178,47 @@ class FormalCfg(OneShotCfg):
 
         return self.results_summary_md
 
-    def _gen_results(self, results):
-        # This function is called after the regression and looks for
-        # results.hjson file with aggregated results from the formal logfile.
-        # The hjson file is required to follow this format:
-        # {
-        #   "messages": {
-        #      "errors"      : []
-        #      "warnings"    : []
-        #      "cex"         : ["property1", "property2"...],
-        #      "undetermined": [],
-        #      "unreachable" : [],
-        #   },
-        #
-        #   "summary": {
-        #      "errors"      : 0
-        #      "warnings"    : 2
-        #      "proven"      : 20,
-        #      "cex"         : 5,
-        #      "covered"     : 18,
-        #      "undetermined": 7,
-        #      "unreachable" : 2,
-        #      "pass_rate"   : "90 %",
-        #      "cover_rate"  : "90 %"
-        #   },
-        # }
-        # The categories for property results are: proven, cex, undetermined,
-        # covered, and unreachable.
-        #
-        # If coverage was enabled then results.hjson will also have an item that
-        # shows formal coverage. It will have the following format:
-        #   "coverage": {
-        #      formal:  "90 %",
-        #      stimuli: "90 %",
-        #      checker: "80 %"
-        #   }
+    def _gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
+        """Generate results.
+
+        This function is called after the regression and looks for
+        results.hjson file with aggregated results from the formal logfile.
+        The hjson file is required to follow this format:
+        {
+          "messages": {
+             "errors"      : []
+             "warnings"    : []
+             "cex"         : ["property1", "property2"...],
+             "undetermined": [],
+             "unreachable" : [],
+          },
+
+          "summary": {
+             "errors"      : 0
+             "warnings"    : 2
+             "proven"      : 20,
+             "cex"         : 5,
+             "covered"     : 18,
+             "undetermined": 7,
+             "unreachable" : 2,
+             "pass_rate"   : "90 %",
+             "cover_rate"  : "90 %"
+          },
+        }
+        The categories for property results are: proven, cex, undetermined,
+        covered, and unreachable.
+
+        If coverage was enabled then results.hjson will also have an item that
+        shows formal coverage. It will have the following format:
+          "coverage": {
+             formal:  "90 %",
+             stimuli: "90 %",
+             checker: "80 %"
+          }
+        """
+        # There should be just one job that has run for this config.
+        complete_job = results[0]
+
         results_str = "## " + self.results_title + "\n\n"
         results_str += "### " + self.timestamp_long + "\n"
         if self.revision:
@@ -222,7 +230,7 @@ class FormalCfg(OneShotCfg):
         assert len(self.deploy) == 1
         mode = self.deploy[0]
 
-        if results[mode] == "P":
+        if complete_job.status == "P":
             result_data = Path(
                 subst_wildcards(self.build_dir, {"build_mode": mode.name}),
                 "results.hjson",
@@ -254,8 +262,8 @@ class FormalCfg(OneShotCfg):
         else:
             summary += ["N/A", "N/A", "N/A"]
 
-        if results[mode] != "P":
-            results_str += "\n## List of Failures\n" + "".join(mode.launcher.fail_msg.message)
+        if complete_job.status != "P":
+            results_str += "\n## List of Failures\n" + "".join(complete_job.fail_msg.message)
 
         messages = self.result.get("messages")
         if messages is not None:
