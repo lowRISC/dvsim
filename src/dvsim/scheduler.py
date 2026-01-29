@@ -375,9 +375,10 @@ class Scheduler:
             for next_item in self._scheduled[target][cfg]:
                 if job_name is not None:
                     job = self._jobs[next_item]
-                    # Something is terribly wrong if item exists but the
-                    # next_item's dependency list is empty.
-                    assert job.dependencies
+                    if not job.dependencies:
+                        raise RuntimeError(
+                            "Job item exists but the next item's dependency list is empty?"
+                        )
                     if job_name not in job.dependencies:
                         continue
 
