@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 
 def total_sub_items(
-    d: Mapping[str, Sequence[JobSpec]] | Mapping["FlowCfg", Sequence[JobSpec]],
+    d: Mapping[str, Sequence[str]] | Mapping["FlowCfg", Sequence[JobSpec]],
 ) -> int:
     """Return the total number of sub items in a mapping.
 
