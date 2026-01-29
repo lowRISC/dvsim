@@ -13,6 +13,7 @@ from collections.abc import (
     MutableSet,
     Sequence,
 )
+from itertools import dropwhile
 from signal import SIGINT, SIGTERM, signal
 from types import FrameType
 from typing import TYPE_CHECKING, Any
@@ -318,13 +319,34 @@ class Scheduler:
             self._cancel_item(next_item, cancel_successors=False)
             items.extend(self._get_successors(next_item))
 
+    def _get_successor_target(self, job_name: str) -> str | None:
+        """Find the first target in the scheduled list that follows the target of a given job.
+
+        Args:
+            job_name: name of the job (to find the successor target of).
+
+        Returns:
+            the successor, or None if no such target exists or there is no successor.
+
+        """
+        job: JobSpec = self._jobs[job_name]
+
+        if job.target not in self._scheduled:
+            msg = f"Scheduler does not contain target {job.target}"
+            raise KeyError(msg)
+
+        # Find the first target that follows the target in the scheduled list.
+        target_iter = dropwhile(lambda x: x != job.target, self._scheduled)
+        next(target_iter, None)
+        return next(target_iter, None)
+
     def _get_successors(self, job_name: str | None = None) -> Sequence[str]:
         """Find immediate successors of an item.
 
-        We choose the target that follows the 'item''s current target and find
-        the list of successors whose dependency list contains 'item'. If 'item'
-        is None, we pick successors from all cfgs, else we pick successors only
-        from the cfg to which the item belongs.
+        We choose the target that follows the item's current target and find
+        the list of successors whose dependency list contains "job_name". If
+        "job_name" is None, we pick successors from all cfgs, else we pick
+        successors only from the cfg to which the item belongs.
 
         Args:
             job_name: name of the job
@@ -334,38 +356,15 @@ class Scheduler:
 
         """
         if job_name is None:
-            target = next(iter(self._scheduled))
-
-            if target is None:
-                return []
-
-            cfgs = set(self._scheduled[target])
-
+            target = next(iter(self._scheduled), None)
+            cfgs = set() if target is None else set(self._scheduled[target])
         else:
+            target = self._get_successor_target(job_name)
             job: JobSpec = self._jobs[job_name]
-
-            if job.target not in self._scheduled:
-                msg = f"Scheduler does not contain target {job.target}"
-                raise KeyError(msg)
-
-            target_iterator = iter(self._scheduled)
-            target = next(target_iterator)
-
-            found = False
-            while not found:
-                if target == job.target:
-                    found = True
-
-                try:
-                    target = next(target_iterator)
-
-                except StopIteration:
-                    return []
-
-            if target is None:
-                return []
-
             cfgs = {job.block.name}
+
+        if target is None:
+            return ()
 
         # Find item's successors that can be enqueued. We assume here that
         # only the immediately succeeding target can be enqueued at this
@@ -525,8 +524,45 @@ class Scheduler:
 
         return changed
 
+    def _dispatch_job(self, hms: str, target: str, job_name: str) -> None:
+        """Dispatch the named queued job.
+
+        Args:
+            hms: time as a string formatted in hh:mm:ss
+            target: the target to dispatch this job to
+            job_name: the name of the job to dispatch
+
+        """
+        try:
+            self._launchers[job_name].launch()
+
+        except LauncherError:
+            log.exception("Error launching %s", job_name)
+            self._kill_item(job_name)
+
+        except LauncherBusyError:
+            log.exception("Launcher busy")
+
+            self._queued[target].append(job_name)
+
+            log.verbose(
+                "[%s]: [%s]: [reqeued]: %s",
+                hms,
+                target,
+                job_name,
+            )
+            return
+
+        self._running[target].append(job_name)
+        self.job_status[job_name] = "D"
+
     def _dispatch(self, hms: str) -> None:
-        """Dispatch some queued items if possible."""
+        """Dispatch some queued items if possible.
+
+        Args:
+            hms: time as a string formatted in hh:mm:ss
+
+        """
         slots = self._launcher_cls.max_parallel - total_sub_items(self._running)
         if slots <= 0:
             return
@@ -590,28 +626,7 @@ class Scheduler:
             )
 
             for job_name in to_dispatch:
-                try:
-                    self._launchers[job_name].launch()
-
-                except LauncherError:
-                    log.exception("Error launching %s", job_name)
-                    self._kill_item(job_name)
-
-                except LauncherBusyError:
-                    log.exception("Launcher busy")
-
-                    self._queued[target].append(job_name)
-
-                    log.verbose(
-                        "[%s]: [%s]: [reqeued]: %s",
-                        hms,
-                        target,
-                        job_name,
-                    )
-                    continue
-
-                self._running[target].append(job_name)
-                self.job_status[job_name] = "D"
+                self._dispatch_job(hms, target, job_name)
 
     def _kill(self) -> None:
         """Kill any running items and cancel any that are waiting."""
