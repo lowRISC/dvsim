@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
+from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
 from dvsim.logging import log
 from dvsim.tool.utils import get_sim_tool_plugin
@@ -210,18 +211,18 @@ class Launcher(ABC):
 
         Path(self.job_spec.odir).mkdir(exist_ok=True, parents=True)
 
-    def _link_odir(self, status: str) -> None:
+    def _link_odir(self, status: JobStatus) -> None:
         """Soft-links the job's directory based on job's status.
 
-        The dispatched, passed and failed directories in the scratch area
+        The DISPATCHED, PASSED and FAILED directories in the scratch area
         provide a quick way to get to the job that was executed.
         """
         dest = Path(self.job_spec.links[status], self.job_spec.qual_name)
         mk_symlink(path=self.job_spec.odir, link=dest)
 
         # Delete the symlink from dispatched directory if it exists.
-        if status != "D":
-            old = Path(self.job_spec.links["D"], self.job_spec.qual_name)
+        if status != JobStatus.DISPATCHED:
+            old = Path(self.job_spec.links[JobStatus.DISPATCHED], self.job_spec.qual_name)
             rm_path(old)
 
     def _dump_env_vars(self, exports: Mapping[str, str]) -> None:
@@ -258,7 +259,7 @@ class Launcher(ABC):
         self._do_launch()
 
     @abstractmethod
-    def poll(self) -> str | None:
+    def poll(self) -> JobStatus | None:
         """Poll the launched job for completion.
 
         Invokes _check_status() and _post_finish() when the job completes.
@@ -272,14 +273,14 @@ class Launcher(ABC):
     def kill(self) -> None:
         """Terminate the job."""
 
-    def _check_status(self) -> tuple[str, ErrorMessage | None]:
-        """Determine the outcome of the job (P/F if it ran to completion).
+    def _check_status(self) -> tuple[JobStatus, ErrorMessage | None]:
+        """Determine the outcome of the job (PASSED/FAILED if it ran to completion).
 
         Returns:
             (status, err_msg) extracted from the log, where the status is
-            "P" if the it passed, "F" otherwise. This is invoked by poll() just
-            after the job finishes. err_msg is an instance of the named tuple
-            ErrorMessage.
+            PASSED if the job passed, FAILED otherwise. This is invoked by
+            poll() just after the job finishes. err_msg is an instance of the
+            named tuple ErrorMessage.
 
         """
 
@@ -307,7 +308,7 @@ class Launcher(ABC):
             return None
 
         if self.job_spec.dry_run:
-            return "P", None
+            return JobStatus.PASSED, None
 
         # Only one fail pattern needs to be seen.
         chk_failed = bool(self.job_spec.fail_patterns)
@@ -324,7 +325,7 @@ class Launcher(ABC):
             ) as f:
                 lines = f.readlines()
         except OSError as e:
-            return "F", ErrorMessage(
+            return JobStatus.FAILED, ErrorMessage(
                 line_number=None,
                 message=f"Error opening file {self.job_spec.log_path}:\n{e}",
                 context=[],
@@ -368,7 +369,7 @@ class Launcher(ABC):
                     # If failed, then nothing else to do. Just return.
                     # Provide some extra lines for context.
                     end = cnt + 5
-                    return "F", ErrorMessage(
+                    return JobStatus.FAILED, ErrorMessage(
                         line_number=cnt + 1,
                         message=line.strip(),
                         context=lines[cnt:end],
@@ -384,32 +385,32 @@ class Launcher(ABC):
         # exit code for whatever reason, then show the last 10 lines of the log
         # as the failure message, which might help with the debug.
         if self.exit_code != 0:
-            return "F", ErrorMessage(
+            return JobStatus.FAILED, ErrorMessage(
                 line_number=None,
                 message="Job returned non-zero exit code",
                 context=lines[-10:],
             )
         if chk_passed:
-            return "F", ErrorMessage(
+            return JobStatus.FAILED, ErrorMessage(
                 line_number=None,
                 message=f"Some pass patterns missing: {pass_patterns}",
                 context=lines[-10:],
             )
-        return "P", None
+        return JobStatus.PASSED, None
 
-    def _post_finish(self, status: str, err_msg: ErrorMessage) -> None:
+    def _post_finish(self, status: JobStatus, err_msg: ErrorMessage) -> None:
         """Do post-completion activities, such as preparing the results.
 
         Must be invoked by poll(), after the job outcome is determined.
 
         Args:
-            status: status of the job, either 'P', 'F' or 'K'.
+            status: status of the completed job (must be either PASSED, FAILED or KILLED).
             err_msg: an instance of the named tuple ErrorMessage.
 
         """
-        assert status in ["P", "F", "K"]
+        assert status.ended
         self._link_odir(status)
-        log.debug("Item %s has completed execution: %s", self, status)
+        log.debug("Item %s has completed execution: %s", self, status.shorthand)
 
         try:
             # Run the target-specific cleanup tasks regardless of the job's
@@ -419,8 +420,8 @@ class Launcher(ABC):
         except Exception as e:
             # If the job had already failed, then don't do anything. If it's
             # cleanup task failed, then mark the job as failed.
-            if status == "P":
-                status = "F"
+            if status == JobStatus.PASSED:
+                status = JobStatus.FAILED
                 err_msg = ErrorMessage(
                     line_number=None,
                     message=f"{e}",
@@ -428,7 +429,7 @@ class Launcher(ABC):
                 )
 
         self.status = status
-        if self.status != "P":
+        if self.status != JobStatus.PASSED:
             assert err_msg
             assert isinstance(err_msg, ErrorMessage)
             self.fail_msg = err_msg

@@ -11,6 +11,7 @@ import subprocess
 import sys
 from typing import TYPE_CHECKING
 
+from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
 from dvsim.logging import log
 from dvsim.utils import rm_path
@@ -162,20 +163,20 @@ class NcLauncher(Launcher):
         finally:
             self._close_process()
 
-        self._link_odir("D")
+        self._link_odir(JobStatus.DISPATCHED)
 
     def minutes_since_start(self):
         return (datetime.datetime.now() - self.start_time).total_seconds() / 60
 
-    def poll(self):
+    def poll(self) -> JobStatus | None:
         """Check status of the running process.
 
-        This returns 'D', 'P', 'F', or 'K'. If 'D', the job is still running.
-        If 'P', the job finished successfully. If 'F', the job finished with
-        an error. If 'K' it was killed.
+        This returns a job status. If DISPATCHED, the job is still running.
+        If PASSED, the job finished successfully. If FAILED, the job finished
+        with an error. If KILLED, it was killed.
 
         This function must only be called after running self.dispatch_cmd() and
-        must not be called again once it has returned 'P' or 'F'.
+        must not be called again once it has returned PASSED or FAILED.
         """
         assert self.process is not None
         if self.process.poll() is None:
@@ -215,16 +216,15 @@ class NcLauncher(Launcher):
                     elif self.nc_job_state == "wait_timeout":
                         timeout_message = f"Job timed out after waiting {wait_timeout_mins} mins"
                     self._post_finish(
-                        "K",
+                        JobStatus.KILLED,
                         ErrorMessage(
                             line_number=None,
                             message=timeout_message,
                             context=[timeout_message],
                         ),
                     )
-                    return "K"
-                return "D"
-            return "D"
+                    return JobStatus.KILLED
+            return JobStatus.DISPATCHED
 
         self.exit_code = self.process.returncode
         status, err_msg = self._check_status()
@@ -255,7 +255,9 @@ class NcLauncher(Launcher):
 
         """
         self._kill()
-        self._post_finish("K", ErrorMessage(line_number=None, message="Job killed!", context=[]))
+        self._post_finish(
+            JobStatus.KILLED, ErrorMessage(line_number=None, message="Job killed!", context=[])
+        )
 
     def _post_finish(self, status, err_msg) -> None:
         self._close_process()

@@ -10,6 +10,7 @@ import shlex
 import subprocess
 from typing import TYPE_CHECKING
 
+from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
 
 if TYPE_CHECKING:
@@ -100,17 +101,17 @@ class LocalLauncher(Launcher):
             # Wait until the process exit
             self._process.wait()
 
-        self._link_odir("D")
+        self._link_odir(JobStatus.DISPATCHED)
 
-    def poll(self) -> str | None:
+    def poll(self) -> JobStatus | None:
         """Check status of the running process.
 
-        This returns 'D', 'P', 'F', or 'K'. If 'D', the job is still running.
-        If 'P', the job finished successfully. If 'F', the job finished with
-        an error. If 'K' it was killed.
+        This returns a job status. If DISPATCHED, the job is still running.
+        If PASSED, the job finished successfully. If FAILED, the job finished
+        with an error. If KILLED, it was killed.
 
         This function must only be called after running self.dispatch_cmd() and
-        must not be called again once it has returned 'P' or 'F'.
+        must not be called again once it has returned PASSED or FAILED.
         """
         if self._process is None:
             msg = (
@@ -131,16 +132,16 @@ class LocalLauncher(Launcher):
                 timeout_mins = self.job_spec.timeout_mins
                 timeout_message = f"Job timed out after {timeout_mins} minutes"
                 self._post_finish(
-                    "K",
+                    JobStatus.KILLED,
                     ErrorMessage(
                         line_number=None,
                         message=timeout_message,
                         context=[timeout_message],
                     ),
                 )
-                return "K"
+                return JobStatus.KILLED
 
-            return "D"
+            return JobStatus.DISPATCHED
 
         self.exit_code = self._process.returncode
         status, err_msg = self._check_status()
@@ -172,7 +173,7 @@ class LocalLauncher(Launcher):
         """
         self._kill()
         self._post_finish(
-            "K",
+            JobStatus.KILLED,
             ErrorMessage(line_number=None, message="Job killed!", context=[]),
         )
 

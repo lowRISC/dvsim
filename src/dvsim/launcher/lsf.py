@@ -9,6 +9,7 @@ import tarfile
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
 from dvsim.logging import log
 from dvsim.utils import clean_odirs
@@ -270,9 +271,9 @@ class LsfLauncher(Launcher):
         for job in LsfLauncher.jobs[cfg][job_name]:
             job.bsub_out = Path(f"{job_script}.{job.index}.out")
             job.job_id = f"{job_id}[{job.index}]"
-            job._link_odir("D")
+            job._link_odir(JobStatus.DISPATCHED)
 
-    def poll(self) -> str | None:
+    def poll(self) -> JobStatus | None:
         """Poll the status of the job.
 
         Returns:
@@ -286,7 +287,7 @@ class LsfLauncher(Launcher):
         if not self.bsub_out_fd:
             # If job id is not set, the bsub command has not been sent yet.
             if not self.job_id:
-                return "D"
+                return JobStatus.DISPATCHED
 
             # We redirect the job's output to the log file, so the job script
             # output remains empty until the point it finishes. This is a very
@@ -295,10 +296,10 @@ class LsfLauncher(Launcher):
             # created), then the job is still running.
             try:
                 if not self.bsub_out.stat().st_size:
-                    return "D"
+                    return JobStatus.DISPATCHED
 
             except FileNotFoundError:
-                return "D"
+                return JobStatus.DISPATCHED
 
             # If we got to this point,  we can now open the job script output
             # file for reading.
@@ -307,14 +308,14 @@ class LsfLauncher(Launcher):
 
             except OSError as e:
                 self._post_finish(
-                    "F",
+                    JobStatus.FAILED,
                     ErrorMessage(
                         line_number=None,
                         message=f"ERROR: Failed to open {self.bsub_out}\n{e}.",
                         context=[e],
                     ),
                 )
-                return "F"
+                return JobStatus.FAILED
 
         # Now that the job has completed, we need to determine its status.
         #
@@ -360,7 +361,7 @@ class LsfLauncher(Launcher):
         # Fail the test if we have reached the max polling retries.
         if self.num_poll_retries == LsfLauncher.max_poll_retries:
             self._post_finish(
-                "F",
+                JobStatus.FAILED,
                 ErrorMessage(
                     message="ERROR: Reached max retries while "
                     f"reading job script output {self.bsub_out} to determine"
@@ -368,9 +369,9 @@ class LsfLauncher(Launcher):
                     context=[],
                 ),
             )
-            return "F"
+            return JobStatus.FAILED
 
-        return "D"
+        return JobStatus.DISPATCHED
 
     def _get_job_exit_code(self) -> int | None:
         """Read the job script output to retrieve the exit code.
@@ -437,14 +438,14 @@ class LsfLauncher(Launcher):
         else:
             log.error("Job ID for %s not found", self.job_spec.full_name)
 
-        self._post_finish("K", ErrorMessage(message="Job killed!", context=[]))
+        self._post_finish(JobStatus.KILLED, ErrorMessage(message="Job killed!", context=[]))
 
     def _post_finish(self, status: str, err_msg: ErrorMessage) -> None:
         """Tidy up after the job is complete."""
         if self.bsub_out_fd:
             self.bsub_out_fd.close()
         if self.exit_code is None:
-            self.exit_code = 0 if status == "P" else 1
+            self.exit_code = 0 if status == JobStatus.PASSED else 1
         super()._post_finish(status, err_msg)
 
     @staticmethod
@@ -453,7 +454,7 @@ class LsfLauncher(Launcher):
         job_name: str,
         err_msg: str,
     ) -> None:
-        """On LSF error, mark all jobs in this array as killed.
+        """On LSF error, mark all jobs in this array as FAILED.
 
         Args:
             cfg: workspace configuration
@@ -463,6 +464,6 @@ class LsfLauncher(Launcher):
         """
         for job in LsfLauncher.jobs[cfg.project][job_name]:
             job._post_finish(
-                "F",
+                JobStatus.FAILED,
                 ErrorMessage(line_number=None, message=err_msg, context=[err_msg]),
             )

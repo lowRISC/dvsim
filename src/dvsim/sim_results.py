@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
+from dvsim.job.status import JobStatus
 from dvsim.testplan import Result
 
 if TYPE_CHECKING:
@@ -124,7 +125,7 @@ class BucketedFailures(BaseModel):
         buckets = {}
 
         for job_status in results:
-            if job_status.status in ["F", "K"]:
+            if job_status.status in (JobStatus.FAILED, JobStatus.KILLED):
                 bucket = _bucketize(job_status.fail_msg.message)
 
                 if bucket not in buckets:
@@ -186,6 +187,6 @@ class SimResults:
             row.job_runtime = job_status.job_runtime
             row.simulated_time = job_status.simulated_time
 
-        if job_status.status == "P":
+        if job_status.status == JobStatus.PASSED:
             row.passing += 1
         row.total += 1

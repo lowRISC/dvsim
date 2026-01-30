@@ -14,6 +14,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
+from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher
 from dvsim.report.data import IPMeta, ToolMeta
 
@@ -97,13 +98,13 @@ class JobSpec(BaseModel):
     """Output directory for the job results files."""
     log_path: Path
     """Path for the job log file."""
-    links: Mapping[str, Path]
+    links: Mapping[JobStatus, Path]
     """Path for links directories."""
 
     # TODO: remove the need for these callables here
     pre_launch: Callable[[Launcher], None]
     """Callback function for pre-launch actions."""
-    post_finish: Callable[[str], None]
+    post_finish: Callable[[JobStatus], None]
     """Callback function for tidy up actions once the job is finished."""
 
     pass_patterns: Sequence[str]
@@ -153,7 +154,7 @@ class CompletedJobStatus(BaseModel):
     simulated_time: float
     """Simulation time."""
 
-    status: str
-    """Job status string [P,F,K,...]"""
+    status: JobStatus
+    """Status of the job."""
     fail_msg: ErrorMessage
     """Error message."""

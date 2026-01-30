@@ -9,6 +9,7 @@ import shutil
 import subprocess
 from typing import TYPE_CHECKING
 
+from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherError
 from dvsim.logging import log
 
@@ -85,20 +86,21 @@ class SlurmLauncher(Launcher):
         finally:
             self._close_process()
 
-        self._link_odir("D")
+        self._link_odir(JobStatus.DISPATCHED)
 
     def poll(self):
         """Check status of the running process.
 
-        This returns 'D', 'P' or 'F'. If 'D', the job is still running. If 'P',
-        the job finished successfully. If 'F', the job finished with an error.
+        This returns a job status. If DISPATCHED, the job is still running.
+        If PASSED, the job finished successfully. If FAILED, the job finished
+        with an error. If KILLED, it was killed.
 
         This function must only be called after running self.dispatch_cmd() and
-        must not be called again once it has returned 'P' or 'F'.
+        must not be called again once it has returned PASSED or FAILED.
         """
         assert self.process is not None
         if self.process.poll() is None:
-            return "D"
+            return JobStatus.DISPATCHED
 
         # Copy slurm job results to log file
         if pathlib.Path(self.slurm_log_file).exists():
@@ -138,7 +140,9 @@ class SlurmLauncher(Launcher):
             self.process.wait(timeout=2)
         except subprocess.TimeoutExpired:
             self.process.kill()
-        self._post_finish("K", ErrorMessage(line_number=None, message="Job killed!", context=[]))
+        self._post_finish(
+            JobStatus.KILLED, ErrorMessage(line_number=None, message="Job killed!", context=[])
+        )
 
     def _post_finish(self, status, err_msg) -> None:
         super()._post_finish(status, err_msg)
