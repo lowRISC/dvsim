@@ -198,7 +198,8 @@ class EnlightenStatusPrinter(TtyStatusPrinter):
 
     def exit(self) -> None:
         """Do cleanup activities before exiting."""
-        self.status_header.close()
+        if self.status_header is not None:
+            self.status_header.close()
         for target in self.status_target:
             self.status_target[target].close()
 
