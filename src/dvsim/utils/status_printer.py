@@ -202,6 +202,7 @@ class EnlightenStatusPrinter(TtyStatusPrinter):
             self.status_header.close()
         for target in self.status_target:
             self.status_target[target].close()
+        self.manager.stop()
 
 
 def get_status_printer(interactive: bool) -> StatusPrinter:
