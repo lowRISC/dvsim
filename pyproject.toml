@@ -114,6 +114,8 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# Top-level CLIs should be allowed to print if needed
+"src/dvsim/cli/**.py" = ["T201"]
 "tests/**.py" = [
     # Checks for boolean passed as positional argument which is useful in the
     # main codebase for clarity. However it's common to assert against a boolean

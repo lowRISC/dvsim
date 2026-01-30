@@ -28,6 +28,7 @@ import shlex
 import subprocess
 import sys
 import textwrap
+from importlib.metadata import version
 from pathlib import Path
 
 from dvsim.flow.factory import make_cfg
@@ -42,9 +43,6 @@ from dvsim.launcher.sge import SgeLauncher
 from dvsim.launcher.slurm import SlurmLauncher
 from dvsim.logging import configure_logging, log
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer, rm_path, run_cmd_with_timeout
-
-# TODO: add dvsim_cfg.hjson to retrieve this info
-version = 0.1
 
 # The different categories that can be passed to the --list argument.
 _LIST_CATEGORIES = ["build_modes", "run_modes", "tests", "regressions"]
@@ -298,7 +296,7 @@ def parse_args():
 
     parser.add_argument("cfg", metavar=cfg_metavar, help="""Configuration hjson file.""")
 
-    parser.add_argument("--version", action="store_true", help="Print version and exit")
+    parser.add_argument("--version", action="version", version=version("dvsim"))
 
     parser.add_argument(
         "--tool",
@@ -793,9 +791,6 @@ def parse_args():
     )
 
     args = parser.parse_args()
-
-    if args.version:
-        sys.exit()
 
     # Check conflicts
     # interactive and remote, r

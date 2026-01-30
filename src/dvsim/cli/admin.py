@@ -4,12 +4,14 @@
 
 """DVSim CLI main entry point."""
 
+from importlib.metadata import version
 from pathlib import Path
 
 import click
 
 
 @click.group()
+@click.version_option(version("dvsim"))
 def cli() -> None:
     """DVSim Administration tool.
 
