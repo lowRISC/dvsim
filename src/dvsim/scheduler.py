@@ -101,9 +101,7 @@ class Scheduler:
 
         # Print status periodically using an external status printer.
         self._status_printer = get_status_printer(interactive)
-        self._status_printer.print_header(
-            msg="Q: queued, D: dispatched, P: passed, F: failed, K: killed, T: total",
-        )
+        self._status_printer.print_header()
 
         # Sets of items, split up by their current state. The sets are
         # disjoint and their union equals the keys of self.item_status.

@@ -11,6 +11,9 @@ import enlighten
 
 from dvsim.logging import log
 
+DEFAULT_HEADER = "Q: queued, D: dispatched, P: passed, F: failed, K: killed, T: total"
+"""The default header to use for printing the status."""
+
 
 class StatusPrinter:
     """Dummy Status Printer class for interactive mode.
@@ -23,7 +26,7 @@ class StatusPrinter:
     def __init__(self) -> None:
         """Initialise."""
 
-    def print_header(self, msg: str) -> None:
+    def print_header(self) -> None:
         """Initialize / print the header bar.
 
         The header bar contains an introductory message such as the legend of
@@ -84,13 +87,13 @@ class TtyStatusPrinter(StatusPrinter):
         # than in the Scheduler class.
         self.target_done = {}
 
-    def print_header(self, msg: str) -> None:
+    def print_header(self) -> None:
         """Initialize / print the header bar.
 
         The header bar contains an introductory message such as the legend of
         what Q, D, ... mean.
         """
-        log.info(self.header_fmt.format(hms="", target="legend", msg=msg))
+        log.info(self.header_fmt.format(hms="", target="legend", msg=DEFAULT_HEADER))
 
     def init_target(self, target: str, msg: str) -> None:
         """Initialize the status bar for each target."""
@@ -161,12 +164,12 @@ class EnlightenStatusPrinter(TtyStatusPrinter):
         self.status_header = None
         self.status_target = {}
 
-    def print_header(self, msg) -> None:
+    def print_header(self) -> None:
         self.status_header = self.manager.status_bar(
             status_format=self.header_fmt,
             hms="",
             target="legend",
-            msg="Q: queued, D: dispatched, P: passed, F: failed, K: killed, T: total",
+            msg=DEFAULT_HEADER,
         )
 
     def init_target(self, target, msg) -> None:
