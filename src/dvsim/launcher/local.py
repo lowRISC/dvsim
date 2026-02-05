@@ -113,7 +113,11 @@ class LocalLauncher(Launcher):
         must not be called again once it has returned 'P' or 'F'.
         """
         if self._process is None:
-            return "E"
+            msg = (
+                "poll() was called either before calling launch() or after "
+                "ignoring a LauncherError from launch()."
+            )
+            raise LauncherError(msg)
 
         elapsed_time = datetime.datetime.now() - self.start_time
         self.job_runtime_secs = elapsed_time.total_seconds()

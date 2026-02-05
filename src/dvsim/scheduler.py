@@ -477,7 +477,11 @@ class Scheduler:
                     self._running[target],
                     self._last_item_polled_idx[target],
                 )
-                status = self._launchers[job_name].poll()
+                try:
+                    status = self._launchers[job_name].poll()
+                except LauncherError as e:
+                    log.error("Error when dispatching target: %s", str(e))
+                    status = "K"
                 level = log.VERBOSE
 
                 if status not in ["D", "P", "F", "E", "K"]:
@@ -495,7 +499,7 @@ class Scheduler:
                     level = log.ERROR
 
                 else:
-                    # Killed or Error dispatching
+                    # Killed, still Queued, or some error when dispatching.
                     self._killed[target].add(job_name)
                     level = log.ERROR
 
