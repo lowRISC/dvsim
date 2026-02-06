@@ -43,6 +43,7 @@ test = [
     "pyhamcrest>=2.1.0",
     "pytest>=8.3.3",
     "pytest-cov>=5.0.0",
+    "pytest-timeout>=2.4.0",
 ]
 release = [
     "python-semantic-release>=10.4.1",
