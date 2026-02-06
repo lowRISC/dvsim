@@ -4,10 +4,16 @@
 
 """Test the DVSim scheduler."""
 
+import multiprocessing
+import os
+import sys
+import threading
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from signal import SIGINT, SIGTERM, signal
+from types import FrameType
 from typing import Any
 
 import pytest
@@ -52,6 +58,7 @@ order to the ordering of the jobs.
 
 # Default scheduler test timeout to handle infinite loops in the scheduler
 DEFAULT_TIMEOUT = 0.5
+SIGNAL_TEST_TIMEOUT = 2.5
 
 
 @dataclass
@@ -929,3 +936,102 @@ class TestSchedulingPriority:
     #
     # Note also that DVSim currently assumes weights within a target are constant,
     # which may not be the case with the current JobSpec model.
+
+
+class TestSignals:
+    """Integration tests for the signal-handling of the scheduler."""
+
+    @staticmethod
+    def _run_signal_test(tmp_path: Path, sig: int, *, repeat: bool, long_poll: bool) -> None:
+        """Test that the scheduler can be gracefully killed by incoming signals."""
+
+        # We cannot access the fixtures from the separate process, so define a minimal
+        # mock launcher class here.
+        class SignalTestMockLauncher(MockLauncher):
+            pass
+
+        mock_ctx = MockLauncherContext()
+        SignalTestMockLauncher.mock_context = mock_ctx
+        SignalTestMockLauncher.max_parallel = 2
+        if long_poll:
+            # Set a very long poll frequency to be sure that the signal interrupts the
+            # scheduler from a sleep if configured with infrequent polls.
+            SignalTestMockLauncher.poll_freq = 360000
+
+        jobs = make_many_jobs(tmp_path, 3, ensure_paths_exist=True)
+        # When testing non-graceful exits, we make `kill()` hang and send two signals.
+        kill_time = None if not repeat else 100.0
+        # Job 0 is permanently "dispatched", it never completes.
+        mock_ctx.set_config(
+            jobs[0], MockJob(default_status=JobStatus.DISPATCHED, kill_time=kill_time)
+        )
+        # Job 1 will pass, but after a long time (a large number of polls).
+        mock_ctx.set_config(
+            jobs[1],
+            MockJob(
+                status_thresholds=[(0, JobStatus.DISPATCHED), (1000000000, JobStatus.PASSED)],
+                kill_time=kill_time,
+            ),
+        )
+        # Job 2 is also permanently "dispatched", but will never run due to the
+        # max paralellism limit on the launcher. It will instead be cancelled.
+        mock_ctx.set_config(
+            jobs[2], MockJob(default_status=JobStatus.DISPATCHED, kill_time=kill_time)
+        )
+        scheduler = Scheduler(jobs, SignalTestMockLauncher)
+
+        def _get_signal(sig_received: int, _: FrameType | None) -> None:
+            assert_that(sig_received, equal_to(sig))
+            assert_that(repeat)
+            sys.exit(0)
+
+        if repeat:
+            # Sending multiple signals will call the regular signal handler
+            # which will kill the process. Register a mock handler to stop
+            # that happening and we can check that we "killed the process".
+            signal(sig, _get_signal)
+
+        def _send_signals() -> None:
+            # Give time for the handler to be installed and jobs to dispatch
+            # and for the main loop to enter a sleep/wait.
+            wait_time = 0.1
+            time.sleep(wait_time)
+            pid = os.getpid()
+            os.kill(pid, sig)
+            if repeat:
+                time.sleep(wait_time)
+                os.kill(pid, sig)
+
+        # Send signals from a separate thread
+        threading.Thread(target=_send_signals).start()
+        result = scheduler.run()
+
+        # If we didn't reach `_get_signal`, this should be a graceful exit
+        assert_that(not repeat)
+        _assert_result_status(result, 3, expected=JobStatus.KILLED)
+
+    @staticmethod
+    @pytest.mark.xfail(
+        reason="This test passes ~95 percent of the time, but the logging & threading primitive"
+        "logic used in the signal handler are not async-signal-safe and thus may deadlock,"
+        "causing the process to hang and time out instead.",
+        strict=False,
+    )
+    @pytest.mark.parametrize("long_poll", [False, True])
+    @pytest.mark.parametrize(("sig", "repeat"), [(SIGTERM, False), (SIGINT, False), (SIGINT, True)])
+    def test_signal_kill(tmp_path: Path, *, sig: int, repeat: bool, long_poll: bool) -> None:
+        """Test that the scheduler can be gracefully killed by incoming signals."""
+        # We must test in a separate process, otherwise pytest interprets the SIGINT and SIGTERM
+        # signals using its own signal handlers as signals to quit pytest itself...
+        proc = multiprocessing.Process(
+            target=TestSignals._run_signal_test,
+            args=(tmp_path, sig),
+            kwargs={"repeat": repeat, "long_poll": long_poll},
+        )
+        proc.start()
+        proc.join(timeout=SIGNAL_TEST_TIMEOUT)
+        if proc.is_alive():
+            proc.kill()  # SIGKILL instead of SIGINT or SIGTERM
+            proc.join()
+            pytest.fail("Scheduler hung and was terminated")
+        assert_that(proc.exitcode, equal_to(0))
