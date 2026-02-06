@@ -119,7 +119,7 @@ class Launcher(ABC):
         # _check_status() method, but eventually updated by the _post_finish()
         # method, in case any of the cleanup tasks fails. This value is finally
         # returned to the Scheduler by the poll() method.
-        self.status = None
+        self.status = JobStatus.QUEUED
 
         # Return status of the process running the job.
         self.exit_code = None
@@ -259,13 +259,13 @@ class Launcher(ABC):
         self._do_launch()
 
     @abstractmethod
-    def poll(self) -> JobStatus | None:
+    def poll(self) -> JobStatus:
         """Poll the launched job for completion.
 
         Invokes _check_status() and _post_finish() when the job completes.
 
         Returns:
-            status of the job or None
+            status of the job
 
         """
 

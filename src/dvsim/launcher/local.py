@@ -103,7 +103,7 @@ class LocalLauncher(Launcher):
 
         self._link_odir(JobStatus.DISPATCHED)
 
-    def poll(self) -> JobStatus | None:
+    def poll(self) -> JobStatus:
         """Check status of the running process.
 
         This returns a job status. If DISPATCHED, the job is still running.

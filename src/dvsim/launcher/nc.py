@@ -168,7 +168,7 @@ class NcLauncher(Launcher):
     def minutes_since_start(self):
         return (datetime.datetime.now() - self.start_time).total_seconds() / 60
 
-    def poll(self) -> JobStatus | None:
+    def poll(self) -> JobStatus:
         """Check status of the running process.
 
         This returns a job status. If DISPATCHED, the job is still running.

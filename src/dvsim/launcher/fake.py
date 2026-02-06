@@ -57,7 +57,7 @@ class FakeLauncher(Launcher):
     def _do_launch(self) -> None:
         """Do the launch."""
 
-    def poll(self) -> JobStatus | None:
+    def poll(self) -> JobStatus:
         """Check status of the running process."""
         deploy_cls = self.job_spec.job_type
         if deploy_cls in _DEPLOY_HANDLER:

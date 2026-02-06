@@ -273,15 +273,15 @@ class LsfLauncher(Launcher):
             job.job_id = f"{job_id}[{job.index}]"
             job._link_odir(JobStatus.DISPATCHED)
 
-    def poll(self) -> JobStatus | None:
+    def poll(self) -> JobStatus:
         """Poll the status of the job.
 
         Returns:
-            status of the job or None
+            status of the job
 
         """
         # It is possible we may have determined the status already.
-        if self.status:
+        if self.status is not JobStatus.QUEUED:
             return self.status
 
         if not self.bsub_out_fd:
