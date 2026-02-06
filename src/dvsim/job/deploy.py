@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, ClassVar
 from tabulate import tabulate
 
 from dvsim.job.data import JobSpec, WorkspaceConfig
+from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
 from dvsim.launcher.base import Launcher
 from dvsim.logging import log
@@ -347,10 +348,10 @@ class Deploy:
 
         return callback
 
-    def post_finish(self) -> Callable[[str], None]:
+    def post_finish(self) -> Callable[[JobStatus], None]:
         """Get post finish callback."""
 
-        def callback(status: str) -> None:
+        def callback(status: JobStatus) -> None:
             """Perform additional post-finish activities (callback).
 
             This is invoked by launcher::_post_finish().
@@ -641,12 +642,12 @@ class RunTest(Deploy):
 
         return callback
 
-    def post_finish(self) -> Callable[[str], None]:
+    def post_finish(self) -> Callable[[JobStatus], None]:
         """Get post finish callback."""
 
-        def callback(status: str) -> None:
+        def callback(status: JobStatus) -> None:
             """Perform tidy up tasks."""
-            if status != "P":
+            if status != JobStatus.PASSED:
                 # Delete the coverage data if available.
                 rm_path(self.cov_db_test_dir)
 
@@ -812,16 +813,16 @@ class CovReport(Deploy):
         self.cov_results = ""
         self.cov_results_dict = {}
 
-    def post_finish(self) -> Callable[[str], None]:
+    def post_finish(self) -> Callable[[JobStatus], None]:
         """Get post finish callback."""
 
-        def callback(status: str) -> None:
+        def callback(status: JobStatus) -> None:
             """Extract the coverage results summary for the dashboard.
 
             If the extraction fails, an appropriate exception is raised, which must
             be caught by the caller to mark the job as a failure.
             """
-            if self.dry_run or status != "P":
+            if self.dry_run or status != JobStatus.PASSED:
                 return
 
             plugin = get_sim_tool_plugin(tool=self.sim_cfg.tool)

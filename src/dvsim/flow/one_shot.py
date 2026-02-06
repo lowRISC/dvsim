@@ -12,6 +12,7 @@ from pathlib import Path
 from dvsim.flow.base import FlowCfg
 from dvsim.job.data import CompletedJobStatus
 from dvsim.job.deploy import CompileOneShot
+from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode
 from dvsim.utils import rm_path
@@ -92,10 +93,10 @@ class OneShotCfg(FlowCfg):
 
             # Set directories with links for ease of debug / triage.
             self.links = {
-                "D": self.scratch_path + "/" + "dispatched",
-                "P": self.scratch_path + "/" + "passed",
-                "F": self.scratch_path + "/" + "failed",
-                "K": self.scratch_path + "/" + "killed",
+                JobStatus.DISPATCHED: self.scratch_path + "/" + "dispatched",
+                JobStatus.PASSED: self.scratch_path + "/" + "passed",
+                JobStatus.FAILED: self.scratch_path + "/" + "failed",
+                JobStatus.KILLED: self.scratch_path + "/" + "killed",
             }
 
             # Use the default build mode for tests that do not specify it

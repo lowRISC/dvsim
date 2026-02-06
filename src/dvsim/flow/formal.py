@@ -10,6 +10,7 @@ from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
 from dvsim.job.data import CompletedJobStatus
+from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.utils import subst_wildcards
 
@@ -230,7 +231,7 @@ class FormalCfg(OneShotCfg):
         assert len(self.deploy) == 1
         mode = self.deploy[0]
 
-        if complete_job.status == "P":
+        if complete_job.status == JobStatus.PASSED:
             result_data = Path(
                 subst_wildcards(self.build_dir, {"build_mode": mode.name}),
                 "results.hjson",
@@ -262,7 +263,7 @@ class FormalCfg(OneShotCfg):
         else:
             summary += ["N/A", "N/A", "N/A"]
 
-        if complete_job.status != "P":
+        if complete_job.status != JobStatus.PASSED:
             results_str += "\n## List of Failures\n" + "".join(complete_job.fail_msg.message)
 
         messages = self.result.get("messages")
