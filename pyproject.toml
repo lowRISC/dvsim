@@ -133,6 +133,13 @@ ignore = [
 addopts = "--cov=dvsim --cov-report term-missing"
 norecursedirs = ["*.egg", ".*", "_darcs", "build", "dist", "venv", "scratch", "doc"]
 
+[tool.coverage.run]
+parallel = true
+concurrency = ["multiprocessing"]
+
+[tool.coverage.report]
+show_missing = true
+
 [tool.semantic_release]
 commit_parser = "conventional"
 version_toml = ["pyproject.toml:project.version"]
