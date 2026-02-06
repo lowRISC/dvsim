@@ -122,6 +122,9 @@ ignore = [
     # main codebase for clarity. However it's common to assert against a boolean
     # in tests and having to use kwargs in all cases will clutter the tests.
     "FBT003",
+    # Configurable helper functions are common in test files and it is overbearing
+    # to restrict the number of arguments per function definition.
+    "PLR0913",
 ]
 
 [tool.pytest.ini_options]

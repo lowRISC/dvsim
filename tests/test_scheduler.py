@@ -5,16 +5,25 @@
 """Test the DVSim scheduler."""
 
 import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
+from hamcrest import assert_that, empty, equal_to, only_contains
 
-from dvsim.job.data import JobSpec, WorkspaceConfig
+from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
+from dvsim.report.data import IPMeta, ToolMeta
+from dvsim.scheduler import Scheduler
 
 __all__ = ()
+
+
+# Default scheduler test timeout to handle infinite loops in the scheduler
+DEFAULT_TIMEOUT = 0.5
 
 
 @dataclass
@@ -195,3 +204,209 @@ class Fxt:
 def fxt(tmp_path: Path, mock_ctx: MockLauncherContext, mock_launcher: type[MockLauncher]) -> Fxt:
     """Fixtures used for mocking and testing the scheduler."""
     return Fxt(tmp_path, mock_ctx, mock_launcher)
+
+
+def ip_meta_factory(**overrides: str | None) -> IPMeta:
+    """Create an IPMeta from a set of default values, for use in testing."""
+    meta = {
+        "name": "test_ip",
+        "variant": None,
+        "commit": "test_commit",
+        "branch": "test_branch",
+        "url": "test_url",
+    }
+    meta.update(overrides)
+    return IPMeta(**meta)
+
+
+def tool_meta_factory(name: str = "test_tool", version: str = "test_version") -> ToolMeta:
+    """Create a ToolMeta from a set of default values, for use in testing."""
+    return ToolMeta(name=name, version=version)
+
+
+def build_workspace(
+    tmp_path: Path, run_name: str = "test", **overrides: str | Path | None
+) -> WorkspaceConfig:
+    """Create a WorkspaceConfig with a set of defaults and given temp paths for testing."""
+    config = {
+        "timestamp": "test_timestamp",
+        "project_root": tmp_path / "root",
+        "scratch_root": tmp_path / "scratch",
+        "scratch_path": tmp_path / "scratch" / run_name,
+    }
+    config.update(overrides)
+    return WorkspaceConfig(**config)
+
+
+@dataclass(frozen=True)
+class JobSpecPaths:
+    """A bundle of paths for testing a Job / JobSpec."""
+
+    output: Path
+    log: Path
+    statuses: dict[JobStatus, Path]
+
+
+def make_job_paths(
+    tmp_path: Path, job_name: str = "test", *, ensure_exists: bool = False
+) -> JobSpecPaths:
+    """Generate a set of paths to use for testing a job (JobSpec)."""
+    root = tmp_path / job_name
+    output = root / "out"
+    log = root / "log.txt"
+    statuses = {}
+    for status in JobStatus:
+        if status == JobStatus.QUEUED:
+            continue
+        status_dir = output / status.name.lower()
+        statuses[status] = status_dir
+        if ensure_exists:
+            Path(status_dir).mkdir(exist_ok=True, parents=True)
+    return JobSpecPaths(output=output, log=log, statuses=statuses)
+
+
+def job_spec_factory(
+    tmp_path: Path,
+    paths: JobSpecPaths | None = None,
+    **overrides: object,
+) -> JobSpec:
+    """Create a JobSpec from a set of default values, for use in testing."""
+    spec = {
+        "name": "test_job",
+        "job_type": "mock_type",
+        "target": "mock_target",
+        "seed": None,
+        "dependencies": [],
+        "needs_all_dependencies_passing": True,
+        "weight": 1,
+        "timeout_mins": None,
+        "cmd": "echo 'test_cmd'",
+        "exports": {},
+        "dry_run": False,
+        "interactive": False,
+        "gui": False,
+        "pre_launch": lambda _: None,
+        "post_finish": lambda _: None,
+        "pass_patterns": [],
+        "fail_patterns": [],
+    }
+    spec.update(overrides)
+
+    # Add job file paths if they do not exist
+    if paths is None:
+        paths = make_job_paths(tmp_path, job_name=spec["name"])
+    if "odir" not in spec:
+        spec["odir"] = paths.output
+    if "log_path" not in spec:
+        spec["log_path"] = paths.log
+    if "links" not in spec:
+        spec["links"] = paths.statuses
+
+    # Define the IP metadata, tool metadata and workspace if they do not exist
+    if "block" not in spec:
+        spec["block"] = ip_meta_factory()
+    if "tool" not in spec:
+        spec["tool"] = tool_meta_factory()
+    if "workspace_cfg" not in spec:
+        spec["workspace_cfg"] = build_workspace(tmp_path)
+
+    # Use the name as the full name & qual name if not manually specified
+    if "full_name" not in spec:
+        spec["full_name"] = spec["name"]
+    if "qual_name" not in spec:
+        spec["qual_name"] = spec["name"]
+    return JobSpec(**spec)
+
+
+def make_many_jobs(
+    tmp_path: Path,
+    n: int,
+    *,
+    workspace: WorkspaceConfig | None = None,
+    per_job: Callable[[int], dict[str, Any]] | None = None,
+    interdeps: dict[int, list[int]] | None = None,
+    ensure_paths_exist: bool = False,
+    vary_targets: bool = False,
+    reverse: bool = False,
+    **overrides: object,
+) -> list[JobSpec]:
+    """Create many JobSpecs at once for scheduler test purposes.
+
+    Arguments:
+        tmp_path: The path to the temp dir to use for creating files.
+        n: The number of jobs to create.
+        workspace: The workspace configuration to use by default for jobs.
+        per_job: Given the index of a job, this func returns specific per-job overrides.
+        interdeps: A directed edge-list of job dependencies (via their indexes).
+        ensure_paths_exist: Whether to create generated job output paths.
+        vary_targets: Whether to automatically generate unique targets per job.
+        reverse: Optionally reverse the output jobs.
+        overrides: Any additional kwargs to apply to *every* created job.
+
+    """
+    # Create the workspace to share between jobs if not given one.
+    if workspace is None:
+        workspace = build_workspace(tmp_path)
+
+    # Create the job parameters
+    job_specs = []
+    for i in range(n):
+        name = f"job_{i}"
+        job = {
+            "name": name,
+            "paths": make_job_paths(tmp_path, job_name=name, ensure_exists=ensure_paths_exist),
+            "target": f"target_{i}" if vary_targets else "mock_target",
+            "workspace_cfg": workspace,
+        }
+        # Apply global overrides
+        job.update(overrides)
+        # Fetch and apply per-job overrides
+        if per_job:
+            job.update(per_job(i))
+        job_specs.append(job)
+
+    # Create dependencies between the jobs
+    jobs = []
+    for i, job in enumerate(job_specs):
+        if interdeps:
+            deps = job.setdefault("dependencies", [])
+            deps.extend(job_specs[d]["name"] for d in interdeps.get(i, []))
+        jobs.append(job_spec_factory(tmp_path, **job))
+
+    return jobs[::-1] if reverse else jobs
+
+
+def _assert_result_status(
+    result: Sequence[CompletedJobStatus], num: int, expected: JobStatus = JobStatus.PASSED
+) -> None:
+    """Assert a common result pattern, checking the number & status of scheduler results."""
+    assert_that(len(result), equal_to(num))
+    statuses = [c.status for c in result]
+    assert_that(statuses, only_contains(expected))
+
+
+class TestScheduling:
+    """Unit tests for the scheduling decisions of the scheduler."""
+
+    @staticmethod
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_empty(fxt: Fxt) -> None:
+        """Test that the scheduler can handle being given no jobs."""
+        result = Scheduler([], fxt.mock_launcher).run()
+        assert_that(result, empty())
+
+    @staticmethod
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_job_run(fxt: Fxt) -> None:
+        """Small smoketest that the scheduler can actually run a valid job."""
+        job = job_spec_factory(fxt.tmp_path)
+        result = Scheduler([job], fxt.mock_launcher).run()
+        _assert_result_status(result, 1)
+
+    @staticmethod
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_many_jobs_run(fxt: Fxt) -> None:
+        """Smoketest that the scheduler can run multiple valid jobs."""
+        job_specs = make_many_jobs(fxt.tmp_path, n=5)
+        result = Scheduler(job_specs, fxt.mock_launcher).run()
+        _assert_result_status(result, 5)
