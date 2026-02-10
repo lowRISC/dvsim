@@ -410,3 +410,126 @@ class TestScheduling:
         job_specs = make_many_jobs(fxt.tmp_path, n=5)
         result = Scheduler(job_specs, fxt.mock_launcher).run()
         _assert_result_status(result, 5)
+
+    @staticmethod
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_duplicate_jobs(fxt: Fxt) -> None:
+        """Test that the scheduler does not double-schedule jobs with duplicate names."""
+        workspace = build_workspace(fxt.tmp_path)
+        job_specs = make_many_jobs(fxt.tmp_path, n=3, workspace=workspace)
+        job_specs += make_many_jobs(fxt.tmp_path, n=6, workspace=workspace)
+        for _ in range(10):
+            job_specs.append(job_spec_factory(fxt.tmp_path, name="extra_job"))
+            job_specs.append(job_spec_factory(fxt.tmp_path, name="extra_job_2"))
+        result = Scheduler(job_specs, fxt.mock_launcher).run()
+        # Current behaviour expects duplicate jobs to be *silently ignored*.
+        # We should therefore have 3 + 3 + 2 = 8 jobs.
+        _assert_result_status(result, 8)
+        names = [c.name for c in result]
+        # Check names of all jobs are unique (i.e. no duplicates are returned).
+        assert_that(len(names), equal_to(len(set(names))))
+
+    @staticmethod
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize("num_jobs", [2, 3, 5, 10, 20, 100])
+    def test_parallel_dispatch(fxt: Fxt, num_jobs: int) -> None:
+        """Test that many jobs can be dispatched in parallel."""
+        jobs = make_many_jobs(fxt.tmp_path, num_jobs)
+        scheduler = Scheduler(jobs, fxt.mock_launcher)
+        assert_that(fxt.mock_ctx.max_concurrent, equal_to(0))
+        result = scheduler.run()
+        _assert_result_status(result, num_jobs)
+        assert_that(fxt.mock_ctx.max_concurrent, equal_to(num_jobs))
+
+    @staticmethod
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize("num_jobs", [5, 10, 20])
+    @pytest.mark.parametrize("max_parallel", [1, 5, 15, 25])
+    def test_max_parallel(fxt: Fxt, num_jobs: int, max_parallel: int) -> None:
+        """Test that max parallel limits of launchers are used & respected."""
+        jobs = make_many_jobs(fxt.tmp_path, num_jobs)
+        fxt.mock_launcher.max_parallel = max_parallel
+        scheduler = Scheduler(jobs, fxt.mock_launcher)
+        assert_that(fxt.mock_ctx.max_concurrent, equal_to(0))
+        result = scheduler.run()
+        _assert_result_status(result, num_jobs)
+        assert_that(fxt.mock_ctx.max_concurrent, equal_to(min(num_jobs, max_parallel)))
+
+    @staticmethod
+    @pytest.mark.parametrize("polls", [5, 10, 50])
+    @pytest.mark.parametrize("final_status", [JobStatus.PASSED, JobStatus.FAILED, JobStatus.KILLED])
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_repeated_poll(fxt: Fxt, polls: int, final_status: JobStatus) -> None:
+        """Test that the scheduler will repeatedly poll for a dispatched job."""
+        job = job_spec_factory(fxt.tmp_path)
+        fxt.mock_ctx.set_config(
+            job, MockJob(status_thresholds=[(0, JobStatus.DISPATCHED), (polls, final_status)])
+        )
+        result = Scheduler([job], fxt.mock_launcher).run()
+        _assert_result_status(result, 1, expected=final_status)
+        config = fxt.mock_ctx.get_config(job)
+        if config is not None:
+            assert_that(config.poll_count, equal_to(polls))
+
+    @staticmethod
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_no_over_poll(fxt: Fxt) -> None:
+        """Test that the schedule stops polling when it sees `PASSED`, and does not over-poll."""
+        jobs = make_many_jobs(fxt.tmp_path, 10)
+        polls = [(i + 1) * 10 for i in range(10)]
+        for i in range(10):
+            fxt.mock_ctx.set_config(
+                jobs[i],
+                MockJob(
+                    status_thresholds=[(0, JobStatus.DISPATCHED), (polls[i], JobStatus.PASSED)]
+                ),
+            )
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        _assert_result_status(result, 10)
+        # Check we do not unnecessarily over-poll the jobs
+        for i in range(10):
+            config = fxt.mock_ctx.get_config(jobs[i])
+            if config is not None:
+                assert_that(config.poll_count, equal_to(polls[i]))
+
+    @staticmethod
+    @pytest.mark.xfail(
+        reason="DVSim currently errors on this case. When DVSim dispatches and thus launches a"
+        " job, it is only set to running after the launch. If a launcher error occurs, it"
+        " immediately invokes `_kill_item` which tries to remove it from the list of running jobs"
+        " (where it does not exist)."
+    )
+    def test_launcher_error(fxt: Fxt) -> None:
+        """Test that the launcher correctly handles an error during job launching."""
+        job = job_spec_factory(fxt.tmp_path, paths=make_job_paths(fxt.tmp_path, ensure_exists=True))
+        fxt.mock_ctx.set_config(
+            job,
+            MockJob(
+                status_thresholds=[(0, JobStatus.DISPATCHED), (10, JobStatus.PASSED)],
+                launcher_error=LauncherError("abc"),
+            ),
+        )
+        result = Scheduler([job], fxt.mock_launcher).run()
+        # On a launcher error, the job has failed and should be killed.
+        _assert_result_status(result, 1, expected=JobStatus.KILLED)
+
+    @staticmethod
+    @pytest.mark.parametrize("busy_polls", [1, 2, 5, 10])
+    def test_launcher_busy_error(fxt: Fxt, busy_polls: int) -> None:
+        """Test that the launcher correctly handles the launcher busy case."""
+        job = job_spec_factory(fxt.tmp_path)
+        err_mock = (busy_polls, LauncherBusyError("abc"))
+        fxt.mock_ctx.set_config(
+            job,
+            MockJob(
+                status_thresholds=[(0, JobStatus.DISPATCHED), (10, JobStatus.PASSED)],
+                launcher_busy_error=err_mock,
+            ),
+        )
+        result = Scheduler([job], fxt.mock_launcher).run()
+        # We expect to have successfully launched and ran, eventually.
+        _assert_result_status(result, 1)
+        # Check that the scheduler tried to `launch()` the correct number of times.
+        config = fxt.mock_ctx.get_config(job)
+        if config is not None:
+            assert_that(config.launch_count, equal_to(busy_polls + 1))
