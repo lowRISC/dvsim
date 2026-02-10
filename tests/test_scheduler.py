@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from hamcrest import assert_that, empty, equal_to, only_contains
+from hamcrest import any_of, assert_that, empty, equal_to, has_item, only_contains
 
 from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
@@ -20,6 +20,34 @@ from dvsim.report.data import IPMeta, ToolMeta
 from dvsim.scheduler import Scheduler
 
 __all__ = ()
+
+# Common reasoning for expected failures to avoid duplication across tests.
+# Ideally these will be removed as incorrect behaviour is fixed.
+FAIL_DEP_ON_MULTIPLE_TARGETS = """
+DVSim cannot handle dependency fan-in (i.e. depending on jobs) across multiple targets.
+
+Specifically, when all successors of the first target are initially enqueued, they are
+removed from the `scheduled` queues. If any item in another target then also depends
+on those items (i.e. across *another* target), then the completion of these items will
+in turn attempt to enqueue their own successors, which cannot be found as they are no
+longer present in the `scheduled` queues.
+"""
+FAIL_DEPS_ACROSS_MULTIPLE_TARGETS = (
+    "DVSim cannot handle dependency fan-out across multiple targets."
+)
+FAIL_DEPS_ACROSS_NON_CONSECUTIVE_TARGETS = (
+    "DVSim cannot handle dependencies that span non-consecutive (non-adjacent) targets."
+)
+FAIL_IF_NO_DEPS_WITHOUT_ALL_DEPS_NEEDED = """
+Current DVSim has a strange behaviour where a job with no dependencies is dispatched if it is
+marked as needing all its dependencies to pass, but fails (i.e. is killed) if it is marked as
+*not* needing all of its dependencies.
+"""
+FAIL_DEP_OUT_OF_ORDER = """
+DVSim cannot handle jobs given in an order that define dependencies and targets such that, to
+resolve the jobs according to those dependencies, the targets must be processed in a different
+order to the ordering of the jobs.
+"""
 
 
 # Default scheduler test timeout to handle infinite loops in the scheduler
@@ -533,3 +561,280 @@ class TestScheduling:
         config = fxt.mock_ctx.get_config(job)
         if config is not None:
             assert_that(config.launch_count, equal_to(busy_polls + 1))
+
+
+class TestSchedulingStructure:
+    """Unit tests for scheduling decisions related to the job specification structure.
+
+    (i.e. the dependencies between jobs and the targets that jobs lie within).
+    """
+
+    @staticmethod
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize(
+        "needs_all_passing",
+        [
+            True,
+            pytest.param(
+                False,
+                marks=pytest.mark.xfail(reason=FAIL_IF_NO_DEPS_WITHOUT_ALL_DEPS_NEEDED),
+            ),
+        ],
+    )
+    def test_no_deps(fxt: Fxt, *, needs_all_passing: bool) -> None:
+        """Tests scheduling of jobs without any listed dependencies."""
+        job = job_spec_factory(fxt.tmp_path, needs_all_dependencies_passing=needs_all_passing)
+        result = Scheduler([job], fxt.mock_launcher).run()
+        _assert_result_status(result, 1)
+
+    @staticmethod
+    def _dep_test_case(
+        fxt: Fxt,
+        dep_list: dict[int, list[int]],
+        *,
+        all_passing: bool,
+    ) -> Sequence[CompletedJobStatus]:
+        """Run a simple dependency test, with 5 jobs where jobs 2 & 4 will fail."""
+        jobs = make_many_jobs(
+            fxt.tmp_path,
+            5,
+            needs_all_dependencies_passing=all_passing,
+            interdeps=dep_list,
+        )
+        fxt.mock_ctx.set_config(jobs[2], MockJob(default_status=JobStatus.FAILED))
+        fxt.mock_ctx.set_config(jobs[4], MockJob(default_status=JobStatus.FAILED))
+        return Scheduler(jobs, fxt.mock_launcher).run()
+
+    @staticmethod
+    @pytest.mark.xfail(
+        reason=FAIL_DEP_ON_MULTIPLE_TARGETS + " " + FAIL_IF_NO_DEPS_WITHOUT_ALL_DEPS_NEEDED
+    )
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize(
+        ("dep_list", "passes"),
+        [
+            ({0: [1]}, [0, 1, 3]),
+            ({1: [2]}, [0, 3]),
+            ({3: [2, 4]}, [0, 1]),
+            ({3: [1, 2, 4]}, [0, 1, 3]),
+            ({0: [1, 2, 3, 4]}, [0, 1, 3]),
+        ],
+    )
+    def test_needs_any_dep(
+        fxt: Fxt,
+        dep_list: dict[int, list[int]],
+        passes: list[int],
+    ) -> None:
+        """Tests scheduling of jobs with dependencies that don't need all passing."""
+        result = TestSchedulingStructure._dep_test_case(fxt, dep_list, all_passing=False)
+        assert_that(len(result), equal_to(5))
+        for job in passes:
+            assert_that(result[job].status, equal_to(JobStatus.PASSED))
+
+    @staticmethod
+    @pytest.mark.xfail(reason=FAIL_DEP_ON_MULTIPLE_TARGETS)
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize(
+        ("dep_list", "passes"),
+        [
+            ({0: [1]}, [0, 1, 3]),
+            ({1: [0, 3]}, [0, 1, 3]),
+            ({3: [2]}, [0, 1]),
+            ({0: [3, 4]}, [1, 3]),
+            ({3: [0, 1, 2]}, [0, 1]),
+            ({1: [1, 2, 3, 4]}, [0, 3]),
+        ],
+    )
+    def test_needs_all_deps(
+        fxt: Fxt,
+        dep_list: dict[int, list[int]],
+        passes: list[int],
+    ) -> None:
+        """Tests scheduling of jobs with dependencies that need all passing."""
+        result = TestSchedulingStructure._dep_test_case(fxt, dep_list, all_passing=True)
+        assert_that(len(result), equal_to(5))
+        for job in passes:
+            assert_that(result[job].status, equal_to(JobStatus.PASSED))
+
+    @staticmethod
+    @pytest.mark.xfail(
+        reason="DVSim does not currently have logic to detect and error on"
+        "dependency cycles within provided job specifications."
+    )
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize(
+        ("dep_list"),
+        [
+            {0: [1], 1: [0]},
+            {0: [1], 1: [2], 2: [0]},
+            {0: [1], 1: [2], 2: [3], 3: [4], 4: [0]},
+            {0: [1, 2], 1: [2], 2: [3, 4, 0]},
+            {0: [1, 2, 3, 4], 1: [2, 3, 4], 2: [3, 4], 3: [4], 4: [0]},
+        ],
+    )
+    def test_dep_cycle(fxt: Fxt, dep_list: dict[int, list[int]]) -> None:
+        """Test that the scheduler can detect and handle cycles in dependencies."""
+        jobs = make_many_jobs(fxt.tmp_path, 5, interdeps=dep_list)
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        # Expect that either we get an empty result, or at least some job failed
+        # due to the cycle in dependencies.
+        assert_that(len(result), any_of(equal_to(5), equal_to(0)))
+        statuses = [c.status for c in result]
+        if statuses:
+            assert_that(
+                statuses,
+                any_of(has_item(JobStatus.FAILED), has_item(JobStatus.KILLED)),
+            )
+
+    @staticmethod
+    @pytest.mark.xfail(
+        reason=FAIL_DEP_ON_MULTIPLE_TARGETS + " " + FAIL_DEPS_ACROSS_MULTIPLE_TARGETS
+    )
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize(
+        ("dep_list"),
+        [
+            {0: [1, 2, 3, 4], 1: [2, 3, 4], 2: [3, 4], 3: [4]},
+            {0: [1, 2], 4: [2, 3]},
+            {0: [1], 1: [2], 2: [3], 3: [4]},
+            {0: [1, 2, 3, 4], 1: [2], 3: [2, 4], 4: [2]},
+        ],
+    )
+    def test_dep_resolution(fxt: Fxt, dep_list: dict[int, list[int]]) -> None:
+        """Test that the scheduler can correctly resolve complex job dependencies."""
+        jobs = make_many_jobs(fxt.tmp_path, 5, interdeps=dep_list)
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        _assert_result_status(result, 5)
+
+    @staticmethod
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_deps_across_polls(fxt: Fxt) -> None:
+        """Test that the scheduler can resolve multiple deps that complete at different times."""
+        jobs = make_many_jobs(fxt.tmp_path, 4)
+        # For now, define the end job separately so that we can put it in a different target
+        # but keep the other jobs in the same target (to circumvent FAIL_DEP_ON_MULTIPLE_TARGETS).
+        jobs.append(
+            job_spec_factory(
+                fxt.tmp_path,
+                name="end",
+                dependencies=[job.name for job in jobs],
+                target="end_target",
+            )
+        )
+        polls = [i * 5 for i in range(5)]
+        for i in range(1, 5):
+            fxt.mock_ctx.set_config(
+                jobs[i],
+                MockJob(
+                    status_thresholds=[(0, JobStatus.DISPATCHED), (polls[i], JobStatus.PASSED)]
+                ),
+            )
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        _assert_result_status(result, 5)
+        # Sanity check that we did poll each job the correct number of times as well
+        for i in range(1, 5):
+            config = fxt.mock_ctx.get_config(jobs[i])
+            if config is not None:
+                assert_that(config.poll_count, equal_to(polls[i]))
+
+    @staticmethod
+    @pytest.mark.xfail(
+        reason="DVSim currently implicitly assumes that job with/in other targets"
+        " will be reachable (i.e. transitive) dependencies of jobs in the first target."
+    )
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_multiple_targets(fxt: Fxt) -> None:
+        """Test that the scheduler can handle jobs across many targets."""
+        # Create 15 jobs across 5 targets (3 jobs per target), with no dependencies.
+        jobs = make_many_jobs(fxt.tmp_path, 15, per_job=lambda i: {"target": f"target_{i // 3}"})
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        _assert_result_status(result, 15)
+
+    @staticmethod
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize("num_deps", range(2, 6))
+    def test_cross_target_deps(fxt: Fxt, num_deps: int) -> None:
+        """Test that the scheduler can handle dependencies across targets."""
+        deps = {i: [i - 1] for i in range(1, num_deps)}
+        jobs = make_many_jobs(fxt.tmp_path, num_deps, interdeps=deps, vary_targets=True)
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        _assert_result_status(result, num_deps)
+
+    @staticmethod
+    @pytest.mark.xfail(reason=FAIL_DEP_ON_MULTIPLE_TARGETS)
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize("num_deps", range(2, 6))
+    def test_dep_fan_in(fxt: Fxt, num_deps: int) -> None:
+        """Test that job dependencies can fan-in from multiple other jobs."""
+        num_jobs = num_deps + 1
+        deps = {0: list(range(1, num_jobs))}
+        jobs = make_many_jobs(fxt.tmp_path, num_jobs, interdeps=deps)
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        _assert_result_status(result, num_jobs)
+
+    @staticmethod
+    @pytest.mark.xfail(reason=FAIL_DEPS_ACROSS_MULTIPLE_TARGETS)
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize("num_deps", range(2, 6))
+    def test_dep_fan_out(fxt: Fxt, num_deps: int) -> None:
+        """Test that job dependencies can fan-out to multiple other jobs."""
+        num_jobs = num_deps + 1
+        deps = {i: [num_deps] for i in range(num_deps)}
+        jobs = make_many_jobs(fxt.tmp_path, num_jobs, interdeps=deps, vary_targets=True)
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        _assert_result_status(result, num_jobs)
+
+    @staticmethod
+    @pytest.mark.xfail(reason=FAIL_DEPS_ACROSS_NON_CONSECUTIVE_TARGETS)
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_non_consecutive_targets(fxt: Fxt) -> None:
+        """Test that jobs can have non-consecutive dependencies (deps in non-adjacent targets)."""
+        jobs = make_many_jobs(fxt.tmp_path, 4, interdeps={3: [0]}, vary_targets=True)
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        _assert_result_status(result, 4)
+
+    @staticmethod
+    @pytest.mark.xfail(reason=FAIL_DEP_OUT_OF_ORDER)
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_target_out_of_order(fxt: Fxt) -> None:
+        """Test that the scheduler can handle targets being given out-of-dependency-order."""
+        jobs = make_many_jobs(fxt.tmp_path, 4, interdeps={1: [0], 2: [3]}, vary_targets=True)
+        # First test jobs 0 and 1 (0 -> 1). Then test jobs 2 and 3 (2 <- 3).
+        for order in (jobs[:2], jobs[2:]):
+            result = Scheduler(order, fxt.mock_launcher).run()
+            _assert_result_status(result, 2)
+
+    # TODO: it isn't clear if this is a feature that DVSim should actually support.
+    # If Job specifications can form any DAG where targets are essentially just vertex
+    # labels/groups, then it makes sense that we can support a target-/layer-annotated
+    # specification with "bi-directional" edges. If layers are structural and intended
+    # to be monotonically increasing, this test should be changed / removed. For now,
+    # we test as if the former is the intended behaviour.
+    @staticmethod
+    @pytest.mark.xfail(reason="DVSim cannot currently handle this case.")
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_bidirectional_deps(fxt: Fxt) -> None:
+        """Test that the scheduler handles bidirectional cross-target deps."""
+        # job_0 (target_0) -> job_1 (target_1) -> job_2 (target_0)
+        targets = ["target_0", "target_1", "target_0"]
+        jobs = make_many_jobs(
+            fxt.tmp_path, 3, interdeps={0: [1], 1: [2]}, per_job=lambda i: {"target": targets[i]}
+        )
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        _assert_result_status(result, 3)
+
+    @staticmethod
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize("error_status", [JobStatus.FAILED, JobStatus.KILLED])
+    def test_dep_fail_propagation(fxt: Fxt, error_status: JobStatus) -> None:
+        """Test that failures in job dependencies propagate."""
+        # Note: job order is due to working around FAIL_DEP_OUT_OF_ORDER.
+        deps = {i: [i - 1] for i in range(1, 5)}
+        jobs = make_many_jobs(fxt.tmp_path, n=5, interdeps=deps, vary_targets=True)
+        fxt.mock_ctx.set_config(jobs[0], MockJob(default_status=error_status))
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        assert_that(len(result), equal_to(5))
+        # The job that we configured to error should show the error status
+        assert_that(result[0].status, equal_to(error_status))
+        # All other jobs should be "KILLED" due to failure propagation
+        _assert_result_status(result[1:], 4, expected=JobStatus.KILLED)
