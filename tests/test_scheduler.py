@@ -838,3 +838,94 @@ class TestSchedulingStructure:
         assert_that(result[0].status, equal_to(error_status))
         # All other jobs should be "KILLED" due to failure propagation
         _assert_result_status(result[1:], 4, expected=JobStatus.KILLED)
+
+
+class TestSchedulingPriority:
+    """Unit tests for scheduler decisions related to job/target weighting/priority."""
+
+    @staticmethod
+    @pytest.mark.xfail(
+        reason=FAIL_DEPS_ACROSS_MULTIPLE_TARGETS + " " + FAIL_DEPS_ACROSS_NON_CONSECUTIVE_TARGETS
+    )
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_job_priority(fxt: Fxt) -> None:
+        """Test that jobs across targets are prioritised according to their weight."""
+        start_job = job_spec_factory(fxt.tmp_path, name="start")
+        weighted_jobs = make_many_jobs(
+            fxt.tmp_path,
+            n=6,
+            per_job=lambda n: {"weight": n + 1},
+            dependencies=["start"],
+            vary_targets=True,
+        )
+        jobs = [start_job, *weighted_jobs]
+        by_weight_dec = [
+            j.name for j in sorted(weighted_jobs, key=lambda job: job.weight, reverse=True)
+        ]
+        # Set max parallel = 1 so that order dispatched becomes the priority order
+        # With max parallel > 1, jobs of many priorities are dispatched "at once".
+        fxt.mock_launcher.max_parallel = 1
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        _assert_result_status(result, 6)
+        assert_that(fxt.mock_ctx.order_started, equal_to([start_job, *by_weight_dec]))
+
+    @staticmethod
+    @pytest.mark.xfail(reason="DVSim does not handle zero weights.")
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_zero_weight(fxt: Fxt) -> None:
+        """Test that the scheduler can handle the case where jobs have a total weight of zero."""
+        jobs = make_many_jobs(fxt.tmp_path, 5, weight=0)
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        # TODO: not clear if this should evenly distribute and succeed, or error.
+        _assert_result_status(result, 5)
+
+    @staticmethod
+    @pytest.mark.xfail(
+        reason=FAIL_DEPS_ACROSS_MULTIPLE_TARGETS + " " + FAIL_DEPS_ACROSS_NON_CONSECUTIVE_TARGETS
+    )
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_blocked_weight_starvation(fxt: Fxt) -> None:
+        """Test that high weight jobs without fulfilled deps do not block lower weight jobs."""
+        # All jobs spawn from a start job.
+        # There is one chain "start -> long_blocker -> high" where we have a high weight job
+        # blocked by some blocker that takes a long time.
+        # There are then 5 other jobs that depend on "start -> short_blocker -> low", which
+        # are low weight jobs blocked by some blocker that takes a short time.
+        start_job = job_spec_factory(fxt.tmp_path, name="start")
+        short_blocker = job_spec_factory(fxt.tmp_path, name="short", dependencies=["start"])
+        long_blocker = job_spec_factory(fxt.tmp_path, name="long", dependencies=["start"])
+        high = job_spec_factory(fxt.tmp_path, name="high", dependencies=["long"], weight=1000000)
+        jobs = [start_job, short_blocker, long_blocker, high]
+        jobs += make_many_jobs(
+            fxt.tmp_path,
+            n=5,
+            weight=1,
+            dependencies=["short"],
+            vary_targets=True,
+        )
+        # The blockers should take a bit of time, to let the non-blocked jobs progress
+        fxt.mock_ctx.set_config(
+            short_blocker,
+            MockJob(status_thresholds=[(0, JobStatus.DISPATCHED), (1, JobStatus.PASSED)]),
+        )
+        fxt.mock_ctx.set_config(
+            long_blocker,
+            MockJob(status_thresholds=[(0, JobStatus.DISPATCHED), (5, JobStatus.PASSED)]),
+        )
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        _assert_result_status(result, 8)
+        # We expect that the high weight job should have been scheduled last, since
+        # it was blocked by the blocker (unlike all the other lower weight jobs)
+        assert_that(fxt.mock_ctx.order_started[0], equal_to(start_job))
+        assert_that(fxt.mock_ctx.order_started[-1], equal_to(high))
+
+    # TODO: we do not currently test the logic to schedule multiple queued jobs per target
+    # across different targets based on the weights of those jobs/targets, because this
+    # will require the test to be quite complex and specific to the intricacies of the
+    # current DVSim scheduler due to the current implementation. Due to only one successor
+    # in another target being discovered at once, we must carefully construct a dependency
+    # tree of jobs with specially modelled delays which relies on this implementation
+    # detail. Instead, for now at least, we leave this untested.
+    #
+    # Note also that DVSim currently assumes weights within a target are constant,
+    # which may not be the case with the current JobSpec model.
