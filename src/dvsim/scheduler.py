@@ -80,7 +80,7 @@ class Scheduler:
         items: Sequence[JobSpec],
         launcher_cls: type[Launcher],
         *,
-        interactive: bool,
+        interactive: bool = False,
     ) -> None:
         """Initialise a job scheduler.
 
