@@ -17,12 +17,13 @@ __all__ = (
 )
 
 
-def gen_block_report(results: SimFlowResults, path: Path) -> None:
+def gen_block_report(results: SimFlowResults, path: Path, version: str | None = None) -> None:
     """Generate a block report.
 
     Args:
         results: flow results for the block
         path: output directory path
+        version: dvsim version used to get results for this block
 
     """
     file_name = (
@@ -42,7 +43,7 @@ def gen_block_report(results: SimFlowResults, path: Path) -> None:
     (path / f"{file_name}.html").write_text(
         render_template(
             path="reports/block_report.html",
-            data={"results": results},
+            data={"results": results, "version": version},
         ),
     )
 
@@ -99,4 +100,4 @@ def gen_reports(summary: SimResultsSummary, path: Path) -> None:
     gen_summary_report(summary=summary, path=path)
 
     for flow_result in summary.flow_results.values():
-        gen_block_report(results=flow_result, path=path)
+        gen_block_report(results=flow_result, path=path, version=summary.version)

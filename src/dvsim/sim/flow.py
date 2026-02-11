@@ -9,6 +9,7 @@ import sys
 from collections import OrderedDict, defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import ClassVar
 
@@ -638,6 +639,12 @@ class SimCfg(FlowCfg):
                 .isoformat()
             )
 
+            try:
+                dvsim_version = version("dvsim").strip()
+            except PackageNotFoundError as e:
+                log.debug("DVSim package not found: %s", str(e))
+                dvsim_version = None
+
             results_summary = SimResultsSummary(
                 top=IPMeta(
                     name=self.name,
@@ -646,6 +653,7 @@ class SimCfg(FlowCfg):
                     branch=self.branch,
                     url=url,
                 ),
+                version=dvsim_version,
                 timestamp=timestamp,
                 flow_results=all_flow_results,
                 report_path=reports_dir,
