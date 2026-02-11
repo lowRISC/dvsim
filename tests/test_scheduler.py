@@ -1011,12 +1011,6 @@ class TestSignals:
         _assert_result_status(result, 3, expected=JobStatus.KILLED)
 
     @staticmethod
-    @pytest.mark.xfail(
-        reason="This test passes ~95 percent of the time, but the logging & threading primitive"
-        "logic used in the signal handler are not async-signal-safe and thus may deadlock,"
-        "causing the process to hang and time out instead.",
-        strict=False,
-    )
     @pytest.mark.parametrize("long_poll", [False, True])
     @pytest.mark.parametrize(("sig", "repeat"), [(SIGTERM, False), (SIGINT, False), (SIGINT, True)])
     def test_signal_kill(tmp_path: Path, *, sig: int, repeat: bool, long_poll: bool) -> None:
