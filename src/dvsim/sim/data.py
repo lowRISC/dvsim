@@ -233,6 +233,9 @@ class SimResultsSummary(BaseModel):
     top: IPMeta
     """Meta data for the top level config."""
 
+    version: str | None
+    """The version of DVSim being used, if applicable."""
+
     timestamp: datetime
     """Run time stamp."""
 
