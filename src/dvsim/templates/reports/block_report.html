@@ -40,6 +40,12 @@
             <span class="badge text-bg-secondary">
                 {{ timestamp.strftime("%d/%m/%Y %H:%M:%S") }}
             </span>
+            {% if version %}
+            <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
+                href="https://github.com/lowRISC/dvsim/releases/tag/v{{ version }}">
+                DVSim: v{{ version }}
+            </a>
+            {% endif %}
             <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
                href="{{ block.url }}">
                 sha: {{ block.commit[:7] }}

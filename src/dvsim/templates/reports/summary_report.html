@@ -6,6 +6,7 @@
 -->
 {% set top = summary.top %}
 {% set timestamp = summary.timestamp %}
+{% set version = summary.version %}
 <div class="container-md"> 
     <div class="row">
         <div class="col">
@@ -36,6 +37,12 @@
             <span class="badge text-bg-secondary">
                 {{ timestamp.strftime("%d/%m/%Y %H:%M:%S") }}
             </span>
+            {% if version %}
+            <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
+                href="https://github.com/lowRISC/dvsim/releases/tag/v{{ version }}">
+                DVSim: v{{ version }}
+            </a>
+            {% endif %}
             <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
                 href="{{ top.url }}">
                 sha: {{ top.commit[:7] }}
