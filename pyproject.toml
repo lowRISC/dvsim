@@ -12,7 +12,7 @@ version = "1.7.6"
 description = "DV system"
 authors = [{name = "lowRISC contributors (OpenTitan project)"}]
 readme = "README.md"
-licence = "Apache-2.0"
+license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
