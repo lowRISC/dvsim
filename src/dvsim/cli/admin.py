@@ -4,6 +4,7 @@
 
 """DVSim CLI main entry point."""
 
+import sys
 from importlib.metadata import version
 from pathlib import Path
 
@@ -43,3 +44,7 @@ def gen(json_path: Path, output_dir: Path) -> None:
     results: SimResultsSummary = SimResultsSummary.load(path=json_path)
 
     gen_reports(summary=results, path=output_dir)
+
+
+if __name__ == "__main__":
+    sys.exit(cli())

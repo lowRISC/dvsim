@@ -279,7 +279,7 @@ def parse_reseed_multiplier(as_str: str) -> float:
     return ret
 
 
-def parse_args():
+def parse_args(argv: list[str] | None = None):
     cfg_metavar = "<cfg-hjson-file>"
     parser = argparse.ArgumentParser(
         description=wrapped_docstring(),
@@ -790,7 +790,7 @@ def parse_args():
         help=("Use a fake launcher that generates random results"),
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv) if argv else parser.parse_args()
 
     # Check conflicts
     # interactive and remote, r
@@ -816,9 +816,9 @@ def parse_args():
     return args
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     """DVSim CLI entry point."""
-    args = parse_args()
+    args = parse_args(argv)
 
     configure_logging(
         verbose=args.verbose is not None,
@@ -912,3 +912,7 @@ def main() -> None:
     if cfg.has_errors():
         log.error("Errors were encountered in this run.")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
