@@ -548,6 +548,13 @@ class RunTest(Deploy):
         # Systemverilog accepts seeds with a maximum size of 32 bits.
         self.svseed = int(self.seed) & 0xFFFFFFFF
         self.simulated_time = JobTime()
+        log.debug(
+            "Initializing RunTest for %s test %s no. %d with seed %s",
+            sim_cfg.name,
+            getattr(test, "name", "[unknown]"),
+            index,
+            self.seed,
+        )
         super().__init__(sim_cfg)
 
         # Needs to be after the wildcard expansion to log anything meaningful
