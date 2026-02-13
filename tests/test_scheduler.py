@@ -758,6 +758,22 @@ class TestSchedulingStructure:
         _assert_result_status(result, 15)
 
     @staticmethod
+    @pytest.mark.xfail(
+        reason="DVSim currently stores job status in a per-job-name dictionary, meaning that"
+        " job information is lost if jobs have the same name across different targets."
+    )
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    def test_same_name_different_targets(fxt: Fxt) -> None:
+        """Test that jobs in different targets can have the same name."""
+        jobs = make_many_jobs(fxt.tmp_path, 2, vary_targets=True, interdeps={1: [0]}, name="job")
+        # Job 0 will pass whereas job 1 will fail.
+        fxt.mock_ctx.set_config(jobs[1], MockJob(default_status=JobStatus.FAILED))
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        assert_that(len(result), equal_to(2))
+        assert_that(result[0].status, equal_to(JobStatus.PASSED))
+        assert_that(result[1].status, equal_to(JobStatus.FAILED))
+
+    @staticmethod
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize("num_deps", range(2, 6))
     def test_cross_target_deps(fxt: Fxt, num_deps: int) -> None:
