@@ -32,6 +32,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 from dvsim.flow.factory import make_cfg
+from dvsim.instrumentation import InstrumentationFactory, set_instrumentation
 from dvsim.job.deploy import RunTest
 from dvsim.launcher.base import Launcher
 from dvsim.launcher.factory import set_launcher_type
@@ -756,6 +757,15 @@ def parse_args():
     dvg = parser.add_argument_group("Controlling DVSim itself")
 
     dvg.add_argument(
+        "--instrument",
+        dest="instrumentation",
+        nargs="+",
+        default=[],
+        choices=InstrumentationFactory.options(),
+        help="Enable scheduler instrumentation (can specify multiple types).",
+    )
+
+    dvg.add_argument(
         "--print-interval",
         "-pi",
         type=int,
@@ -867,6 +877,9 @@ def main() -> None:
     Launcher.max_odirs = args.max_odirs
     FakeLauncher.max_parallel = args.max_parallel
     set_launcher_type(is_local=args.local, fake=args.fake)
+
+    # Configure scheduler instrumentation
+    set_instrumentation(InstrumentationFactory.create(args.instrumentation))
 
     # Build infrastructure from hjson file and create the list of items to
     # be deployed.

@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 import hjson
 
+from dvsim import instrumentation
 from dvsim.flow.hjson import set_target_attribute
 from dvsim.job.data import CompletedJobStatus
 from dvsim.launcher.factory import get_launcher_cls
@@ -152,8 +153,12 @@ class FlowCfg(ABC):
         self._expand()
 
         # Construct the path variables after variable expansion.
-        self.results_dir = Path(self.scratch_base_path) / "reports" / self.rel_path
+        reports_dir = Path(self.scratch_base_path) / "reports"
+        self.results_dir = reports_dir / self.rel_path
         self.results_page = self.results_dir / self.results_html_name
+
+        # Configure the report path for instrumentation
+        instrumentation.set_report_path(reports_dir / "metrics.json")
 
         # Run any final checks
         self._post_init()
