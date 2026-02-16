@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.9.0 (2026-02-16)
+
+### Features
+
+- Add DVSim version to generated reports
+  ([`236dd45`](https://github.com/lowRISC/dvsim/commit/236dd457b3725a224ca2831c04e0e4d56646464c))
+
+
 ## v1.8.1 (2026-02-12)
 
 ### Bug Fixes
