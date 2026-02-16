@@ -29,6 +29,12 @@ ignore = [
     "B008", # function calls in default arg value
     "PERF203", # Exception handling in loops
 
+    # Some noqas might be needed for compliance with full Ruff configuration,
+    # but not with the temporary ignores listed below in the CI configuration.
+    # To stop CI telling us we need to remove these noqas, temporarily disable
+    # the rule enforcing this in CI.
+    "RUF100",
+
 # Temporary ignores just for CI until the rules pass then they can be removed
 # from here to prevent future regressions
     "ANN001",
