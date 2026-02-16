@@ -4,8 +4,10 @@
 
 """DVSim scheduler instrumentation base classes."""
 
+import json
 from collections.abc import Collection, Iterable, Sequence
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any, TypeAlias
 
 from dvsim.job.data import JobSpec
@@ -131,8 +133,24 @@ class SchedulerInstrumentation:
 
     def build_report(self) -> dict[str, Any] | None:
         """Build an instrumentation report dict containing collected instrumentation info."""
+        log.info("Building instrumentation report...")
         fragments = self.build_report_fragments()
         return None if fragments is None else merge_instrumentation_report(*fragments)
+
+    def dump_json_report(self, report_path: Path) -> None:
+        """Dump a given JSON instrumentation report to a specified file path."""
+        report = self.build_report()
+        if not report:
+            return
+        log.info("Dumping JSON instrumentation report...")
+        if report_path.is_dir():
+            raise ValueError("Metric report path cannot be a directory.")
+        try:
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(json.dumps(report, indent=2))
+            log.info("JSON instrumentation report dumped to: %s", str(report_path))
+        except (OSError, FileNotFoundError) as e:
+            log.error("Error writing instrumented metrics to %s: %s", str(report_path), str(e))
 
 
 class NoOpInstrumentation(SchedulerInstrumentation):

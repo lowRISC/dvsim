@@ -16,6 +16,7 @@ from dvsim.instrumentation.base import (
 )
 from dvsim.instrumentation.factory import InstrumentationFactory
 from dvsim.instrumentation.metadata import MetadataInstrumentation, MetadataJobFragment
+from dvsim.instrumentation.runtime import flush, get, set_instrumentation, set_report_path
 from dvsim.instrumentation.timing import (
     TimingInstrumentation,
     TimingJobFragment,
@@ -36,5 +37,9 @@ __all__ = (
     "TimingInstrumentation",
     "TimingJobFragment",
     "TimingSchedulerFragment",
+    "flush",
+    "get",
     "merge_instrumentation_report",
+    "set_instrumentation",
+    "set_report_path",
 )
