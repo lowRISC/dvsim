@@ -559,7 +559,7 @@ class Scheduler:
             self._queued[target].append(job_name)
 
             log.verbose(
-                "[%s]: [%s]: [reqeued]: %s",
+                "[%s]: [%s]: [requeued]: %s",
                 hms,
                 target,
                 job_name,
