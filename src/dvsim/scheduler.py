@@ -20,6 +20,8 @@ from signal import SIGINT, SIGTERM, signal
 from types import FrameType
 from typing import TYPE_CHECKING, Any
 
+from dvsim import instrumentation
+from dvsim.instrumentation import NoOpInstrumentation
 from dvsim.job.data import CompletedJobStatus, JobSpec
 from dvsim.job.status import JobStatus
 from dvsim.launcher.base import Launcher, LauncherBusyError, LauncherError
@@ -92,6 +94,11 @@ class Scheduler:
             interactive: launch the tools in interactive mode.
 
         """
+        # Start any instrumentation
+        inst = instrumentation.get()
+        self._instrumentation = NoOpInstrumentation() if inst is None else inst
+        self._instrumentation.start()
+
         self._jobs: Mapping[str, JobSpec] = {i.full_name: i for i in items}
 
         # 'scheduled[target][cfg]' is a list of JobSpec object names for the chosen
@@ -195,6 +202,8 @@ class Scheduler:
         Returns the results (status) of all items dispatched for all
         targets and cfgs.
         """
+        # Notify instrumentation that the scheduler started
+        self._instrumentation.on_scheduler_start()
         timer = Timer()
 
         # On SIGTERM or SIGINT, tell the runner to quit.
@@ -242,6 +251,11 @@ class Scheduler:
 
         # Cleanup the status printer.
         self._status_printer.exit()
+
+        # Finish instrumentation and generate the instrumentation report
+        self._instrumentation.on_scheduler_end()
+        self._instrumentation.stop()
+        instrumentation.flush()
 
         # We got to the end without anything exploding. Return the results.
         results = []
@@ -502,14 +516,17 @@ class Scheduler:
 
                 if status == JobStatus.PASSED:
                     self._passed[target].add(job_name)
+                    self._instrumentation.on_job_status_change(self._jobs[job_name], status)
 
                 elif status == JobStatus.FAILED:
                     self._failed[target].add(job_name)
+                    self._instrumentation.on_job_status_change(self._jobs[job_name], status)
                     level = log.ERROR
 
                 else:
                     # Killed, still Queued, or some error when dispatching.
                     self._killed[target].add(job_name)
+                    self._instrumentation.on_job_status_change(self._jobs[job_name], status.KILLED)
                     level = log.ERROR
 
                 self._running[target].pop(self._last_item_polled_idx[target])
@@ -568,6 +585,7 @@ class Scheduler:
 
         self._running[target].append(job_name)
         self.job_status[job_name] = JobStatus.DISPATCHED
+        self._instrumentation.on_job_status_change(self._jobs[job_name], JobStatus.DISPATCHED)
 
     def _dispatch(self, hms: str) -> None:
         """Dispatch some queued items if possible.
@@ -708,11 +726,12 @@ class Scheduler:
             cancel_successors: if set then cancel successors as well (True).
 
         """
-        target = self._jobs[job_name].target
+        job = self._jobs[job_name]
         self.job_status[job_name] = JobStatus.KILLED
-        self._killed[target].add(job_name)
-        if job_name in self._queued[target]:
-            self._queued[target].remove(job_name)
+        self._killed[job.target].add(job_name)
+        self._instrumentation.on_job_status_change(job, JobStatus.KILLED)
+        if job_name in self._queued[job.target]:
+            self._queued[job.target].remove(job_name)
         else:
             self._unschedule_item(job_name)
 
@@ -726,9 +745,10 @@ class Scheduler:
             job_name: name of the job to kill
 
         """
-        target = self._jobs[job_name].target
+        job = self._jobs[job_name]
         self._launchers[job_name].kill()
         self.job_status[job_name] = JobStatus.KILLED
-        self._killed[target].add(job_name)
-        self._running[target].remove(job_name)
+        self._killed[job.target].add(job_name)
+        self._instrumentation.on_job_status_change(job, JobStatus.KILLED)
+        self._running[job.target].remove(job_name)
         self._cancel_successors(job_name)
