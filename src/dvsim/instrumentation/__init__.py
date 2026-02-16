@@ -16,6 +16,11 @@ from dvsim.instrumentation.base import (
 )
 from dvsim.instrumentation.factory import InstrumentationFactory
 from dvsim.instrumentation.metadata import MetadataInstrumentation, MetadataJobFragment
+from dvsim.instrumentation.timing import (
+    TimingInstrumentation,
+    TimingJobFragment,
+    TimingSchedulerFragment,
+)
 
 __all__ = (
     "CompositeInstrumentation",
@@ -28,5 +33,8 @@ __all__ = (
     "NoOpInstrumentation",
     "SchedulerFragment",
     "SchedulerInstrumentation",
+    "TimingInstrumentation",
+    "TimingJobFragment",
+    "TimingSchedulerFragment",
     "merge_instrumentation_report",
 )

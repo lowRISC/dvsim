@@ -12,6 +12,7 @@ from dvsim.instrumentation.base import (
     SchedulerInstrumentation,
 )
 from dvsim.instrumentation.metadata import MetadataInstrumentation
+from dvsim.instrumentation.timing import TimingInstrumentation
 
 __all__ = ("InstrumentationFactory",)
 
@@ -46,3 +47,7 @@ class InstrumentationFactory:
         instances: list[SchedulerInstrumentation] = [MetadataInstrumentation()]
         instances.extend([cls._registry[name]() for name in names])
         return CompositeInstrumentation(instances)
+
+
+# Register implemented instrumentation mechanisms
+InstrumentationFactory.register("timing", TimingInstrumentation)
