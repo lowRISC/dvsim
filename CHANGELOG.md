@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.9.2 (2026-02-17)
+
+### Refactoring
+
+- Add main entry points for main and admin CLIs
+  ([`709117f`](https://github.com/lowRISC/dvsim/commit/709117fc362cfe6e17d64132a695a69ac96f1f53))
+
+### Testing
+
+- Add scheduler test for shared job names across targets
+  ([`151e6ab`](https://github.com/lowRISC/dvsim/commit/151e6ab07b87349f812b7602c250b1d370f4dd8d))
+
+
 ## v1.9.1 (2026-02-17)
 
 ### Refactoring
