@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.9.1 (2026-02-17)
+
+### Refactoring
+
+- Add additional sim flow debug logs
+  ([`36f9db4`](https://github.com/lowRISC/dvsim/commit/36f9db480bb51caf5100cb7c54c5d265af40f0cd))
+
+
 ## v1.9.0 (2026-02-16)
 
 ### Features
