@@ -2,6 +2,41 @@
 
 <!-- version list -->
 
+## v1.10.0 (2026-02-18)
+
+### Bug Fixes
+
+- Remove typo in log for requeued jobs
+  ([`d64399b`](https://github.com/lowRISC/dvsim/commit/d64399bd421031934372666f576047e37a6fccc1))
+
+### Build System
+
+- Add `psutil` Python dependency
+  ([`06f6b73`](https://github.com/lowRISC/dvsim/commit/06f6b734c14a100b9322b086f876a97dca2ccb0d))
+
+### Continuous Integration
+
+- Disable RUF100 unused-noqa check in CI
+  ([`c8e6b2f`](https://github.com/lowRISC/dvsim/commit/c8e6b2f94434e193915e82b434c0a0ef2f1b3c0d))
+
+### Features
+
+- Add instrumentation singleton & scheduler hooks
+  ([`afbdd38`](https://github.com/lowRISC/dvsim/commit/afbdd383054e7d268c084650c951a5549771c36f))
+
+- Add scheduler instrumentation base classes
+  ([`78e9fba`](https://github.com/lowRISC/dvsim/commit/78e9fba2fea02d7c4fd3c6e482bd4049f9c6426f))
+
+- Add scheduler instrumentation CLI argument
+  ([`ea883c9`](https://github.com/lowRISC/dvsim/commit/ea883c97850fe76b71f5ddfebba6a85bb31de04b))
+
+- Add scheduler instrumentation for measuring system resources
+  ([`e12f7c9`](https://github.com/lowRISC/dvsim/commit/e12f7c9321b96385f86528674590251855d2cdf9))
+
+- Add scheduler timing instrumentation
+  ([`3c4553b`](https://github.com/lowRISC/dvsim/commit/3c4553b16eab0a858e882812487c6e3df3728117))
+
+
 ## v1.9.2 (2026-02-17)
 
 ### Refactoring
