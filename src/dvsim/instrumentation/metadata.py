@@ -28,6 +28,7 @@ class MetadataJobFragment(JobFragment):
     full_name: str
     job_type: str
     target: str
+    tool: str
     dependencies: list[str]
     status: str
 
@@ -59,6 +60,7 @@ class MetadataInstrumentation(SchedulerInstrumentation):
                 spec.full_name,
                 spec.job_type,
                 spec.target,
+                spec.tool.name,
                 spec.dependencies,
                 status_str,
             )
