@@ -33,13 +33,15 @@ class ResourceSchedulerFragment(SchedulerFragment):
     """Instrumented metrics about the scheduler reported by the `ResourceInstrumentation`."""
 
     # Scheduler / DVSim process overhead
-    scheduler_rss_bytes: int | None = None
+    scheduler_max_rss_bytes: int | None = None
+    scheduler_avg_rss_bytes: int | None = None
     scheduler_vms_bytes: int | None = None
     scheduler_cpu_percent: float | None = None
     scheduler_cpu_time: float | None = None
 
     # System-wide metrics
-    sys_rss_bytes: int | None = None
+    sys_max_rss_bytes: int | None = None
+    sys_avg_rss_bytes: int | None = None
     sys_swap_used_bytes: int | None = None
     sys_cpu_percent: float | None = None
     sys_cpu_per_core: list[float] | None = None
@@ -138,6 +140,7 @@ class ResourceInstrumentation(SchedulerInstrumentation):
         self._scheduler_sum_rss = 0
         self._scheduler_max_rss = 0
         self._scheduler_sum_vms = 0
+        self._sys_sum_rss = 0
         self._sys_max_rss = 0
         self._sys_max_swap = 0
 
@@ -193,6 +196,7 @@ class ResourceInstrumentation(SchedulerInstrumentation):
             # Update system-wide metrics
             self._sys_max_swap = max(self._sys_max_swap, psutil.swap_memory().used)
             self._sys_max_rss = max(self._sys_max_rss, sys_rss)
+            self._sys_sum_rss += sys_rss
             self._sys_sum_cpu += sys_cpu
             if self._num_cores is not None:
                 self._sys_sum_cpu_per_core = [
@@ -250,11 +254,13 @@ class ResourceInstrumentation(SchedulerInstrumentation):
                 vms_bytes = None
 
             scheduler_frag = ResourceSchedulerFragment(
-                scheduler_rss_bytes=self._scheduler_max_rss,
+                scheduler_avg_rss_bytes=self._scheduler_sum_rss / self._sample_count,
+                scheduler_max_rss_bytes=self._scheduler_max_rss,
                 scheduler_vms_bytes=vms_bytes,
                 scheduler_cpu_percent=self._scheduler_sum_cpu / self._sample_count,
                 scheduler_cpu_time=scheduler_cpu_time,
-                sys_rss_bytes=self._sys_max_rss,
+                sys_max_rss_bytes=self._sys_max_rss,
+                sys_avg_rss_bytes=self._sys_sum_rss / self._sample_count,
                 sys_cpu_percent=self._sys_sum_cpu / self._sample_count,
                 sys_cpu_per_core=sys_cpu_per_core,
                 sys_swap_used_bytes=self._sys_max_swap,
