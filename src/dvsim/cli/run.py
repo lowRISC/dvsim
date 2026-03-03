@@ -44,6 +44,7 @@ from dvsim.launcher.sge import SgeLauncher
 from dvsim.launcher.slurm import SlurmLauncher
 from dvsim.logging import configure_logging, log
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer, rm_path, run_cmd_with_timeout
+from dvsim.utils.status_printer import get_status_printer
 
 # The different categories that can be passed to the --list argument.
 _LIST_CATEGORIES = ["build_modes", "run_modes", "tests", "regressions"]
@@ -916,6 +917,12 @@ def main(argv: list[str] | None = None) -> None:
 
         # Generate results.
         cfg.gen_results(results)
+
+        # Now that we have printed the results from the scheduler, we close the
+        # status printer, to ensure the status remains relevant in the UI context
+        # (for applicable status printers).
+        status_printer = get_status_printer(args.interactive)
+        status_printer.exit()
 
     else:
         log.error("Nothing to run!")

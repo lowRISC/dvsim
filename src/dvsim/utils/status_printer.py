@@ -6,6 +6,7 @@
 
 import sys
 from collections.abc import Sequence
+from typing import ClassVar
 
 import enlighten
 
@@ -54,6 +55,9 @@ class StatusPrinter:
             running:  What jobs are currently still running.
 
         """
+
+    def stop(self) -> None:
+        """Stop the status header/target printing (but keep the printer context)."""
 
     def exit(self) -> None:
         """Do cleanup activities before exiting."""
@@ -136,9 +140,6 @@ class TtyStatusPrinter(StatusPrinter):
         if perc == 100:
             self.target_done[target] = True
 
-    def exit(self) -> None:
-        """Do cleanup activities before exiting."""
-
 
 class EnlightenStatusPrinter(TtyStatusPrinter):
     """Abstraction for printing status using Enlighten.
@@ -163,6 +164,7 @@ class EnlightenStatusPrinter(TtyStatusPrinter):
         self.manager = enlighten.get_manager()
         self.status_header = None
         self.status_target = {}
+        self._stopped = False
 
     def print_header(self) -> None:
         self.status_header = self.manager.status_bar(
@@ -196,28 +198,56 @@ class EnlightenStatusPrinter(TtyStatusPrinter):
         if perc == 100:
             self.target_done[target] = True
 
-    def exit(self) -> None:
-        """Do cleanup activities before exiting."""
+    def stop(self) -> None:
+        """Stop the status header/target printing (but keep the printer context)."""
         if self.status_header is not None:
             self.status_header.close()
         for target in self.status_target:
             self.status_target[target].close()
+        self._stopped = True
+
+    def exit(self) -> None:
+        """Do cleanup activities before exiting (closing the manager context)."""
+        if not self._stopped:
+            self.stop()
         self.manager.stop()
 
 
+class StatusPrinterSingleton:
+    """Singleton for the status printer to uniquely refer to 1 instance at a time."""
+
+    _instance: ClassVar[StatusPrinter | None] = None
+
+    @classmethod
+    def set(cls, instance: StatusPrinter | None) -> None:
+        """Set the stored status printer."""
+        cls._instance = instance
+
+    @classmethod
+    def get(cls) -> StatusPrinter | None:
+        """Get the stored status printer (if it exists)."""
+        return cls._instance
+
+
 def get_status_printer(interactive: bool) -> StatusPrinter:
-    """Get the status printer.
+    """Get the global status printer.
 
     If stdout is a TTY, then return an instance of EnlightenStatusPrinter, else
-    return an instance of StatusPrinter.
+    return an instance of StatusPrinter. If the status printer has already been
+    created, then returns that instance, regardless of given arguments.
     """
+    status_printer = StatusPrinterSingleton.get()
+    if status_printer is not None:
+        return status_printer
+
     if interactive:
-        return StatusPrinter()
-
-    if sys.stdout.isatty():
-        return EnlightenStatusPrinter()
-
-    return TtyStatusPrinter()
+        status_printer = StatusPrinter()
+    elif sys.stdout.isatty():
+        status_printer = EnlightenStatusPrinter()
+    else:
+        status_printer = TtyStatusPrinter()
+    StatusPrinterSingleton.set(status_printer)
+    return status_printer
 
 
 def print_msg_list(msg_list_title, msg_list, max_msg_count=-1):

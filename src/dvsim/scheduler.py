@@ -249,8 +249,9 @@ class Scheduler:
         finally:
             signal(SIGINT, old_handler)
 
-        # Cleanup the status printer.
-        self._status_printer.exit()
+        # Stop the status printer, but don't exit/close it yet, for reporting purposes.
+        # That will be done by the CLI upon exiting
+        self._status_printer.stop()
 
         # Finish instrumentation and generate the instrumentation report
         self._instrumentation.on_scheduler_end()
