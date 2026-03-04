@@ -36,7 +36,7 @@ from dvsim.sim.data import (
     TestStage,
     ToolMeta,
 )
-from dvsim.sim.report import gen_block_report, gen_reports
+from dvsim.sim.report import gen_block_report, gen_summary_report
 from dvsim.sim_results import BucketedFailures, SimResults
 from dvsim.test import Test
 from dvsim.testplan import Testplan
@@ -663,8 +663,8 @@ class SimCfg(FlowCfg):
                 report_path=reports_dir,
             )
 
-            # Generate all the JSON/HTML reports to the report area.
-            gen_reports(
+            # Generate the summary JSON/HTML report to the report area.
+            gen_summary_report(
                 summary=results_summary,
                 path=reports_dir,
             )
