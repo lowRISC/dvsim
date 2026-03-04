@@ -4,10 +4,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 -->
+{% extends "reports/wrapper.html" %}
 {% set top = summary.top %}
 {% set timestamp = summary.timestamp %}
 {% set version = summary.version %}
 {% set title = "Simulation Results: %s"|format(top.name) if summary.primary_cfg else "Simulation Results (Summary)" %}
+{% block content %}
 <div class="container-md"> 
     <div class="row">
         <div class="col">
@@ -100,12 +102,12 @@
                     {% for block_name in summary.flow_results.keys()|sort %}
                         {% set flow = summary.flow_results[block_name] %}
                         <tr>
-                            <td class="btn"
-                                hx-get="{{ block_name }}.html"
-                                hx-trigger="click"
-                                hx-push-url="true"
-                                hx-target="#report-content">
-                                    {{ flow.block.variant_name(sep='/') | upper }}
+                            <td>
+                                <a href="{{ block_name }}.html" style="text-decoration:none; color:black">
+                                    <div style="height:100%; width:100%">
+                                        {{ flow.block.variant_name(sep='/') | upper }}
+                                    </div>
+                                </a>
                             </td>
                             <td>{{ flow.passed }}</td>
                             <td>{{ flow.total }}</td>
@@ -133,3 +135,4 @@
         </div>
     </div>
 </div>
+{% endblock %}

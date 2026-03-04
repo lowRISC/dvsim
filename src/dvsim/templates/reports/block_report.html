@@ -4,12 +4,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 -->
+{% extends "reports/wrapper.html" %}
 {% set block = results.block %}
 {% set tool = results.tool %}
 {% set timestamp = results.timestamp %}
 {% set stages = results.stages %}
 {% set coverage = results.coverage %}
 {% set failed_jobs = results.failed_jobs %}
+{% block content %}
 <div class="container-md">
     <div class="row">
         <div class="col">
@@ -235,3 +237,4 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
