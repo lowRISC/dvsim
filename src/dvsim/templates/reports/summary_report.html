@@ -104,7 +104,7 @@
                                 hx-trigger="click"
                                 hx-push-url="true"
                                 hx-target="#report-content">
-                                    {{ block_name | upper }}
+                                    {{ flow.block.variant_name(sep='/') | upper }}
                             </td>
                             <td>{{ flow.passed }}</td>
                             <td>{{ flow.total }}</td>

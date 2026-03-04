@@ -30,7 +30,7 @@
 
     <div class="row py-3">
         <div class="col">
-            <h2>Simulation Results: {{ block.name }}</h2>
+            <h2>Simulation Results: {{ block.variant_name(sep='/') }}</h2>
         </div>
     </div>
 
@@ -51,7 +51,7 @@
                 sha: {{ block.commit[:7] }}
             </a>
             <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
-                        href="{{ block.name }}.json">json</a>
+                        href="{{ block.variant_name() }}.json">json</a>
             <span class="badge text-bg-secondary">Branch: {{ block.branch }}</span>
             <span class="badge text-bg-secondary">
                 Tool: {{ tool.name }} [{{ tool.version }}]

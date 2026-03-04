@@ -29,6 +29,10 @@ class IPMeta(BaseModel):
     url: str
     """URL to where the IP can be found in git (e.g. github)."""
 
+    def variant_name(self, sep: str = "_") -> str:
+        """Name suffixed with the variant for disambiguation."""
+        return f"{self.name}{sep}{self.variant}" if self.variant else self.name
+
 
 class ToolMeta(BaseModel):
     """Meta data for an EDA tool."""
