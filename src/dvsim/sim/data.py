@@ -212,6 +212,8 @@ class SimFlowResults(BaseModel):
 
     build_seed: int | None
     """Build seed."""
+    testplan_ref: str | None
+    """A reference (HTML link or relative HJSON path) to the testplan for this flow."""
 
     stages: Mapping[str, TestStage]
     """Results per test stage."""

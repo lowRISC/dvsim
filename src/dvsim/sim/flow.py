@@ -150,6 +150,10 @@ class SimCfg(FlowCfg):
         self.regressions = []
         self.supported_wave_formats = None
 
+        # Options from cfg files used for reports / documentation
+        self.testplan_doc_path = ""
+        self.book = ""
+
         # Options from tools - for building and running tests
         self.build_cmd = ""
         self.flist_gen_cmd = ""
@@ -711,6 +715,21 @@ class SimCfg(FlowCfg):
 
         build_seed = self.build_seed if not self.run_only else None
 
+        # Build up a reference to the testplan, which might be overridden.
+        if self.testplan_doc_path:
+            rel_path = Path(self.testplan_doc_path).relative_to(Path(self.proj_root))
+        else:
+            # TODO: testplan variants frequently override `rel_path` for reporting
+            # and build reasons, but do not update the `testplan_doc_path`, meaning
+            # that they point to a variant testplan path that is not available
+            # in the book, unlike the original (non-variant).
+            rel_path = Path(self.rel_path).parent / "data" / f"{self.name}_testplan.hjson"
+
+        if self.book:
+            testplan_ref = "https://{}/{}".format(self.book, str(rel_path.with_suffix(".html")))
+        else:
+            testplan_ref = str(rel_path)
+
         # --- Build stages only from testpoints that have at least one executed test ---
         stage_to_tps: defaultdict[str, dict[str, Testpoint]] = defaultdict(dict)
 
@@ -811,6 +830,7 @@ class SimCfg(FlowCfg):
             tool=tool,
             timestamp=timestamp,
             build_seed=build_seed,
+            testplan_ref=testplan_ref,
             stages=stages,
             coverage=coverage_model,
             failed_jobs=failures,
