@@ -156,6 +156,18 @@ class CoverageMetrics(BaseModel):
             v is None for v in self.model_dump(exclude_unset=True, exclude={"code"}).values()
         )
 
+    def flattened(self) -> dict[str, float | None]:
+        """Convert the coverage metrics to a flattened dictionary.
+
+        This dictionary will contain all the stored metrics, and a computed "total" average item.
+        """
+        average = self.average
+        items = {} if average is None else {"total": average}
+        if self.code:
+            items.update(self.code.model_dump(exclude_none=True))
+        items.update(self.model_dump(exclude={"code"}))
+        return items
+
 
 class FlowResults(BaseModel):
     """Flow results data."""
