@@ -123,6 +123,7 @@
         </div>
     </div>
 
+    {% if stages %}
     <div class="row py-3">
         <div class="col">
             <div class="accordion accordion-flush" id="accordionStages">
@@ -194,7 +195,9 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
+    {% if failed_jobs.buckets %}
     <div class="row py-3">
         <div class="col">
             <h3>Error Messages</h3>
@@ -231,4 +234,5 @@
             </table>
         </div>
     </div>
+    {% endif %}
 </div>
