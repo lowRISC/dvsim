@@ -44,6 +44,19 @@ def gen_block_report(results: SimFlowResults, path: Path, version: str | None = 
     )
 
 
+def make_static_html_report_content(path: Path) -> None:
+    """Generate static style CSS/JS files for HTML reporting."""
+    for name in (
+        "css/style.css",
+        "css/bootstrap.min.css",
+        "js/bootstrap.bundle.min.js",
+        "js/htmx.min.js",
+    ):
+        output = path / name
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(render_static(path=name))
+
+
 def gen_summary_report(summary: SimResultsSummary, path: Path) -> None:
     """Generate a summary report.
 
@@ -60,21 +73,10 @@ def gen_summary_report(summary: SimResultsSummary, path: Path) -> None:
     (path / "index.json").write_text(summary.model_dump_json())
 
     # Generate style CSS
-    for name in (
-        "css/style.css",
-        "css/bootstrap.min.css",
-        "js/bootstrap.bundle.min.js",
-        "js/htmx.min.js",
-    ):
-        output = path / name
+    make_static_html_report_content(path)
 
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(render_static(path=name))
-
-    # HTMX wrapper
-    (path / "index.html").write_text(render_template(path="reports/wrapper.html"))
-
-    # Generate HTML report
+    # Generate HTML report. Regardless of whether we have a top or there is only
+    # one block, we always generate a summary page for now.
     (path / "summary.html").write_text(
         render_template(
             path="reports/summary_report.html",
@@ -83,6 +85,10 @@ def gen_summary_report(summary: SimResultsSummary, path: Path) -> None:
             },
         ),
     )
+
+    # Make the HTMX report wrapper (index)
+    index = path / "index.html"
+    index.write_text(render_template(path="reports/wrapper.html"))
 
 
 def gen_reports(summary: SimResultsSummary, path: Path) -> None:

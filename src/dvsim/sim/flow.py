@@ -641,35 +641,40 @@ class SimCfg(FlowCfg):
 
             self.errors_seen |= item.errors_seen
 
+        # The timestamp for this run has been taken with `utcnow()` and is
+        # stored in a custom format.  Store it in standard ISO format with
+        # explicit timezone annotation.
+        timestamp = (
+            datetime.strptime(self.timestamp, "%Y%m%d_%H%M%S")
+            .replace(tzinfo=timezone.utc)
+            .isoformat()
+        )
+
+        # If this is a primary config, attach the "top" information. Even if it isn't,
+        # we still want to potentially generate a summary to attach other metadata.
+        top = None
         if self.is_primary_cfg:
-            # The timestamp for this run has been taken with `utcnow()` and is
-            # stored in a custom format.  Store it in standard ISO format with
-            # explicit timezone annotation.
-            timestamp = (
-                datetime.strptime(self.timestamp, "%Y%m%d_%H%M%S")
-                .replace(tzinfo=timezone.utc)
-                .isoformat()
+            top = IPMeta(
+                name=self.name,
+                variant=self.variant,
+                commit=commit,
+                branch=self.branch,
+                url=url,
             )
 
-            results_summary = SimResultsSummary(
-                top=IPMeta(
-                    name=self.name,
-                    variant=self.variant,
-                    commit=commit,
-                    branch=self.branch,
-                    url=url,
-                ),
-                version=dvsim_version,
-                timestamp=timestamp,
-                flow_results=all_flow_results,
-                report_path=reports_dir,
-            )
+        results_summary = SimResultsSummary(
+            top=top,
+            version=dvsim_version,
+            timestamp=timestamp,
+            flow_results=all_flow_results,
+            report_path=reports_dir,
+        )
 
-            # Generate the summary JSON/HTML report to the report area.
-            gen_summary_report(
-                summary=results_summary,
-                path=reports_dir,
-            )
+        # Generate all the JSON/HTML reports to the report area.
+        gen_summary_report(
+            summary=results_summary,
+            path=reports_dir,
+        )
 
     def _gen_json_results(
         self,

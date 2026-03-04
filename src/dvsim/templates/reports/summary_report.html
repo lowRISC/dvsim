@@ -5,8 +5,11 @@
 
 -->
 {% set top = summary.top %}
+{% set first_result = summary.flow_results.values() | list | first %}
+{% set meta_info = top if top is not none else first_result.block %}
 {% set timestamp = summary.timestamp %}
 {% set version = summary.version %}
+{% set title = "Simulation Results: %s"|format(top.name) if top else "Simulation Results (Summary)" %}
 <div class="container-md"> 
     <div class="row">
         <div class="col">
@@ -27,7 +30,7 @@
 
     <div class="row py-3">
         <div class="col">
-            <h2>Simulation Results: {{ top.name }}</h2>
+            <h2>{{ title }}</h2>
         </div>
     </div>
 
@@ -44,13 +47,13 @@
             </a>
             {% endif %}
             <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
-                href="{{ top.url }}">
-                sha: {{ top.commit[:7] }}
+                href="{{ meta_info.url }}">
+                sha: {{ meta_info.commit[:7] }}
             </a>
             <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
                 href="index.json">json</a>
             <span class="badge text-bg-secondary">
-                Branch: {{ top.branch }}
+                Branch: {{ meta_info.branch }}
             </span>
         </div>
     </div>

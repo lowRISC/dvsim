@@ -244,7 +244,7 @@ class SimResultsSummary(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    top: IPMeta
+    top: IPMeta | None
     """Meta data for the top level config."""
 
     version: str | None
