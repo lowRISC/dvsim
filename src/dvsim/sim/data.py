@@ -29,9 +29,9 @@ class TestResult(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    max_time: float
+    max_time: float | None
     """Run time."""
-    sim_time: float
+    sim_time: float | None
     """Simulation time."""
 
     passed: int

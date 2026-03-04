@@ -139,7 +139,7 @@
                                 {{ stage.passed }}/{{ stage.total }} passed
                             </div>
                             <div class="w-100 text-end me-3">
-                                {{ "%.2f" | format(stage.percent) }} %
+                                {{ "%.2f %%" | format(stage.percent) if stage.total > 0 else "" }}
                             </div>
                         </button>
                     </div>
@@ -165,19 +165,23 @@
                                         <td colspan="4">{{ tp_name }}</td>
                                         <td>{{ tp.passed }}</td>
                                         <td>{{ tp.total }}</td>
-                                        <td>{{ "%.2f" | format(tp.percent) }}</td>
+                                        <td>{{ "%.2f" | format(tp.percent) if tp.total > 0 else "" }}</td>
                                     </tr>
                                     {% for t_name, t in tp.tests.items() %}
                                     <tr>
                                         <td></td>
                                         <td>{{ t_name }}</td>
-                                        <td>{{ "%.3f" | format(t.max_time) }}s</td>
-                                        <td>{{ "%.3f" | format(t.sim_time) }}us</td>
+                                        <td>{{ "%.3fs" | format(t.max_time) if t.max_time is not none else "" }}</td>
+                                        <td>{{ "%.3fus" | format(t.sim_time) if t.sim_time is not none else "" }}</td>
                                         <td>{{ t.passed }}</td>
                                         <td>{{ t.total }}</td>
+                                        {% if t.total > 0 %}
                                         <td class="c{{ (t.percent / 10)|int }}">
                                             {{ "%.2f" | format(t.percent) }}
                                         </td>
+                                        {% else %}
+                                        <td></td>
+                                        {% endif %}
                                     </tr>
                                     {% endfor %}
                                     {% endfor %}
