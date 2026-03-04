@@ -112,6 +112,11 @@ class CodeCoverageMetrics(BaseModel):
 
         return sum(all_cov) / len(all_cov)
 
+    @property
+    def empty(self) -> bool:
+        """Whether this `CodeCoverageMetrics` actually contains any metric values."""
+        return all(v is None for v in self.model_dump(exclude_unset=True).values())
+
 
 class CoverageMetrics(BaseModel):
     """Coverage metrics."""
@@ -141,6 +146,15 @@ class CoverageMetrics(BaseModel):
             return None
 
         return sum(all_cov) / len(all_cov)
+
+    @property
+    def empty(self) -> bool:
+        """Whether this `CoverageMetrics` actually contains any metric values."""
+        if not self.code.empty:
+            return False
+        return all(
+            v is None for v in self.model_dump(exclude_unset=True, exclude={"code"}).values()
+        )
 
 
 class FlowResults(BaseModel):
