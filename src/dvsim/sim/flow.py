@@ -153,6 +153,8 @@ class SimCfg(FlowCfg):
         # Options from cfg files used for reports / documentation
         self.testplan_doc_path = ""
         self.book = ""
+        self.cov_report_dir = ""
+        self.cov_report_page = ""
 
         # Options from tools - for building and running tests
         self.build_cmd = ""
@@ -820,6 +822,12 @@ class SimCfg(FlowCfg):
             raw_metrics=coverage,
         )
 
+        # Link to the coverage report page, if one exists
+        cov_report_page = None
+        if self.cov_report_page:
+            cov_report_dir = self.cov_report_dir or "cov_report"
+            cov_report_page = Path(cov_report_dir, self.cov_report_page)
+
         failures = BucketedFailures.from_job_status(results=run_results)
         if failures.buckets:
             self.errors_seen = True
@@ -833,6 +841,7 @@ class SimCfg(FlowCfg):
             testplan_ref=testplan_ref,
             stages=stages,
             coverage=coverage_model,
+            cov_report_page=cov_report_page,
             failed_jobs=failures,
             passed=total_passed,
             total=total_runs,
