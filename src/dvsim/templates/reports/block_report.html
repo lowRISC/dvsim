@@ -7,6 +7,7 @@
 {% extends "reports/wrapper.html" %}
 {% set block = results.block %}
 {% set tool = results.tool %}
+{% set build_seed = results.build_seed %}
 {% set timestamp = results.timestamp %}
 {% set stages = results.stages %}
 {% set coverage = results.coverage %}
@@ -58,6 +59,11 @@
             <span class="badge text-bg-secondary">
                 Tool: {{ tool.name }} [{{ tool.version }}]
             </span>
+            {% if build_seed %}
+            <span class="badge text-bg-secondary">
+                Build seed: {{ build_seed }}
+            </span>
+            {% endif %}
         </div>
 
 {% macro coverage_stat(cov, kind, label) %}

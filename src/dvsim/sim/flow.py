@@ -604,6 +604,7 @@ class SimCfg(FlowCfg):
         reports_dir = Path(self.scratch_base_path) / "reports"
         commit = git_commit_hash(path=Path(self.proj_root))
         url = f"https://github.com/lowrisc/opentitan/tree/{commit}"
+        build_seed = self.build_seed if not self.run_only else None
 
         try:
             dvsim_version = version("dvsim").strip()
@@ -665,6 +666,7 @@ class SimCfg(FlowCfg):
             top=IPMeta(**summary_top_args),
             version=dvsim_version,
             timestamp=timestamp,
+            build_seed=build_seed,
             flow_results=all_flow_results,
             report_path=reports_dir,
             primary_cfg=self.is_primary_cfg,
@@ -708,6 +710,8 @@ class SimCfg(FlowCfg):
             url=url,
         )
         tool = ToolMeta(name=self.tool.lower(), version="unknown")
+
+        build_seed = self.build_seed if not self.run_only else None
 
         # --- Build stages only from testpoints that have at least one executed test ---
         stage_to_tps: defaultdict[str, dict[str, Testpoint]] = defaultdict(dict)
@@ -808,6 +812,7 @@ class SimCfg(FlowCfg):
             block=block,
             tool=tool,
             timestamp=timestamp,
+            build_seed=build_seed,
             stages=stages,
             coverage=coverage_model,
             failed_jobs=failures,

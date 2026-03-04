@@ -8,6 +8,7 @@
 {% set top = summary.top %}
 {% set timestamp = summary.timestamp %}
 {% set version = summary.version %}
+{% set build_seed = summary.build_seed %}
 {% set title = "Simulation Results: %s"|format(top.name) if summary.primary_cfg else "Simulation Results (Summary)" %}
 {% block content %}
 <div class="container-md"> 
@@ -55,6 +56,11 @@
             <span class="badge text-bg-secondary">
                 Branch: {{ top.branch }}
             </span>
+            {% if build_seed %}
+            <span class="badge text-bg-secondary">
+                Build seed: {{ build_seed }}
+            </span>
+            {% endif %}
         </div>
     </div>
 
