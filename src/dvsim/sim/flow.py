@@ -168,6 +168,11 @@ class SimCfg(FlowCfg):
 
         super().__init__(flow_cfg_file, hjson_data, args, mk_config)
 
+        # After initialisation & expansion, save some useful revision metadata
+        proj_root = Path(self.proj_root)
+        self.commit = git_commit_hash(path=proj_root, short=False)
+        self.commit_short = git_commit_hash(path=proj_root, short=True)
+
     def _expand(self) -> None:
         # Choose a wave format now. Note that this has to happen after parsing
         # the configuration format because our choice might depend on the
@@ -602,8 +607,9 @@ class SimCfg(FlowCfg):
 
         """
         reports_dir = Path(self.scratch_base_path) / "reports"
-        commit = git_commit_hash(path=Path(self.proj_root))
-        url = f"https://github.com/lowrisc/opentitan/tree/{commit}"
+        # TODO: don't hardcode the OpenTitan URL, get it from a JSON and handle
+        # cases where it might not exist.
+        url = f"https://github.com/lowrisc/opentitan/tree/{self.commit}"
         build_seed = self.build_seed if not self.run_only else None
 
         try:
@@ -623,7 +629,6 @@ class SimCfg(FlowCfg):
 
             flow_results: SimFlowResults = item._gen_json_results(
                 run_results=item_results,
-                commit=commit,
                 url=url,
             )
 
@@ -644,9 +649,11 @@ class SimCfg(FlowCfg):
 
         summary_top_args = {
             "name": "Summary",
-            "commit": commit,
+            "commit": self.commit,
+            "commit_short": self.commit_short,
             "branch": self.branch,
             "url": url,
+            "revision_info": self.revision,
         }
 
         # If this is a primary config, attach the "top" information. Even if it isn't,
@@ -674,14 +681,12 @@ class SimCfg(FlowCfg):
     def _gen_json_results(
         self,
         run_results: Sequence[CompletedJobStatus],
-        commit: str,
         url: str,
     ) -> SimFlowResults:
         """Generate structured SimFlowResults from simulation run data.
 
         Args:
             run_results: completed job status.
-            commit: git commit Hash
             url: for the IP source
 
         Returns:
@@ -698,9 +703,11 @@ class SimCfg(FlowCfg):
         block = IPMeta(
             name=self.name.lower(),
             variant=(self.variant or "").lower() or None,
-            commit=commit,
+            commit=self.commit,
+            commit_short=self.commit_short,
             branch=self.branch or "",
             url=url,
+            revision_info=self.revision,
         )
         tool = ToolMeta(name=self.tool.lower(), version="unknown")
 
