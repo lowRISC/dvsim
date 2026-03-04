@@ -7,6 +7,7 @@
 {% set top = summary.top %}
 {% set timestamp = summary.timestamp %}
 {% set version = summary.version %}
+{% set title = "Simulation Results: %s"|format(top.name) if summary.primary_cfg else "Simulation Results (Summary)" %}
 <div class="container-md"> 
     <div class="row">
         <div class="col">
@@ -27,7 +28,7 @@
 
     <div class="row py-3">
         <div class="col">
-            <h2>Simulation Results: {{ top.name }}</h2>
+            <h2>{{ title }}</h2>
         </div>
     </div>
 

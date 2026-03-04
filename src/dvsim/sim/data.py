@@ -259,6 +259,9 @@ class SimResultsSummary(BaseModel):
     report_path: Path
     """Path to the report JSON file."""
 
+    primary_cfg: bool = True
+    """Whether the summary corresponds to a primary config (top level), or a group of blocks."""
+
     @staticmethod
     def load(path: Path) -> "SimResultsSummary":
         """Load results from JSON file.
