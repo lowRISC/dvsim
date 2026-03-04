@@ -219,6 +219,8 @@ class SimFlowResults(BaseModel):
     """Results per test stage."""
     coverage: CoverageMetrics | None
     """Coverage metrics."""
+    cov_report_page: Path | None
+    """Optional path linking to the generated coverage report dashboard page."""
 
     failed_jobs: BucketedFailures
     """Bucketed failed job overview."""
