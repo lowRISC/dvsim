@@ -605,6 +605,12 @@ class SimCfg(FlowCfg):
         commit = git_commit_hash(path=Path(self.proj_root))
         url = f"https://github.com/lowrisc/opentitan/tree/{commit}"
 
+        try:
+            dvsim_version = version("dvsim").strip()
+        except PackageNotFoundError as e:
+            log.debug("DVSim package not found: %s", str(e))
+            dvsim_version = None
+
         all_flow_results: Mapping[str, SimFlowResults] = {}
 
         for item in self.cfgs:
@@ -631,6 +637,7 @@ class SimCfg(FlowCfg):
             gen_block_report(
                 results=flow_results,
                 path=reports_dir,
+                version=dvsim_version,
             )
 
             self.errors_seen |= item.errors_seen
@@ -644,12 +651,6 @@ class SimCfg(FlowCfg):
                 .replace(tzinfo=timezone.utc)
                 .isoformat()
             )
-
-            try:
-                dvsim_version = version("dvsim").strip()
-            except PackageNotFoundError as e:
-                log.debug("DVSim package not found: %s", str(e))
-                dvsim_version = None
 
             results_summary = SimResultsSummary(
                 top=IPMeta(
