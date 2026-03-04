@@ -79,6 +79,12 @@ class DVSimLogger(logging.getLoggerClass()):
         fh.setFormatter(logging.Formatter(_PLAIN_FORMAT, datefmt=_DATE_FORMAT))
         self.addHandler(fh)
 
+    def log_raw(self, contents: str) -> None:
+        """Log raw string contents without any added log formatting."""
+        for handler in self.handlers:
+            handler.stream.write(contents)
+            handler.flush()
+
 
 def _build_logger() -> DVSimLogger:
     """Build a DVSim logger."""
