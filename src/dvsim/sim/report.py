@@ -152,6 +152,18 @@ class MarkdownReportRenderer:
     MAX_TESTS_PER_BUCKET = 5
     MAX_RESEEDS_PER_BUCKETED_TEST = 2
 
+    def __init__(self, html_link_base: Path | None = None, relative_to: Path | None = None) -> None:
+        """Construct a Markdown report renderer.
+
+        Args:
+            html_link_base: The path to the dir that HTML reports are written into, if using HTML
+              links. If not provided, no HTML links will be generated in the summary report.
+            relative_to: The path that HTML report links should be relative to.
+
+        """
+        self.html_link_base = html_link_base
+        self.relative_to = relative_to
+
     def render(self, summary: SimResultsSummary, outdir: Path | None = None) -> ReportArtifacts:
         """Render a Markdown report of the sim flow results."""
         if outdir is not None:
@@ -363,8 +375,53 @@ class MarkdownReportRenderer:
 
     def render_summary(self, summary: SimResultsSummary) -> ReportArtifacts:
         """Render a Markdown report of a summary of the sim flow results (overall)."""
-        _summary = summary
-        return {"report.md": "TODO: Markdown summary report"}
+        # Generate result metadata information
+        if summary.top is not None:
+            report_md = self.render_metadata(
+                summary.top,
+                summary.timestamp,
+                summary.build_seed,
+                title="Simulation Results (Summary)",
+            )
+        else:
+            report_md = ""
+
+        # Generate a table aggregating and mapping block-level reports
+        table = []
+        for name, flow_result in summary.flow_results.items():
+            coverage = "--"
+            if flow_result.coverage is not None:
+                average = flow_result.coverage.average
+                if average is not None:
+                    coverage = f"{average:.2f} %"
+            file_name = flow_result.block.variant_name()
+
+            # Optionally display links to the block HTML reports, relative to the CWD
+            if self.html_link_base is not None:
+                relative = self.relative_to if self.relative_to is not None else Path(Path.cwd())
+                block_report = self.html_link_base / f"{file_name}.html"
+                html_report_path = block_report.relative_to(relative)
+                name_link = f"[{name.upper()}]({html_report_path!s})"
+            else:
+                name_link = name.upper()
+
+            table.append(
+                {
+                    "Name": name_link,
+                    "Passing": flow_result.passed,
+                    "Total": flow_result.total,
+                    "Pass Rate": f"{flow_result.percent:.2f} %",
+                    "Coverage": coverage,
+                }
+            )
+
+        if table:
+            colalign = ("center",) * len(table[0])
+            report_md += "\n\n" + tabulate(
+                table, headers="keys", tablefmt="pipe", colalign=colalign
+            )
+
+        return {"report.md": report_md}
 
 
 def write_report(files: ReportArtifacts, root: Path) -> None:
@@ -413,7 +470,7 @@ def gen_reports(summary: SimResultsSummary, path: Path) -> None:
     for renderer in (JsonReportRenderer(), HtmlReportRenderer()):
         renderer.render(summary, outdir=path)
 
-    renderer = MarkdownReportRenderer()
+    renderer = MarkdownReportRenderer(path)
 
     # Per-block CLI results are displayed to the `INFO` log
     if log.isEnabledFor(log.INFO):
@@ -422,7 +479,7 @@ def gen_reports(summary: SimResultsSummary, path: Path) -> None:
             log.info("[results]: [%s]", block_name)
             cli_block = renderer.render_block(flow_result)
             display_report(cli_block, sink=log.log_raw)
-            log.log_raw("\n")
+            log.log_raw("\n" if summary.top is None else "\n\n")
 
     # Summary CLI results are displayed to stdout, so long as this is a primary cfg
     if summary.top is not None:
