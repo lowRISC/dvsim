@@ -28,7 +28,7 @@ def repo_root(path: Path) -> Path | None:
     return None
 
 
-def git_commit_hash(path: Path | None = None) -> str:
+def git_commit_hash(path: Path | None = None, *, short: bool = False) -> str:
     """Hash of the current git commit."""
     root = repo_root(path=path or Path.cwd())
 
@@ -37,6 +37,9 @@ def git_commit_hash(path: Path | None = None) -> str:
         raise ValueError
 
     r = Repo(root)
+
+    if short:
+        return r.git.rev_parse(r.head, short=True)
 
     return r.head.commit.hexsha
 

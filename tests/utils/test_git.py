@@ -59,6 +59,20 @@ class TestGit:
         )
 
     @staticmethod
+    def test_git_short_commit_hash(tmp_path: "Path") -> None:
+        """Test that the expected shortened git commit sha is returned."""
+        r = Repo.init(path=tmp_path)
+
+        file = tmp_path / "a"
+        file.write_text("file to commit")
+        r.index.add([file])
+        r.index.commit("initial commit")
+
+        assert_that(
+            git_commit_hash(tmp_path, short=True), equal_to(r.git.rev_parse(r.head, short=True))
+        )
+
+    @staticmethod
     def test_git_origin_url(tmp_path: Path) -> None:
         """Test that the expected git remote origin url is returned."""
         # Value error if called outside a git repo
