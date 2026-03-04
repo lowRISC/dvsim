@@ -627,10 +627,7 @@ class SimCfg(FlowCfg):
             )
 
             # Convert to lowercase to match filename
-            block_result_index = (
-                f"{item.name}_{item.variant}" if item.variant else item.name
-            ).lower()
-
+            block_result_index = item.variant_name.lower().replace("/", "_")
             all_flow_results[block_result_index] = flow_results
 
             # Generate the block's JSON/HTML reports to the report area.

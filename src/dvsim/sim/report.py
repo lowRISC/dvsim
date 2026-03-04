@@ -26,11 +26,7 @@ def gen_block_report(results: SimFlowResults, path: Path, version: str | None = 
         version: dvsim version used to get results for this block
 
     """
-    file_name = (
-        f"{results.block.name}_{results.block.variant}"
-        if results.block.variant
-        else results.block.name
-    )
+    file_name = results.block.variant_name()
 
     log.debug("generating report '%s'", file_name)
 
