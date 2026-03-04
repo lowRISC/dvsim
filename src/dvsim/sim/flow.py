@@ -36,7 +36,7 @@ from dvsim.sim.data import (
     TestStage,
     ToolMeta,
 )
-from dvsim.sim.report import gen_block_report, gen_summary_report
+from dvsim.sim.report import gen_reports
 from dvsim.sim_results import BucketedFailures, SimResults
 from dvsim.test import Test
 from dvsim.testplan import Testplan
@@ -633,13 +633,6 @@ class SimCfg(FlowCfg):
             block_result_index = item.variant_name.lower().replace("/", "_")
             all_flow_results[block_result_index] = flow_results
 
-            # Generate the block's JSON/HTML reports to the report area.
-            gen_block_report(
-                results=flow_results,
-                path=reports_dir,
-                version=dvsim_version,
-            )
-
             self.errors_seen |= item.errors_seen
 
         # The timestamp for this run has been taken with `utcnow()` and is
@@ -673,7 +666,7 @@ class SimCfg(FlowCfg):
         )
 
         # Generate all the JSON/HTML reports to the report area.
-        gen_summary_report(
+        gen_reports(
             summary=results_summary,
             path=reports_dir,
         )
