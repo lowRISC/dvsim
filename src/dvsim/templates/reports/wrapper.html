@@ -28,7 +28,7 @@
 			</div>
 		</nav>
 
-		<div id="report-content" hx-get="summary.html" hx-trigger="load" hx-request='{"noHeaders": true}' hx-target="#report-content"></div>
+		{% block content %}{% endblock %}
 
 		<script src="js/bootstrap.bundle.min.js"></script>
 	</body>

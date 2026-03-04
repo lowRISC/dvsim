@@ -77,7 +77,7 @@ def gen_summary_report(summary: SimResultsSummary, path: Path) -> None:
 
     # Generate HTML report. Regardless of whether we have a top or there is only
     # one block, we always generate a summary page for now.
-    (path / "summary.html").write_text(
+    (path / "index.html").write_text(
         render_template(
             path="reports/summary_report.html",
             data={
@@ -85,10 +85,6 @@ def gen_summary_report(summary: SimResultsSummary, path: Path) -> None:
             },
         ),
     )
-
-    # Make the HTMX report wrapper (index)
-    index = path / "index.html"
-    index.write_text(render_template(path="reports/wrapper.html"))
 
 
 def gen_reports(summary: SimResultsSummary, path: Path) -> None:
