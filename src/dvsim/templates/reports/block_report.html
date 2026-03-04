@@ -51,7 +51,7 @@
             {% endif %}
             <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
                href="{{ block.url }}">
-                sha: {{ block.commit[:7] }}
+                sha: {{ block.commit_short }}
             </a>
             <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
                         href="{{ block.variant_name() }}.json">json</a>

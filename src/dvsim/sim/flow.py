@@ -168,6 +168,11 @@ class SimCfg(FlowCfg):
 
         super().__init__(flow_cfg_file, hjson_data, args, mk_config)
 
+        # After initialisation & expansion, save some useful revision metadata
+        proj_root = Path(self.proj_root)
+        self.commit = git_commit_hash(path=proj_root, short=False)
+        self.commit_short = git_commit_hash(path=proj_root, short=True)
+
     def _expand(self) -> None:
         # Choose a wave format now. Note that this has to happen after parsing
         # the configuration format because our choice might depend on the
@@ -603,7 +608,6 @@ class SimCfg(FlowCfg):
         """
         repo_root = Path(self.proj_root)
         reports_dir = Path(self.scratch_base_path) / "reports"
-        commit = git_commit_hash(path=repo_root)
         url = git_https_url_with_commit(path=repo_root)
         build_seed = self.build_seed if not self.run_only else None
 
@@ -625,7 +629,6 @@ class SimCfg(FlowCfg):
 
             flow_results: SimFlowResults = item._gen_json_results(
                 run_results=item_results,
-                commit=commit,
                 url=url,
             )
 
@@ -651,9 +654,11 @@ class SimCfg(FlowCfg):
             top = IPMeta(
                 name=self.name,
                 variant=self.variant,
-                commit=commit,
+                commit=self.commit,
+                commit_short=self.commit_short,
                 branch=self.branch,
                 url=url,
+                revision_info=self.revision,
             )
 
         results_summary = SimResultsSummary(
@@ -674,14 +679,12 @@ class SimCfg(FlowCfg):
     def _gen_json_results(
         self,
         run_results: Sequence[CompletedJobStatus],
-        commit: str,
         url: str,
     ) -> SimFlowResults:
         """Generate structured SimFlowResults from simulation run data.
 
         Args:
             run_results: completed job status.
-            commit: git commit Hash
             url: for the IP source
 
         Returns:
@@ -698,9 +701,11 @@ class SimCfg(FlowCfg):
         block = IPMeta(
             name=self.name.lower(),
             variant=(self.variant or "").lower() or None,
-            commit=commit,
+            commit=self.commit,
+            commit_short=self.commit_short,
             branch=self.branch or "",
             url=url,
+            revision_info=self.revision,
         )
         tool = ToolMeta(name=self.tool.lower(), version="unknown")
 

@@ -117,9 +117,11 @@ class Deploy:
             block=IPMeta(
                 name=self.sim_cfg.name,
                 variant=self.sim_cfg.variant,
-                commit=self.sim_cfg.revision,
+                commit=self.sim_cfg.commit,
+                commit_short=self.sim_cfg.commit_short,
                 branch=self.sim_cfg.branch,
                 url="",
+                revision_info=self.sim_cfg.revision,
             ),
             tool=ToolMeta(
                 name=self.sim_cfg.tool,
