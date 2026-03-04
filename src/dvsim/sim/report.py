@@ -4,17 +4,20 @@
 
 """Generate reports."""
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol, TypeAlias
 
 from dvsim.logging import log
-from dvsim.sim.data import SimResultsSummary
+from dvsim.sim.data import SimFlowResults, SimResultsSummary
 from dvsim.templates.render import render_static, render_template
 
 __all__ = (
     "HtmlReportRenderer",
     "JsonReportRenderer",
+    "MarkdownReportRenderer",
     "ReportRenderer",
+    "display_report",
     "gen_reports",
     "write_report",
 )
@@ -123,6 +126,39 @@ class HtmlReportRenderer:
         return artifacts
 
 
+class MarkdownReportRenderer:
+    """Renders a Markdown report of the sim results."""
+
+    format_name = "markdown"
+
+    def render(self, summary: SimResultsSummary, outdir: Path | None = None) -> ReportArtifacts:
+        """Render a Markdown report of the sim flow results."""
+        if outdir is not None:
+            outdir.mkdir(parents=True, exist_ok=True)
+
+        report_md = [
+            self.render_block(flow_result)["report.md"]
+            for flow_result in summary.flow_results.values()
+        ]
+        report_md.append(self.render_summary(summary)["report.md"])
+
+        report = "\n".join(report_md)
+        if outdir is not None:
+            (outdir / "report.md").write_text(report)
+
+        return {"report.md": report}
+
+    def render_block(self, results: SimFlowResults) -> ReportArtifacts:
+        """Render a Markdown report of the sim flow results for a given block/flow."""
+        _results = results
+        return {"report.md": "TODO: Markdown block report"}
+
+    def render_summary(self, summary: SimResultsSummary) -> ReportArtifacts:
+        """Render a Markdown report of a summary of the sim flow results (overall)."""
+        _summary = summary
+        return {"report.md": "TODO: Markdown summary report"}
+
+
 def write_report(files: ReportArtifacts, root: Path) -> None:
     """Write rendered report artifacts to the file system, relative to a given path.
 
@@ -137,8 +173,29 @@ def write_report(files: ReportArtifacts, root: Path) -> None:
         path.write_text(content)
 
 
+def display_report(
+    files: ReportArtifacts, sink: Callable[[str], None] = print, *, with_headers: bool = False
+) -> None:
+    """Emit the report artifacts to some textual sink.
+
+    Prints to stdout by default, but can also write to a logger by overriding the sink.
+
+    Args:
+        files: the output report artifacts from rendering simulation results.
+        sink: a callable that accepts a string. Default is `print` to stdout.
+        with_headers: a boolean controlling whether to emit artifact path names as headers.
+
+    """
+    for path, content in files.items():
+        header = f"\n--- {path} ---\n" if with_headers else ""
+        sink(header + content + "\n")
+
+
 def gen_reports(summary: SimResultsSummary, path: Path) -> None:
-    """Generate a full set of reports for the given regression run.
+    """Generate and display a full set of reports for the given regression run.
+
+    This helper currently saves JSON and HTML reports to disk (relative to the given path),
+    and outputs a Markdown report to the CLI.
 
     Args:
         summary: overview of the block results
@@ -147,3 +204,19 @@ def gen_reports(summary: SimResultsSummary, path: Path) -> None:
     """
     for renderer in (JsonReportRenderer(), HtmlReportRenderer()):
         renderer.render(summary, outdir=path)
+
+    renderer = MarkdownReportRenderer()
+
+    # Per-block CLI results are displayed to the `INFO` log
+    if log.isEnabledFor(log.INFO):
+        for flow_result in summary.flow_results.values():
+            block_name = flow_result.block.variant_name()
+            log.info("[results]: [%s]", block_name)
+            cli_block = renderer.render_block(flow_result)
+            display_report(cli_block, sink=log.log_raw)
+            log.log_raw("\n")
+
+    # Summary CLI results are displayed to stdout, so long as this is a primary cfg
+    if summary.top is not None:
+        cli_summary = renderer.render_summary(summary)
+        display_report(cli_summary)
