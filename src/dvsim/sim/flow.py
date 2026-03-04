@@ -795,6 +795,8 @@ class SimCfg(FlowCfg):
         )
 
         failures = BucketedFailures.from_job_status(results=run_results)
+        if failures.buckets:
+            self.errors_seen = True
 
         # --- Final result ---
         return SimFlowResults(
