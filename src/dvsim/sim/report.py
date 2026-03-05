@@ -4,85 +4,127 @@
 
 """Generate reports."""
 
+from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import TypeAlias
 
 from dvsim.logging import log
-from dvsim.sim.data import SimFlowResults, SimResultsSummary
+from dvsim.sim.data import SimResultsSummary
 from dvsim.templates.render import render_static, render_template
 
 __all__ = (
-    "gen_block_report",
+    "HtmlReportRenderer",
+    "JsonReportRenderer",
+    "ReportRenderer",
     "gen_reports",
-    "gen_summary_report",
+    "write_report",
 )
 
+# Report rendering returns mappings of relative report paths to (string) contents.
+ReportArtifacts: TypeAlias = dict[str, str]
 
-def gen_block_report(results: SimFlowResults, path: Path, version: str | None = None) -> None:
-    """Generate a block report.
+
+class ReportRenderer(ABC):
+    """Renders/formats result reports, returning mappings of relative paths to (string) content."""
+
+    @abstractmethod
+    def render(self, summary: SimResultsSummary) -> ReportArtifacts:
+        """Render a report of the sim flow results into output artifacts."""
+        ...
+
+
+class JsonReportRenderer(ReportRenderer):
+    """Renders/dumps a JSON report of the sim results."""
+
+    def render(self, summary: SimResultsSummary) -> ReportArtifacts:
+        """Render a JSON report of the sim flow results into output artifacts."""
+        artifacts = {}
+
+        for results in summary.flow_results.values():
+            file_name = results.block.variant_name()
+            log.debug("Generating JSON report for '%s'", file_name)
+            artifacts[f"{file_name}.json"] = results.model_dump_json()
+
+        if summary.primary_cfg:
+            log.debug("Generating JSON summary report for %s", summary.top.name)
+        else:
+            log.debug("Generating JSON summary report")
+        artifacts["index.json"] = summary.model_dump_json()
+
+        return artifacts
+
+
+class HtmlReportRenderer:
+    """Renders a HTML report of the sim results."""
+
+    def render(self, summary: SimResultsSummary) -> ReportArtifacts:
+        """Render a HTML report of the sim flow results into output artifacts."""
+        artifacts = {}
+
+        # Generate block HTML pages
+        for results in summary.flow_results.values():
+            file_name = results.block.variant_name()
+            log.debug("Generating HTML report for '%s'", file_name)
+            artifacts[f"{file_name}.html"] = render_template(
+                path="reports/block_report.html",
+                data={"results": results, "version": summary.version},
+            )
+
+        # Generate a summary page if needed, and determine the landing page. We have three cases:
+        # 1. This is a `primary_cfg` -> we always want a HTML summary page.
+        # 2. This is not a `primary_cfg`, but a collection of many blocks -> we want a summary page.
+        # 3. This is not a `primary_cfg`, with only one block -> skip the summary page.
+        if summary.primary_cfg:
+            log.debug("Generating HTML summary report for %s", summary.top.name)
+        else:
+            log.debug("Generating HTML summary report")
+        if summary.primary_cfg or len(summary.flow_results) != 1:
+            artifacts["summary.html"] = render_template(
+                path="reports/summary_report.html",
+                data={"summary": summary},
+            )
+            landing_path = "summary.html"
+        else:
+            only_block_name = next(iter(summary.flow_results.keys()))
+            landing_path = f"{only_block_name}.html"
+
+        # Generate other static site contents
+        artifacts.update(self.render_static_content())
+        artifacts.update(self.render_index(landing_path))
+
+        return artifacts
+
+    def render_static_content(self) -> ReportArtifacts:
+        """Render static CSS / JS artifacts for HTML report generation."""
+        static_files = [
+            "css/style.css",
+            "css/bootstrap.min.css",
+            "js/bootstrap.bundle.min.js",
+            "js/htmx.min.js",
+        ]
+        return {name: render_static(path=name) for name in static_files}
+
+    def render_index(self, landing_page: str) -> ReportArtifacts:
+        """Render an index page artifact that redirects to the given landing page."""
+        return {
+            "index.html": render_template(
+                path="reports/index.html", data={"landing_page": landing_page}
+            )
+        }
+
+
+def write_report(files: ReportArtifacts, root: Path) -> None:
+    """Write rendered report artifacts to the file system, relative to a given path.
 
     Args:
-        results: flow results for the block
-        path: output directory path
-        version: dvsim version used to get results for this block
+        files: the output report artifacts from rendering simulation results.
+        root: the path to write the report files relative to.
 
     """
-    file_name = results.block.variant_name()
-
-    log.debug("generating report '%s'", file_name)
-
-    path.mkdir(parents=True, exist_ok=True)
-
-    # Save the JSON version
-    (path / f"{file_name}.json").write_text(results.model_dump_json())
-
-    # Generate HTML report
-    (path / f"{file_name}.html").write_text(
-        render_template(
-            path="reports/block_report.html",
-            data={"results": results, "version": version},
-        ),
-    )
-
-
-def gen_summary_report(summary: SimResultsSummary, path: Path) -> None:
-    """Generate a summary report.
-
-    Args:
-        summary: overview of the block results
-        path: output directory path
-
-    """
-    log.debug("generating summary report")
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Save the JSON version
-    (path / "index.json").write_text(summary.model_dump_json())
-
-    # Generate style CSS
-    for name in (
-        "css/style.css",
-        "css/bootstrap.min.css",
-        "js/bootstrap.bundle.min.js",
-        "js/htmx.min.js",
-    ):
-        output = path / name
-
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(render_static(path=name))
-
-    # HTMX wrapper
-    (path / "index.html").write_text(render_template(path="reports/wrapper.html"))
-
-    # Generate HTML report
-    (path / "summary.html").write_text(
-        render_template(
-            path="reports/summary_report.html",
-            data={
-                "summary": summary,
-            },
-        ),
-    )
+    for relative_path, content in files.items():
+        path = root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
 
 
 def gen_reports(summary: SimResultsSummary, path: Path) -> None:
@@ -93,7 +135,6 @@ def gen_reports(summary: SimResultsSummary, path: Path) -> None:
         path: output directory path
 
     """
-    gen_summary_report(summary=summary, path=path)
-
-    for flow_result in summary.flow_results.values():
-        gen_block_report(results=flow_result, path=path, version=summary.version)
+    for renderer in (JsonReportRenderer(), HtmlReportRenderer()):
+        report_files = renderer.render(summary)
+        write_report(report_files, path)

@@ -36,7 +36,7 @@ from dvsim.sim.data import (
     TestStage,
     ToolMeta,
 )
-from dvsim.sim.report import gen_block_report, gen_summary_report
+from dvsim.sim.report import gen_reports
 from dvsim.sim_results import BucketedFailures, SimResults
 from dvsim.test import Test
 from dvsim.testplan import Testplan
@@ -167,6 +167,11 @@ class SimCfg(FlowCfg):
         self.results_summary = OrderedDict()
 
         super().__init__(flow_cfg_file, hjson_data, args, mk_config)
+
+        # After initialisation & expansion, save some useful revision metadata
+        proj_root = Path(self.proj_root)
+        self.commit = git_commit_hash(path=proj_root, short=False)
+        self.commit_short = git_commit_hash(path=proj_root, short=True)
 
     def _expand(self) -> None:
         # Choose a wave format now. Note that this has to happen after parsing
@@ -602,8 +607,10 @@ class SimCfg(FlowCfg):
 
         """
         reports_dir = Path(self.scratch_base_path) / "reports"
-        commit = git_commit_hash(path=Path(self.proj_root))
-        url = f"https://github.com/lowrisc/opentitan/tree/{commit}"
+        # TODO: don't hardcode the OpenTitan URL, get it from a JSON and handle
+        # cases where it might not exist.
+        url = f"https://github.com/lowrisc/opentitan/tree/{self.commit}"
+        build_seed = self.build_seed if not self.run_only else None
 
         try:
             dvsim_version = version("dvsim").strip()
@@ -622,7 +629,6 @@ class SimCfg(FlowCfg):
 
             flow_results: SimFlowResults = item._gen_json_results(
                 run_results=item_results,
-                commit=commit,
                 url=url,
             )
 
@@ -630,56 +636,57 @@ class SimCfg(FlowCfg):
             block_result_index = item.variant_name.lower().replace("/", "_")
             all_flow_results[block_result_index] = flow_results
 
-            # Generate the block's JSON/HTML reports to the report area.
-            gen_block_report(
-                results=flow_results,
-                path=reports_dir,
-                version=dvsim_version,
-            )
-
             self.errors_seen |= item.errors_seen
 
+        # The timestamp for this run has been taken with `utcnow()` and is
+        # stored in a custom format.  Store it in standard ISO format with
+        # explicit timezone annotation.
+        timestamp = (
+            datetime.strptime(self.timestamp, "%Y%m%d_%H%M%S")
+            .replace(tzinfo=timezone.utc)
+            .isoformat()
+        )
+
+        summary_top_args = {
+            "name": "Summary",
+            "commit": self.commit,
+            "commit_short": self.commit_short,
+            "branch": self.branch,
+            "url": url,
+            "revision_info": self.revision,
+        }
+
+        # If this is a primary config, attach the "top" information. Even if it isn't,
+        # we still want to potentially generate a summary report for the multiple blocks.
         if self.is_primary_cfg:
-            # The timestamp for this run has been taken with `utcnow()` and is
-            # stored in a custom format.  Store it in standard ISO format with
-            # explicit timezone annotation.
-            timestamp = (
-                datetime.strptime(self.timestamp, "%Y%m%d_%H%M%S")
-                .replace(tzinfo=timezone.utc)
-                .isoformat()
-            )
+            summary_top_args["name"] = self.name
+            summary_top_args["variant"] = self.variant
 
-            results_summary = SimResultsSummary(
-                top=IPMeta(
-                    name=self.name,
-                    variant=self.variant,
-                    commit=commit,
-                    branch=self.branch,
-                    url=url,
-                ),
-                version=dvsim_version,
-                timestamp=timestamp,
-                flow_results=all_flow_results,
-                report_path=reports_dir,
-            )
+        results_summary = SimResultsSummary(
+            top=IPMeta(**summary_top_args),
+            version=dvsim_version,
+            timestamp=timestamp,
+            build_seed=build_seed,
+            flow_results=all_flow_results,
+            report_path=reports_dir,
+            primary_cfg=self.is_primary_cfg,
+        )
 
-            # Generate the summary JSON/HTML report to the report area.
-            gen_summary_report(
-                summary=results_summary,
-                path=reports_dir,
-            )
+        # Generate all the JSON/HTML reports to the report area.
+        gen_reports(
+            summary=results_summary,
+            path=reports_dir,
+        )
 
     def _gen_json_results(
         self,
         run_results: Sequence[CompletedJobStatus],
-        commit: str,
         url: str,
     ) -> SimFlowResults:
         """Generate structured SimFlowResults from simulation run data.
 
         Args:
             run_results: completed job status.
-            commit: git commit Hash
             url: for the IP source
 
         Returns:
@@ -696,11 +703,15 @@ class SimCfg(FlowCfg):
         block = IPMeta(
             name=self.name.lower(),
             variant=(self.variant or "").lower() or None,
-            commit=commit,
+            commit=self.commit,
+            commit_short=self.commit_short,
             branch=self.branch or "",
             url=url,
+            revision_info=self.revision,
         )
         tool = ToolMeta(name=self.tool.lower(), version="unknown")
+
+        build_seed = self.build_seed if not self.run_only else None
 
         # --- Build stages only from testpoints that have at least one executed test ---
         stage_to_tps: defaultdict[str, dict[str, Testpoint]] = defaultdict(dict)
@@ -801,6 +812,7 @@ class SimCfg(FlowCfg):
             block=block,
             tool=tool,
             timestamp=timestamp,
+            build_seed=build_seed,
             stages=stages,
             coverage=coverage_model,
             failed_jobs=failures,

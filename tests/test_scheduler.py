@@ -247,8 +247,10 @@ def ip_meta_factory(**overrides: str | None) -> IPMeta:
         "name": "test_ip",
         "variant": None,
         "commit": "test_commit",
+        "commit_short": "test",
         "branch": "test_branch",
         "url": "test_url",
+        "revision_info": None,
     }
     meta.update(overrides)
     return IPMeta(**meta)
