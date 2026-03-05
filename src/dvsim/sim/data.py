@@ -156,6 +156,18 @@ class CoverageMetrics(BaseModel):
             v is None for v in self.model_dump(exclude_unset=True, exclude={"code"}).values()
         )
 
+    def flattened(self) -> dict[str, float | None]:
+        """Convert the coverage metrics to a flattened dictionary.
+
+        This dictionary will contain all the stored metrics, and a computed "total" average item.
+        """
+        average = self.average
+        items = {} if average is None else {"total": average}
+        if self.code:
+            items.update(self.code.model_dump(exclude_none=True))
+        items.update(self.model_dump(exclude={"code"}))
+        return items
+
 
 class FlowResults(BaseModel):
     """Flow results data."""
@@ -210,10 +222,17 @@ class SimFlowResults(BaseModel):
     timestamp: datetime
     """Timestamp for when the test ran."""
 
+    build_seed: int | None
+    """Build seed."""
+    testplan_ref: str | None
+    """A reference (HTML link or relative HJSON path) to the testplan for this flow."""
+
     stages: Mapping[str, TestStage]
     """Results per test stage."""
     coverage: CoverageMetrics | None
     """Coverage metrics."""
+    cov_report_page: Path | None
+    """Optional path linking to the generated coverage report dashboard page."""
 
     failed_jobs: BucketedFailures
     """Bucketed failed job overview."""
@@ -253,11 +272,17 @@ class SimResultsSummary(BaseModel):
     timestamp: datetime
     """Run time stamp."""
 
+    build_seed: int | None
+    """Build seed."""
+
     flow_results: Mapping[str, SimFlowResults]
     """Flow results."""
 
     report_path: Path
     """Path to the report JSON file."""
+
+    primary_cfg: bool = True
+    """Whether the summary corresponds to a primary config (top level), or a group of blocks."""
 
     @staticmethod
     def load(path: Path) -> "SimResultsSummary":

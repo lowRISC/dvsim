@@ -6,6 +6,7 @@
 
 import re
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
@@ -97,11 +98,17 @@ class JobFailureOverview(BaseModel):
     name: str
     """Name of the job."""
 
+    qual_name: str
+    """Qualified name to disambiguate name with other instances of the same name."""
+
     seed: int | None
     """Test seed."""
 
     line: int | None
     """Line number within the log if there is one."""
+
+    log_path: Path | None
+    """Path to the log for this failed job."""
 
     log_context: Sequence[str]
     """Context within the log."""
@@ -134,8 +141,10 @@ class BucketedFailures(BaseModel):
                 buckets[bucket].append(
                     JobFailureOverview(
                         name=job_status.name,
+                        qual_name=job_status.qual_name,
                         seed=job_status.seed,
                         line=job_status.fail_msg.line_number,
+                        log_path=job_status.log_path,
                         log_context=job_status.fail_msg.context,
                     ),
                 )

@@ -4,12 +4,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 -->
+{% extends "reports/wrapper.html" %}
 {% set block = results.block %}
 {% set tool = results.tool %}
+{% set build_seed = results.build_seed %}
 {% set timestamp = results.timestamp %}
 {% set stages = results.stages %}
 {% set coverage = results.coverage %}
 {% set failed_jobs = results.failed_jobs %}
+{% block content %}
 <div class="container-md">
     <div class="row">
         <div class="col">
@@ -48,7 +51,7 @@
             {% endif %}
             <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
                href="{{ block.url }}">
-                sha: {{ block.commit[:7] }}
+                sha: {{ block.commit_short }}
             </a>
             <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
                         href="{{ block.variant_name() }}.json">json</a>
@@ -56,6 +59,11 @@
             <span class="badge text-bg-secondary">
                 Tool: {{ tool.name }} [{{ tool.version }}]
             </span>
+            {% if build_seed %}
+            <span class="badge text-bg-secondary">
+                Build seed: {{ build_seed }}
+            </span>
+            {% endif %}
         </div>
 
 {% macro coverage_stat(cov, kind, label) %}
@@ -235,3 +243,4 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
