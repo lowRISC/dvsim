@@ -210,6 +210,9 @@ class SimFlowResults(BaseModel):
     timestamp: datetime
     """Timestamp for when the test ran."""
 
+    build_seed: int | None
+    """Build seed."""
+
     stages: Mapping[str, TestStage]
     """Results per test stage."""
     coverage: CoverageMetrics | None
@@ -253,11 +256,17 @@ class SimResultsSummary(BaseModel):
     timestamp: datetime
     """Run time stamp."""
 
+    build_seed: int | None
+    """Build seed."""
+
     flow_results: Mapping[str, SimFlowResults]
     """Flow results."""
 
     report_path: Path
     """Path to the report JSON file."""
+
+    primary_cfg: bool = True
+    """Whether the summary corresponds to a primary config (top level), or a group of blocks."""
 
     @staticmethod
     def load(path: Path) -> "SimResultsSummary":

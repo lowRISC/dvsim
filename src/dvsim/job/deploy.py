@@ -11,8 +11,6 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-from tabulate import tabulate
-
 from dvsim.job.data import JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
@@ -817,7 +815,6 @@ class CovReport(Deploy):
 
         # Keep track of coverage results, once the job is finished.
         self.cov_total = ""
-        self.cov_results = ""
         self.cov_results_dict = {}
 
     def post_finish(self) -> Callable[[JobStatus], None]:
@@ -838,10 +835,6 @@ class CovReport(Deploy):
                 cov_report_path=self.cov_report_txt,
             )
 
-            colalign = ("center",) * len(results[0])
-            self.cov_results = tabulate(
-                results, headers="firstrow", tablefmt="pipe", colalign=colalign
-            )
             for tup in zip(*results, strict=False):
                 self.cov_results_dict[tup[0]] = tup[1]
 

@@ -44,6 +44,19 @@ def gen_block_report(results: SimFlowResults, path: Path, version: str | None = 
     )
 
 
+def make_static_html_report_content(path: Path) -> None:
+    """Generate static style CSS/JS files for HTML reporting."""
+    for name in (
+        "css/style.css",
+        "css/bootstrap.min.css",
+        "js/bootstrap.bundle.min.js",
+        "js/htmx.min.js",
+    ):
+        output = path / name
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(render_static(path=name))
+
+
 def gen_summary_report(summary: SimResultsSummary, path: Path) -> None:
     """Generate a summary report.
 
@@ -60,28 +73,30 @@ def gen_summary_report(summary: SimResultsSummary, path: Path) -> None:
     (path / "index.json").write_text(summary.model_dump_json())
 
     # Generate style CSS
-    for name in (
-        "css/style.css",
-        "css/bootstrap.min.css",
-        "js/bootstrap.bundle.min.js",
-        "js/htmx.min.js",
-    ):
-        output = path / name
+    make_static_html_report_content(path)
 
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(render_static(path=name))
+    # Generate HTML report. We have three cases:
+    # 1. This is a `primary_cfg` -> we always want a HTML summary page.
+    # 2. This is not a `primary_cfg`, but a collection of many blocks -> we want a summary page.
+    # 3. This is not a `primary_cfg`, with only one block -> skip the summary page.
+    if summary.primary_cfg or len(summary.flow_results) != 1:
+        (path / "summary.html").write_text(
+            render_template(
+                path="reports/summary_report.html",
+                data={
+                    "summary": summary,
+                },
+            ),
+        )
+        landing_path = "summary.html"
+    else:
+        only_block_name = next(iter(summary.flow_results.keys()))
+        landing_path = f"{only_block_name}.html"
 
-    # HTMX wrapper
-    (path / "index.html").write_text(render_template(path="reports/wrapper.html"))
-
-    # Generate HTML report
-    (path / "summary.html").write_text(
-        render_template(
-            path="reports/summary_report.html",
-            data={
-                "summary": summary,
-            },
-        ),
+    # Make the index page, which will redirect to the landing page.
+    index = path / "index.html"
+    index.write_text(
+        render_template(path="reports/index.html", data={"landing_page": landing_path})
     )
 
 
