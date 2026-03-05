@@ -1106,7 +1106,7 @@ class QSubOptions:
               jsv(1))""",
             )
 
-        if prog in ["qrsh"]:
+        if prog == "qrsh":
             self.parser.add_argument(
                 "-noshell",
                 action="store_true",
@@ -1133,7 +1133,7 @@ class QSubOptions:
               qrsh -noshell /bin/tcsh -f -c 'echo $HOSTNAME'""",
             )
 
-        if prog in ["qrsh"]:
+        if prog == "qrsh":
             self.parser.add_argument(
                 "-nostdin",
                 action="store_true",
@@ -1174,7 +1174,7 @@ class QSubOptions:
               jsv(1))""",
             )
 
-        if prog in ["qalter"]:
+        if prog == "qalter":
             self.parser.add_argument(
                 "-ot",
                 metavar="override_tickets",
@@ -1405,7 +1405,7 @@ class QSubOptions:
               JSV in jsv(1))""",
             )
 
-        if prog in ["qsub"]:
+        if prog == "qsub":
             self.parser.add_argument(
                 "-shell",
                 choices=yesno,
@@ -1477,7 +1477,7 @@ class QSubOptions:
               jsv(1))""",
             )
 
-        if prog in ["qsub"]:
+        if prog == "qsub":
             self.parser.add_argument(
                 "-sync",
                 choices=yesno,
@@ -1632,7 +1632,7 @@ class QSubOptions:
               when 8 slots are free.""",
             )
 
-        if prog in ["qsub"]:
+        if prog == "qsub":
             self.parser.add_argument(
                 "-terse",
                 action="store_true",
@@ -1649,7 +1649,7 @@ class QSubOptions:
               option above or find more information concerning JSV in jsv(1))""",
             )
 
-        if prog in ["qalter"]:
+        if prog == "qalter":
             self.parser.add_argument(
                 "-u",
                 metavar="username",
@@ -1834,7 +1834,7 @@ class QSubOptions:
               find more information concerning JSV in jsv(1))""",
             )
 
-        if prog in ["qsh"]:
+        if prog == "qsh":
             self.parser.add_argument(
                 "xterm_args",
                 nargs="*",

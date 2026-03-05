@@ -530,7 +530,7 @@ class SimCfg(FlowCfg):
             )
 
         # GUI mode is only available for Xcelium for the moment.
-        if (self.gui_debug) and (self.tool not in ["xcelium"]):
+        if (self.gui_debug) and (self.tool != "xcelium"):
             log.error(
                 "GUI debug mode is only available for Xcelium, please remove "
                 "--gui_debug / -gd option or switch to Xcelium tool.",

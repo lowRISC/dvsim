@@ -25,7 +25,7 @@ class MsgBucket:
             raise RuntimeError(msg)
         self.category = category
         self.severity = severity
-        self.label = label if label else f"{category} {severity}s".title()
+        self.label = label or f"{category} {severity}s".title()
         self.signatures = []
 
     def clear(self) -> None:

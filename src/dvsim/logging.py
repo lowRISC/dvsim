@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import cast
 
 __all__ = (
-    "configure_logging",
     "LOG_LEVELS",
+    "configure_logging",
 )
 
 

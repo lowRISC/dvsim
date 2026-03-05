@@ -42,7 +42,7 @@ from dvsim.launcher.lsf import LsfLauncher
 from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
 from dvsim.launcher.slurm import SlurmLauncher
-from dvsim.logging import configure_logging, log, LOG_LEVELS
+from dvsim.logging import LOG_LEVELS, configure_logging, log
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer, rm_path, run_cmd_with_timeout
 from dvsim.utils.status_printer import get_status_printer
 

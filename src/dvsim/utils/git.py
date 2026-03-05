@@ -29,7 +29,7 @@ def repo_root(path: Path) -> Path | None:
 
 def git_commit_hash(path: Path | None = None) -> str:
     """Hash of the current git commit."""
-    root = repo_root(path=path if path else Path.cwd())
+    root = repo_root(path=path or Path.cwd())
 
     if root is None:
         log.error("no git repo found at %s", root)
