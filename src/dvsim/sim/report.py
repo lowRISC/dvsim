@@ -17,6 +17,7 @@ from dvsim.report.data import IPMeta
 from dvsim.sim.data import SimFlowResults, SimResultsSummary
 from dvsim.templates.render import render_static, render_template
 from dvsim.utils import TS_FORMAT_LONG
+from dvsim.utils.fs import relative_to
 
 __all__ = (
     "HtmlReportRenderer",
@@ -422,9 +423,9 @@ class MarkdownReportRenderer:
 
             # Optionally display links to the block HTML reports, relative to the CWD
             if self.html_link_base is not None:
-                relative = self.relative_to if self.relative_to is not None else Path(Path.cwd())
+                relative = Path(self.relative_to) if self.relative_to is not None else Path.cwd()
                 block_report = self.html_link_base / f"{file_name}.html"
-                html_report_path = block_report.relative_to(relative)
+                html_report_path = relative_to(block_report, relative)
                 name_link = f"[{name.upper()}]({html_report_path!s})"
             else:
                 name_link = name.upper()

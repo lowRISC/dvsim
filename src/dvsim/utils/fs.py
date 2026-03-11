@@ -92,6 +92,46 @@ def mk_symlink(*, path: Path, link: Path) -> None:
     link.symlink_to(path)
 
 
+def relative_to(path: Path, other: Path) -> Path:
+    """Return a relative path from other to path.
+
+    Supports relative paths where path doesn't have to be a sub directory of `other`.
+    This function is equivalent of path.relative_to(other, walk_up=True) which
+    is only available from Python 3.12.
+
+    Args:
+        path: the path to provide a relative path to
+        other: the base path to take the relative path from
+
+    Returns:
+        The relative path from other to path.
+
+    """
+    path = path.resolve()
+    other = other.resolve()
+
+    # Find the common ancestor
+    common = Path(
+        *[
+            p
+            for p, q in zip(
+                path.parts,
+                other.parts,
+                strict=False,
+            )
+            if p == q
+        ]
+    )
+
+    # How many levels up from `other` to the common ancestor
+    up_levels = len(other.parts) - len(common.parts)
+
+    # The remaining path down from the common ancestor to `path`
+    down_path = path.relative_to(common)
+
+    return Path(*([".."] * up_levels), down_path) if up_levels else down_path
+
+
 def clean_odirs(
     odir: Path,
     max_odirs: int,

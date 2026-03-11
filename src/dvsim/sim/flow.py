@@ -43,6 +43,7 @@ from dvsim.test import Test
 from dvsim.testplan import Testplan
 from dvsim.tool.utils import get_sim_tool_plugin
 from dvsim.utils import TS_FORMAT, rm_path
+from dvsim.utils.fs import relative_to
 from dvsim.utils.git import git_commit_hash, git_https_url_with_commit
 
 __all__ = ("SimCfg",)
@@ -724,7 +725,11 @@ class SimCfg(FlowCfg):
 
         # Build up a reference to the testplan, which might be overridden.
         if self.testplan_doc_path:
-            rel_path = Path(self.testplan_doc_path).relative_to(Path(self.proj_root))
+            rel_path = relative_to(
+                Path(self.testplan_doc_path),
+                Path(self.proj_root),
+            )
+
         else:
             # TODO: testplan variants frequently override `rel_path` for reporting
             # and build reasons, but do not update the `testplan_doc_path`, meaning

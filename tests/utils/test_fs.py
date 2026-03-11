@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from hamcrest import assert_that, calling, equal_to, raises
 
-from dvsim.utils.fs import mk_path, mk_symlink, rm_path
+from dvsim.utils.fs import mk_path, mk_symlink, relative_to, rm_path
 
 
 def test_symlink_creation(tmp_path: Path) -> None:
@@ -155,3 +155,25 @@ def test_path_removal(
         [p.relative_to(tmp_path) for p in tmp_path.glob("**/*")],
         equal_to(exp_glob),
     )
+
+
+@pytest.mark.parametrize(
+    ("path", "other", "expected"),
+    [
+        pytest.param(Path("/a/b/c"), Path("/a/b/c"), Path(), id="same_directory"),
+        pytest.param(Path("/a/b/c/d"), Path("/a/b/c"), Path("d"), id="direct_child"),
+        pytest.param(Path("/a/b/c/d/e/f"), Path("/a/b/c"), Path("d/e/f"), id="deep_child"),
+        pytest.param(Path("/a/b/sibling"), Path("/a/b/other"), Path("../sibling"), id="sibling"),
+        pytest.param(Path("/a/b/c"), Path("/a/b/c/d/e"), Path("../.."), id="multiple_walk_ups"),
+        pytest.param(
+            Path("/a/x/y/z"), Path("/a/b/c/d"), Path("../../../x/y/z"), id="walk_up_then_down"
+        ),
+        pytest.param(
+            Path("/x/y/z"), Path("/a/b/c"), Path("../../../x/y/z"), id="only_root_in_common"
+        ),
+        pytest.param(Path("/a/b"), Path("/a/b/c/d"), Path("../.."), id="path_is_ancestor"),
+    ],
+)
+def test_relative_to(path: Path, other: Path, expected: Path) -> None:
+    """Test relative_to can create relative paths as expected."""
+    assert_that(relative_to(path, other), equal_to(expected))
