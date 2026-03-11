@@ -169,47 +169,6 @@ class CoverageMetrics(BaseModel):
         return items
 
 
-class FlowResults(BaseModel):
-    """Flow results data."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    block: IPMeta
-    """IP block metadata."""
-    tool: ToolMeta
-    """Tool used in the simulation run."""
-    timestamp: datetime
-    """Timestamp for when the test ran."""
-
-    stages: Mapping[str, TestStage]
-    """Results per test stage."""
-    coverage: CoverageMetrics | None
-    """Coverage metrics."""
-
-    failed_jobs: BucketedFailures
-    """Bucketed failed job overview."""
-
-    passed: int
-    """Number of tests passed."""
-    total: int
-    """Total number of tests run."""
-    percent: float
-    """Percentage test pass rate."""
-
-    @staticmethod
-    def load(path: Path) -> "FlowResults":
-        """Load results from JSON file.
-
-        Transform the fields of the loaded JSON into a more useful schema for
-        report generation.
-
-        Args:
-            path: to the json file to load.
-
-        """
-        return FlowResults.model_validate_json(path.read_text())
-
-
 class SimFlowResults(BaseModel):
     """Flow results data."""
 
@@ -245,17 +204,14 @@ class SimFlowResults(BaseModel):
     """Percentage test pass rate."""
 
     @staticmethod
-    def load(path: Path) -> "FlowResults":
+    def load(path: Path) -> "SimFlowResults":
         """Load results from JSON file.
-
-        Transform the fields of the loaded JSON into a more useful schema for
-        report generation.
 
         Args:
             path: to the json file to load.
 
         """
-        return FlowResults.model_validate_json(path.read_text())
+        return SimFlowResults.model_validate_json(path.read_text())
 
 
 class SimResultsSummary(BaseModel):
@@ -276,7 +232,7 @@ class SimResultsSummary(BaseModel):
     """Build seed."""
 
     flow_results: Mapping[str, SimFlowResults]
-    """Flow results."""
+    """Flow results summary or full results."""
 
     report_path: Path
     """Path to the report JSON file."""
