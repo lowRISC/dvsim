@@ -30,6 +30,7 @@ from dvsim.regression import Regression
 from dvsim.sim.data import (
     IPMeta,
     SimFlowResults,
+    SimFlowSummary,
     SimResultsSummary,
     Testpoint,
     TestResult,
@@ -625,6 +626,7 @@ class SimCfg(FlowCfg):
             dvsim_version = None
 
         all_flow_results: Mapping[str, SimFlowResults] = {}
+        flow_summaries: Mapping[str, SimFlowSummary] = {}
 
         for item in self.cfgs:
             item_results = [
@@ -640,7 +642,9 @@ class SimCfg(FlowCfg):
 
             # Convert to lowercase to match filename
             block_result_index = item.variant_name.lower().replace("/", "_")
+
             all_flow_results[block_result_index] = flow_results
+            flow_summaries[block_result_index] = flow_results.summary()
 
             self.errors_seen |= item.errors_seen
 
@@ -672,13 +676,14 @@ class SimCfg(FlowCfg):
             version=dvsim_version,
             timestamp=timestamp,
             build_seed=build_seed,
-            flow_results=all_flow_results,
+            flow_results=flow_summaries,
             report_path=reports_dir,
         )
 
         # Generate all the JSON/HTML reports to the report area.
         gen_reports(
             summary=results_summary,
+            flow_results=all_flow_results,
             path=reports_dir,
         )
 

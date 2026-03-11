@@ -203,6 +203,17 @@ class SimFlowResults(BaseModel):
     percent: float
     """Percentage test pass rate."""
 
+    def summary(self) -> "SimFlowSummary":
+        """Load results from JSON file.
+
+        Args:
+            path: to the json file to load.
+
+        """
+        return SimFlowSummary.model_validate_json(
+            json_data=self.model_dump_json(),
+        )
+
     @staticmethod
     def load(path: Path) -> "SimFlowResults":
         """Load results from JSON file.
@@ -212,6 +223,35 @@ class SimFlowResults(BaseModel):
 
         """
         return SimFlowResults.model_validate_json(path.read_text())
+
+
+class SimFlowSummary(BaseModel):
+    """Flow results summary."""
+
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    block: IPMeta
+    """IP block metadata."""
+
+    coverage: CoverageMetrics | None
+    """Coverage metrics."""
+
+    passed: int
+    """Number of tests passed."""
+    total: int
+    """Total number of tests run."""
+    percent: float
+    """Percentage test pass rate."""
+
+    @staticmethod
+    def load(path: Path) -> "SimFlowSummary":
+        """Load results from JSON file.
+
+        Args:
+            path: to the json file to load.
+
+        """
+        return SimFlowSummary.model_validate_json(path.read_text())
 
 
 class SimResultsSummary(BaseModel):
@@ -231,18 +271,32 @@ class SimResultsSummary(BaseModel):
     build_seed: int | None
     """Build seed."""
 
-    flow_results: Mapping[str, SimFlowResults]
+    flow_results: Mapping[str, SimFlowSummary]
     """Flow results summary or full results."""
 
     report_path: Path
     """Path to the report JSON file."""
 
+    def load_flow_results(self, base_path: Path) -> Mapping[str, SimFlowResults]:
+        """Load the detailed results for the sim flows from their JSON files.
+
+        Args:
+            base_path: path to the directory containing the json files to load.
+
+        Returns:
+            Mapping of flow name to detailed simulation flow results.
+
+        """
+        return {
+            flow: SimFlowResults.load(
+                path=base_path / f"{flow}.json",
+            )
+            for flow in self.flow_results
+        }
+
     @staticmethod
     def load(path: Path) -> "SimResultsSummary":
         """Load results from JSON file.
-
-        Transform the fields of the loaded JSON into a more useful schema for
-        report generation.
 
         Args:
             path: to the json file to load.

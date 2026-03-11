@@ -5,7 +5,7 @@
 """Generate reports."""
 
 from collections import defaultdict
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection, Iterable, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, TypeAlias
@@ -49,7 +49,12 @@ class ReportRenderer(Protocol):
 
     format_name: str
 
-    def render(self, summary: SimResultsSummary, outdir: Path | None = None) -> ReportArtifacts:
+    def render(
+        self,
+        summary: SimResultsSummary,
+        flow_results: Mapping[str, SimFlowResults],
+        outdir: Path | None = None,
+    ) -> ReportArtifacts:
         """Render a report of the sim flow results into output artifacts."""
         ...
 
@@ -59,14 +64,19 @@ class JsonReportRenderer:
 
     format_name = "json"
 
-    def render(self, summary: SimResultsSummary, outdir: Path | None = None) -> ReportArtifacts:
+    def render(
+        self,
+        summary: SimResultsSummary,
+        flow_results: Mapping[str, SimFlowResults],
+        outdir: Path | None = None,
+    ) -> ReportArtifacts:
         """Render a JSON report of the sim flow results into output artifacts."""
         if outdir is not None:
             outdir.mkdir(parents=True, exist_ok=True)
 
         artifacts = {}
 
-        for results in summary.flow_results.values():
+        for results in flow_results.values():
             file_name = results.block.variant_name()
             log.debug("Generating JSON report for '%s'", file_name)
             block_file = f"{file_name}.json"
@@ -88,7 +98,12 @@ class HtmlReportRenderer:
 
     format_name = "html"
 
-    def render(self, summary: SimResultsSummary, outdir: Path | None = None) -> ReportArtifacts:
+    def render(
+        self,
+        summary: SimResultsSummary,
+        flow_results: Mapping[str, SimFlowResults],
+        outdir: Path | None = None,
+    ) -> ReportArtifacts:
         """Render a HTML report of the sim flow results into output artifacts."""
         if outdir is not None:
             outdir.mkdir(parents=True, exist_ok=True)
@@ -96,7 +111,7 @@ class HtmlReportRenderer:
         artifacts = {}
 
         # Generate block HTML pages
-        for results in summary.flow_results.values():
+        for results in flow_results.values():
             file_name = results.block.variant_name()
             log.debug("Generating HTML report for '%s'", file_name)
             block_file = f"{file_name}.html"
@@ -164,14 +179,19 @@ class MarkdownReportRenderer:
         self.html_link_base = html_link_base
         self.relative_to = relative_to
 
-    def render(self, summary: SimResultsSummary, outdir: Path | None = None) -> ReportArtifacts:
+    def render(
+        self,
+        summary: SimResultsSummary,
+        flow_results: Mapping[str, SimFlowResults],
+        outdir: Path | None = None,
+    ) -> ReportArtifacts:
         """Render a Markdown report of the sim flow results."""
         if outdir is not None:
             outdir.mkdir(parents=True, exist_ok=True)
 
         report_md = [
-            self.render_block(flow_result)["report.md"]
-            for flow_result in summary.flow_results.values()
+            self.render_block(results=flow_result)["report.md"]
+            for flow_result in flow_results.values()
         ]
         report_md.append(self.render_summary(summary)["report.md"])
 
@@ -184,7 +204,11 @@ class MarkdownReportRenderer:
     def render_block(self, results: SimFlowResults) -> ReportArtifacts:
         """Render a Markdown report of the sim flow results for a given block/flow."""
         # Generate block result metadata information
-        report_md = self.render_metadata(results.block, results.timestamp, results.build_seed)
+        report_md = self.render_metadata(
+            results.block,
+            results.timestamp,
+            results.build_seed,
+        )
         testplan_ref = (results.testplan_ref or "").strip()
         if len(results.stages) > 0 and testplan_ref:
             report_md += f"\n### [Testplan]({testplan_ref})"
@@ -456,7 +480,11 @@ def display_report(
         sink(header + content + "\n")
 
 
-def gen_reports(summary: SimResultsSummary, path: Path) -> None:
+def gen_reports(
+    summary: SimResultsSummary,
+    flow_results: Mapping[str, SimFlowResults],
+    path: Path,
+) -> None:
     """Generate and display a full set of reports for the given regression run.
 
     This helper currently saves JSON and HTML reports to disk (relative to the given path),
@@ -464,17 +492,22 @@ def gen_reports(summary: SimResultsSummary, path: Path) -> None:
 
     Args:
         summary: overview of the block results
+        flow_results: mapping flow names to detailed flow results
         path: output directory path
 
     """
     for renderer in (JsonReportRenderer(), HtmlReportRenderer()):
-        renderer.render(summary, outdir=path)
+        renderer.render(
+            summary=summary,
+            flow_results=flow_results,
+            outdir=path,
+        )
 
     renderer = MarkdownReportRenderer(path)
 
     # Per-block CLI results are displayed to the `INFO` log
     if log.isEnabledFor(log.INFO):
-        for flow_result in summary.flow_results.values():
+        for flow_result in flow_results.values():
             block_name = flow_result.block.variant_name()
             log.info("[results]: [%s]", block_name)
             cli_block = renderer.render_block(flow_result)

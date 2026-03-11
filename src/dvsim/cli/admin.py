@@ -41,9 +41,16 @@ def gen(json_path: Path, output_dir: Path) -> None:
     from dvsim.sim.data import SimResultsSummary
     from dvsim.sim.report import gen_reports
 
-    results: SimResultsSummary = SimResultsSummary.load(path=json_path)
+    summary: SimResultsSummary = SimResultsSummary.load(path=json_path)
+    flow_results = summary.load_flow_results(
+        base_path=json_path.parent,
+    )
 
-    gen_reports(summary=results, path=output_dir)
+    gen_reports(
+        summary=summary,
+        flow_results=flow_results,
+        path=output_dir,
+    )
 
 
 if __name__ == "__main__":
