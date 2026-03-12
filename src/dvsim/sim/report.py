@@ -5,17 +5,18 @@
 """Generate reports."""
 
 from collections import defaultdict
-from collections.abc import Callable, Collection, Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol, TypeAlias
+from typing import Any, Protocol
 
 from tabulate import tabulate
 
 from dvsim.logging import log
+from dvsim.report.artifacts import ReportArtifacts, display_report, render_static_content
 from dvsim.report.data import IPMeta
 from dvsim.sim.data import SimFlowResults, SimResultsSummary
-from dvsim.templates.render import render_static, render_template
+from dvsim.templates.render import render_template
 from dvsim.utils import TS_FORMAT_LONG
 from dvsim.utils.fs import relative_to
 
@@ -24,9 +25,7 @@ __all__ = (
     "JsonReportRenderer",
     "MarkdownReportRenderer",
     "ReportRenderer",
-    "display_report",
     "gen_reports",
-    "write_report",
 )
 
 
@@ -39,10 +38,6 @@ def _plural(item: str, n: int | Collection[Any], suffix: str = "s") -> str:
 def _indent_by_levels(lines: Iterable[tuple[int, str]], indent_spaces: int = 4) -> str:
     """Format per-line indentation of (0-indexed level, msg) log messages."""
     return "\n".join(" " * lvl * indent_spaces + msg for lvl, msg in lines)
-
-
-# Report rendering returns mappings of relative report paths to (string) contents.
-ReportArtifacts: TypeAlias = dict[str, str]
 
 
 class ReportRenderer(Protocol):
@@ -135,27 +130,17 @@ class HtmlReportRenderer:
             (outdir / "index.html").write_text(artifacts["index.html"])
 
         # Generate other static site contents
-        artifacts.update(self.render_static_content(outdir))
-
-        return artifacts
-
-    def render_static_content(self, outdir: Path | None = None) -> ReportArtifacts:
-        """Render static CSS / JS artifacts for HTML report generation."""
-        static_files = [
-            "css/style.css",
-            "css/bootstrap.min.css",
-            "js/bootstrap.bundle.min.js",
-            "js/htmx.min.js",
-        ]
-
-        artifacts = {}
-
-        for name in static_files:
-            artifacts[name] = render_static(path=name)
-            if outdir is not None:
-                artifact_path = outdir / name
-                artifact_path.parent.mkdir(parents=True, exist_ok=True)
-                artifact_path.write_text(artifacts[name])
+        artifacts.update(
+            render_static_content(
+                static_files=[
+                    "css/style.css",
+                    "css/bootstrap.min.css",
+                    "js/bootstrap.bundle.min.js",
+                    "js/htmx.min.js",
+                ],
+                outdir=outdir,
+            )
+        )
 
         return artifacts
 
@@ -447,38 +432,6 @@ class MarkdownReportRenderer:
             )
 
         return {"report.md": report_md}
-
-
-def write_report(files: ReportArtifacts, root: Path) -> None:
-    """Write rendered report artifacts to the file system, relative to a given path.
-
-    Args:
-        files: the output report artifacts from rendering simulation results.
-        root: the path to write the report files relative to.
-
-    """
-    for relative_path, content in files.items():
-        path = root / relative_path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
-
-
-def display_report(
-    files: ReportArtifacts, sink: Callable[[str], None] = print, *, with_headers: bool = False
-) -> None:
-    """Emit the report artifacts to some textual sink.
-
-    Prints to stdout by default, but can also write to a logger by overriding the sink.
-
-    Args:
-        files: the output report artifacts from rendering simulation results.
-        sink: a callable that accepts a string. Default is `print` to stdout.
-        with_headers: a boolean controlling whether to emit artifact path names as headers.
-
-    """
-    for path, content in files.items():
-        header = f"\n--- {path} ---\n" if with_headers else ""
-        sink(header + content + "\n")
 
 
 def gen_reports(
