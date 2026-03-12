@@ -23,11 +23,11 @@ def cli() -> None:
 
 
 @cli.group()
-def report() -> None:
-    """Reporting helper commands."""
+def dashboard() -> None:
+    """Dashboard helper commands."""
 
 
-@report.command()
+@dashboard.command("gen")
 @click.argument(
     "json_path",
     type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
@@ -36,10 +36,43 @@ def report() -> None:
     "output_dir",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
 )
-def gen(json_path: Path, output_dir: Path) -> None:
+@click.option(
+    "--base-url",
+    default=None,
+    type=str,
+)
+def dashboard_gen(json_path: Path, output_dir: Path, base_url: str | None) -> None:
+    """Generate a dashboard from a existing results JSON."""
+    from dvsim.sim.dashboard import gen_dashboard  # noqa: PLC0415
+    from dvsim.sim.data import SimResultsSummary  # noqa: PLC0415
+
+    results: SimResultsSummary = SimResultsSummary.load(path=json_path)
+
+    gen_dashboard(
+        summary=results,
+        path=output_dir,
+        base_url=base_url,
+    )
+
+
+@cli.group()
+def report() -> None:
+    """Reporting helper commands."""
+
+
+@report.command("gen")
+@click.argument(
+    "json_path",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+)
+@click.argument(
+    "output_dir",
+    type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
+)
+def report_gen(json_path: Path, output_dir: Path) -> None:
     """Generate a report from a existing results JSON."""
-    from dvsim.sim.data import SimResultsSummary
-    from dvsim.sim.report import gen_reports
+    from dvsim.sim.data import SimResultsSummary  # noqa: PLC0415
+    from dvsim.sim.report import gen_reports  # noqa: PLC0415
 
     summary: SimResultsSummary = SimResultsSummary.load(path=json_path)
     flow_results = summary.load_flow_results(

@@ -1,0 +1,114 @@
+<!--
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+-->
+{% set top = summary.top %}
+{% set timestamp = summary.timestamp %}
+{% set version = summary.version %}
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Simulation Dashboard</title>
+		<script src="js/htmx.min.js"></script>
+		<script>
+			htmx.config.selfRequestsOnly = false;
+		</script>
+		<link href="css/bootstrap.min.css" rel="stylesheet">
+		<link href="css/style.css" rel="stylesheet">
+	</head>
+	<body>
+        <div class="container-md"> 
+            <div class="row">
+                <div class="col">
+                    <div class="text-center mb-2">&nbsp;</div>
+                    <span class="badge text-bg-secondary">
+                        {{ timestamp.strftime("%d/%m/%Y %H:%M:%S") }}
+                    </span>
+                    {% if version %}
+                    <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
+                        href="https://github.com/lowRISC/dvsim/releases/tag/v{{ version }}">
+                        DVSim: v{{ version }}
+                    </a>
+                    {% endif %}
+                    <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
+                        href="{{ top.url }}">
+                        sha: {{ top.commit_short }}
+                    </a>
+                    <span class="badge text-bg-secondary">
+                        Branch: {{ top.branch }}
+                    </span>
+                </div>
+            </div>
+
+            {% macro coverage_cell(cov, kind) %}
+            {% if cov and cov|attr(kind) is not none %}
+                {% set value = cov|attr(kind) %}
+                <td class="rounded-2 c{{ (value / 10)|int }}">{{ "%.1f"|format(value) }} %</td>
+            {% else %}
+                <td class="text-muted">-</td>
+            {% endif %}
+            {% endmacro %}
+
+            <div class="row py-3">
+                <div class="col">
+                    <table class="table table-sm table-hover text-center rounded-2">
+                        <thead class="table-light align-middle">
+                            <tr>
+                                <th rowspan="2">Block</th>
+                                <th colspan="2">Tests</th>
+                                <th colspan="4" class="bg-secondary text-white">Coverage Summary</th>
+                            </tr>
+                            <tr>
+                                <!-- Tests sub-headers -->
+                                <th>Total</th>
+                                <th>Passing</th>
+
+                                <!-- Coverage Summary sub-headers -->
+                                <th class="bg-secondary text-white">Overall</th>
+                                <th class="bg-secondary text-white">Code</th>
+                                <th class="bg-secondary text-white">Functional</th>
+                                <th class="bg-secondary text-white">Assertion</th>
+
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for block_name in summary.flow_results.keys()|sort %}
+                                {% set flow = summary.flow_results[block_name] %}
+                                <tr>
+                                    <td class="p-0">
+                                        {% if base_url is not none %}
+                                        <a href="{{ base_url }}{{ block_name }}.html"
+                                            class="btn p-0">
+                                            {{ flow.block.variant_name(sep='/') | lower }}
+                                        </a>
+                                        {% else %}
+                                            {{ flow.block.variant_name(sep='/') | lower }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ flow.total }}</td>
+                                    <td class="rounded-2 c{{ (flow.percent / 10)|int }}">
+                                        {{ "%.1f" | format(flow.percent) }} %
+                                    </td>
+                                    {% set cov = flow.coverage %}
+                                    {{ coverage_cell(cov, "average") }}
+
+                                    {% set code = cov|attr("code") %}
+                                    {{ coverage_cell(code, "average") }}
+                                    {{ coverage_cell(cov, "functional") }}
+                                    {{ coverage_cell(cov, "assertion") }}
+
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+		<script src="js/bootstrap.bundle.min.js"></script>
+	</body>
+</html>
