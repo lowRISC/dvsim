@@ -117,6 +117,11 @@ class JobSpec(BaseModel):
     fail_patterns: Sequence[str]
     """regex patterns to match on to determine if the job has failed."""
 
+    @property
+    def timeout_secs(self) -> int | None:
+        """Returns the timeout applied to the launched job, in seconds."""
+        return None if self.timeout_mins is None else self.timeout_mins * 60
+
 
 class CompletedJobStatus(BaseModel):
     """Job status."""

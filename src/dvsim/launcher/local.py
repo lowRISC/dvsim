@@ -59,9 +59,7 @@ class LocalLauncher(Launcher):
             self._log_file.flush()
 
             if not self.job_spec.interactive:
-                timeout_mins = self.job_spec.timeout_mins
-
-                self.timeout_secs = timeout_mins * 60 if timeout_mins else None
+                self.timeout_secs = self.job_spec.timeout_secs
 
                 try:
                     self._process = subprocess.Popen(
