@@ -17,7 +17,7 @@ from types import FrameType
 from typing import Any
 
 import pytest
-from hamcrest import any_of, assert_that, empty, equal_to, has_item, only_contains
+from hamcrest import assert_that, calling, empty, equal_to, only_contains, raises
 
 from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
@@ -688,16 +688,11 @@ class TestSchedulingStructure:
     def test_dep_cycle(fxt: Fxt, dep_list: dict[int, list[int]]) -> None:
         """Test that the scheduler can detect and handle cycles in dependencies."""
         jobs = make_many_jobs(fxt.tmp_path, 5, interdeps=dep_list)
-        result = Scheduler(jobs, fxt.mock_launcher).run()
-        # Expect that either we get an empty result, or at least some job failed
-        # due to the cycle in dependencies.
-        assert_that(len(result), any_of(equal_to(5), equal_to(0)))
-        statuses = [c.status for c in result]
-        if statuses:
-            assert_that(
-                statuses,
-                any_of(has_item(JobStatus.FAILED), has_item(JobStatus.KILLED)),
-            )
+        # Expect that we get a ValueError when trying to make the scheduler,
+        # due to the cycle(s) in the dependencies
+        assert_that(
+            calling(Scheduler).with_args(jobs, fxt.mock_launcher), raises(ValueError, "cycle")
+        )
 
     @staticmethod
     @pytest.mark.xfail(
