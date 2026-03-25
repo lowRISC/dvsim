@@ -245,7 +245,7 @@ class Launcher(ABC):
         old runs, creating the output directory, dumping all env variables
         etc. This method is already invoked by launch() as the first step.
         """
-        self.job_spec.pre_launch(self)
+        self.job_spec.pre_launch()
         self._make_odir()
         self.start_time = datetime.datetime.now()
 

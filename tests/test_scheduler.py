@@ -322,7 +322,7 @@ def job_spec_factory(
         "dry_run": False,
         "interactive": False,
         "renew_odir": False,
-        "pre_launch": lambda _: None,
+        "pre_launch": lambda: None,
         "post_finish": lambda _: None,
         "pass_patterns": [],
         "fail_patterns": [],

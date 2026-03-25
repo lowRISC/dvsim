@@ -15,7 +15,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from dvsim.job.status import JobStatus
-from dvsim.launcher.base import ErrorMessage, Launcher
+from dvsim.launcher.base import ErrorMessage
 from dvsim.report.data import IPMeta, ToolMeta
 
 __all__ = (
@@ -107,7 +107,7 @@ class JobSpec(BaseModel):
     """Path for links directories."""
 
     # TODO: remove the need for these callables here
-    pre_launch: Callable[[Launcher], None]
+    pre_launch: Callable[[], None]
     """Callback function for pre-launch actions."""
     post_finish: Callable[[JobStatus], None]
     """Callback function for tidy up actions once the job is finished."""

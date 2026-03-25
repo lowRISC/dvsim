@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, ClassVar
 from dvsim.job.data import JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
-from dvsim.launcher.base import Launcher
 from dvsim.logging import log
 from dvsim.report.data import IPMeta, ToolMeta
 from dvsim.tool.utils import get_sim_tool_plugin
@@ -340,10 +339,10 @@ class Deploy:
         log.verbose('Deploy job "%s" is equivalent to "%s"', item.name, self.name)
         return True
 
-    def pre_launch(self) -> Callable[[Launcher], None]:
+    def pre_launch(self) -> Callable[[], None]:
         """Get pre-launch callback."""
 
-        def callback(launcher: Launcher) -> None:
+        def callback() -> None:
             """Perform additional pre-launch activities (callback).
 
             This is invoked by launcher::_pre_launch().
@@ -448,10 +447,10 @@ class CompileSim(Deploy):
         if self.sim_cfg.args.build_timeout_mins is not None:
             self.build_timeout_mins = self.sim_cfg.args.build_timeout_mins
 
-    def pre_launch(self) -> Callable[[Launcher], None]:
+    def pre_launch(self) -> Callable[[], None]:
         """Get pre-launch callback."""
 
-        def callback(_: Launcher) -> None:
+        def callback() -> None:
             """Perform pre-launch tasks."""
             # Delete old coverage database directories before building again. We
             # need to do this because the build directory is not 'renewed'.
@@ -646,10 +645,10 @@ class RunTest(Deploy):
                 self.run_timeout_multiplier,
             )
 
-    def pre_launch(self) -> Callable[[Launcher], None]:
+    def pre_launch(self) -> Callable[[], None]:
         """Perform pre-launch tasks."""
 
-        def callback(_launcher: Launcher) -> None:
+        def callback() -> None:
             """Perform pre-launch tasks."""
 
         return callback
