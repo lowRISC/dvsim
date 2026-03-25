@@ -23,7 +23,7 @@ from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
 from dvsim.report.data import IPMeta, ToolMeta
-from dvsim.scheduler import Scheduler
+from dvsim.scheduler.core import Scheduler
 
 __all__ = ()
 

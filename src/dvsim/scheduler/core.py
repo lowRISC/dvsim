@@ -26,7 +26,7 @@ from dvsim.job.data import CompletedJobStatus, JobSpec
 from dvsim.job.status import JobStatus
 from dvsim.launcher.base import Launcher, LauncherBusyError, LauncherError
 from dvsim.logging import log
-from dvsim.utils.status_printer import get_status_printer
+from dvsim.scheduler.status_printer import get_status_printer
 from dvsim.utils.timer import Timer
 
 if TYPE_CHECKING:

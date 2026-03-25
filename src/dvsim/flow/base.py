@@ -20,7 +20,7 @@ from dvsim.flow.hjson import set_target_attribute
 from dvsim.job.data import CompletedJobStatus
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
-from dvsim.scheduler import Scheduler
+from dvsim.scheduler.core import Scheduler
 from dvsim.utils import (
     find_and_substitute_wildcards,
     rm_path,

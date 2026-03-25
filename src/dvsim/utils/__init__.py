@@ -14,10 +14,6 @@ from dvsim.utils.fs import (
     rm_path,
 )
 from dvsim.utils.hjson import parse_hjson
-from dvsim.utils.status_printer import (
-    EnlightenStatusPrinter,
-    StatusPrinter,
-)
 from dvsim.utils.subprocess import run_cmd, run_cmd_with_timeout
 from dvsim.utils.timer import Timer
 from dvsim.utils.wildcards import (
@@ -28,8 +24,6 @@ from dvsim.utils.wildcards import (
 __all__ = (
     "TS_FORMAT",
     "TS_FORMAT_LONG",
-    "EnlightenStatusPrinter",
-    "StatusPrinter",
     "Timer",
     "check_bool",
     "check_int",
