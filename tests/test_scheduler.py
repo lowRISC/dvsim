@@ -600,9 +600,10 @@ class TestSchedulingStructure:
     def _dep_test_case(
         fxt: Fxt,
         dep_list: dict[int, list[int]],
+        passes: list[int],
         *,
         all_passing: bool,
-    ) -> Sequence[CompletedJobStatus]:
+    ) -> None:
         """Run a simple dependency test, with 5 jobs where jobs 2 & 4 will fail."""
         jobs = make_many_jobs(
             fxt.tmp_path,
@@ -612,7 +613,16 @@ class TestSchedulingStructure:
         )
         fxt.mock_ctx.set_config(jobs[2], MockJob(default_status=JobStatus.FAILED))
         fxt.mock_ctx.set_config(jobs[4], MockJob(default_status=JobStatus.FAILED))
-        return Scheduler(jobs, fxt.mock_launcher).run()
+        result = Scheduler(jobs, fxt.mock_launcher).run()
+        assert_that(len(result), equal_to(5))
+        for job in range(5):
+            if job in passes:
+                expected = JobStatus.PASSED
+            elif job in (2, 4):
+                expected = JobStatus.FAILED
+            else:
+                expected = JobStatus.KILLED
+            assert_that(result[job].status, equal_to(expected))
 
     @staticmethod
     @pytest.mark.xfail(
@@ -635,10 +645,7 @@ class TestSchedulingStructure:
         passes: list[int],
     ) -> None:
         """Tests scheduling of jobs with dependencies that don't need all passing."""
-        result = TestSchedulingStructure._dep_test_case(fxt, dep_list, all_passing=False)
-        assert_that(len(result), equal_to(5))
-        for job in passes:
-            assert_that(result[job].status, equal_to(JobStatus.PASSED))
+        TestSchedulingStructure._dep_test_case(fxt, dep_list, passes, all_passing=False)
 
     @staticmethod
     @pytest.mark.xfail(reason=FAIL_DEP_ON_MULTIPLE_TARGETS)
@@ -651,7 +658,7 @@ class TestSchedulingStructure:
             ({3: [2]}, [0, 1]),
             ({0: [3, 4]}, [1, 3]),
             ({3: [0, 1, 2]}, [0, 1]),
-            ({1: [1, 2, 3, 4]}, [0, 3]),
+            ({1: [0, 2, 3, 4]}, [0, 3]),
         ],
     )
     def test_needs_all_deps(
@@ -660,10 +667,7 @@ class TestSchedulingStructure:
         passes: list[int],
     ) -> None:
         """Tests scheduling of jobs with dependencies that need all passing."""
-        result = TestSchedulingStructure._dep_test_case(fxt, dep_list, all_passing=True)
-        assert_that(len(result), equal_to(5))
-        for job in passes:
-            assert_that(result[job].status, equal_to(JobStatus.PASSED))
+        TestSchedulingStructure._dep_test_case(fxt, dep_list, passes, all_passing=True)
 
     @staticmethod
     @pytest.mark.xfail(
