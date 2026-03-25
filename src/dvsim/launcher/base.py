@@ -365,6 +365,13 @@ class Launcher(ABC):
 
         self.job_runtime.set(time, unit)
 
+        if self.job_spec.job_type == "RunTest":
+            try:
+                time, unit = plugin.get_simulated_time(log_text=lines)
+                self.simulated_time.set(time, unit)
+            except RuntimeError as e:
+                log.debug("%s: %s", self.job_spec.full_name, str(e))
+
         if chk_failed or chk_passed:
             for cnt, line in enumerate(lines):
                 if chk_failed and _find_patterns(self.job_spec.fail_patterns, line):
