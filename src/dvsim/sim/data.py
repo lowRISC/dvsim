@@ -192,6 +192,8 @@ class SimFlowResults(BaseModel):
     """Coverage metrics."""
     cov_report_page: Path | None
     """Optional path linking to the generated coverage report dashboard page."""
+    vplan_report_page: Path | None
+    """Optional path linking to the generated verification plan (vPlan) reports."""
 
     failed_jobs: BucketedFailures
     """Bucketed failed job overview."""

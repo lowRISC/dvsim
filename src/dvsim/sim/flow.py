@@ -22,6 +22,7 @@ from dvsim.job.deploy import (
     CovMerge,
     CovReport,
     CovUnr,
+    CovVPlan,
     RunTest,
 )
 from dvsim.job.status import JobStatus
@@ -156,6 +157,13 @@ class SimCfg(FlowCfg):
         self.book = ""
         self.cov_report_dir = ""
         self.cov_report_page = ""
+
+        # Options for vPlan processing
+        # dut_instance is the hierarchical testbench path to the DUT (e.g. "tb.dut"),
+        # distinct from `name`/`qual_name` which identify the sim config itself.
+        self.dut_instance = ""
+        self.cov_vplan_prepare_opts = []
+        self.cov_vplan_process_opts = []
 
         # Options from tools - for building and running tests
         self.build_cmd = ""
@@ -550,6 +558,10 @@ class SimCfg(FlowCfg):
                 self.cov_report_deploy = CovReport(self.cov_merge_deploy, self)
                 self.deploy += [self.cov_merge_deploy, self.cov_report_deploy]
 
+                if getattr(self, "vplan", False):
+                    self.cov_vplan_deploy = CovVPlan(self.cov_report_deploy, self)
+                    self.deploy.append(self.cov_vplan_deploy)
+
     def _cov_analyze(self) -> None:
         """Open GUI tool for coverage analysis.
 
@@ -821,6 +833,10 @@ class SimCfg(FlowCfg):
             cov_report_dir = self.cov_report_dir or "cov_report"
             cov_report_page = Path(cov_report_dir, self.cov_report_page)
 
+        vplan_report_page = None
+        if getattr(self, "cov_vplan_deploy", None):
+            vplan_report_page = Path(self.scratch_path) / CovVPlan.target / "vplan_annotated.html"
+
         failures = BucketedFailures.from_job_status(results=run_results)
         if failures.buckets:
             self.errors_seen = True
@@ -835,6 +851,7 @@ class SimCfg(FlowCfg):
             stages=stages,
             coverage=coverage_model,
             cov_report_page=cov_report_page,
+            vplan_report_page=vplan_report_page,
             failed_jobs=failures,
             passed=total_passed,
             total=total_runs,
