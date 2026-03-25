@@ -358,7 +358,9 @@ class Launcher(ABC):
 
             except RuntimeError as e:
                 log.warning(
-                    f"{self.job_spec.full_name}: {e} Using dvsim-maintained job_runtime instead."
+                    "%s: %s Using dvsim-maintained job_runtime instead.",
+                    self.job_spec.full_name,
+                    str(e),
                 )
 
         self.job_runtime.set(time, unit)
