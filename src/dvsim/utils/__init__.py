@@ -17,7 +17,6 @@ from dvsim.utils.hjson import parse_hjson
 from dvsim.utils.status_printer import (
     EnlightenStatusPrinter,
     StatusPrinter,
-    print_msg_list,
 )
 from dvsim.utils.subprocess import run_cmd, run_cmd_with_timeout
 from dvsim.utils.timer import Timer
@@ -39,7 +38,6 @@ __all__ = (
     "mk_path",
     "mk_symlink",
     "parse_hjson",
-    "print_msg_list",
     "rm_path",
     "run_cmd",
     "run_cmd_with_timeout",

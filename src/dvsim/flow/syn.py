@@ -11,7 +11,8 @@ from tabulate import tabulate
 
 from dvsim.flow.one_shot import OneShotCfg
 from dvsim.logging import log
-from dvsim.utils import print_msg_list, subst_wildcards
+from dvsim.utils import subst_wildcards
+from dvsim.utils.print import print_msg_list
 
 
 class SynCfg(OneShotCfg):

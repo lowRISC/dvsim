@@ -15,7 +15,7 @@ import hjson
 
 from dvsim.logging import log
 from dvsim.msg_bucket import MsgBucket
-from dvsim.utils import print_msg_list
+from dvsim.utils.print import print_msg_list
 
 
 class MsgBuckets:
