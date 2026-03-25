@@ -94,6 +94,13 @@ class JobSpec(BaseModel):
 
     odir: Path
     """Output directory for the job results files."""
+    renew_odir: bool
+    """A flag set to `true` to indicate that this job should "renew" its output directories,
+    or to `false` if it should overwrite previous contents. Renewing a directory involves backing
+    up the existing directory (up to some defined limit, at which point old backups are deleted)
+    and then creating the new output directory. For example, one reason to set `renew_odir=True`
+    might be to make use of an incremental/partition compile feature for a tool.
+    """
     log_path: Path
     """Path for the job log file."""
     links: Mapping[JobStatus, Path]

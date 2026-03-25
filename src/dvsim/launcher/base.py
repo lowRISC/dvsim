@@ -129,7 +129,7 @@ class Launcher(ABC):
         # For builds, we want to overwrite existing to leverage the tools'
         # incremental / partition compile features. For runs, we may want to
         # create a new one.
-        self.renew_odir = False
+        self.renew_odir = job_spec.renew_odir
 
         # The actual job runtime computed by dvsim, in seconds.
         self.job_runtime_secs = 0

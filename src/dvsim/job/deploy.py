@@ -142,6 +142,7 @@ class Deploy:
             dry_run=self.dry_run,
             interactive=self.sim_cfg.interactive,
             odir=self.odir,
+            renew_odir=self.renew_odir,
             log_path=Path(f"{self.odir}/{self.target}.log"),
             links=self.sim_cfg.links,
             pre_launch=self.pre_launch(),
@@ -208,6 +209,9 @@ class Deploy:
 
         # Output directory where the artifacts go (used by the launcher).
         self.odir = getattr(self, self.target + "_dir")
+
+        # Default to not renewing the output directories; subclasses can override this.
+        self.renew_odir = False
 
         # Qualified name disambiguates the instance name with other instances
         # of the same class (example: 'uart_smoke' reseeded multiple times
@@ -609,6 +613,9 @@ class RunTest(Deploy):
         super()._extract_attrs(self.test_obj.__dict__)
         super()._set_attrs()
 
+        # When running a test, we should always renew the output directory
+        self.renew_odir = True
+
         # 'test' is used as a substitution variable in the HJson.
         self.test = self.name
         self.build_mode = self.test_obj.build_mode.name
@@ -642,9 +649,8 @@ class RunTest(Deploy):
     def pre_launch(self) -> Callable[[Launcher], None]:
         """Perform pre-launch tasks."""
 
-        def callback(launcher: Launcher) -> None:
+        def callback(_launcher: Launcher) -> None:
             """Perform pre-launch tasks."""
-            launcher.renew_odir = True
 
         return callback
 
