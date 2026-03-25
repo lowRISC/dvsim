@@ -867,15 +867,14 @@ class TestSchedulingPriority:
             vary_targets=True,
         )
         jobs = [start_job, *weighted_jobs]
-        by_weight_dec = [
-            j.name for j in sorted(weighted_jobs, key=lambda job: job.weight, reverse=True)
-        ]
+        by_weight_dec = sorted(weighted_jobs, key=lambda job: job.weight, reverse=True)
         # Set max parallel = 1 so that order dispatched becomes the priority order
         # With max parallel > 1, jobs of many priorities are dispatched "at once".
         fxt.mock_launcher.max_parallel = 1
         result = Scheduler(jobs, fxt.mock_launcher).run()
-        _assert_result_status(result, 6)
-        assert_that(fxt.mock_ctx.order_started, equal_to([start_job, *by_weight_dec]))
+        _assert_result_status(result, len(jobs))
+        expected_order = [start_job, *by_weight_dec]
+        assert_that(fxt.mock_ctx.order_started, equal_to(expected_order))
 
     @staticmethod
     @pytest.mark.xfail(reason="DVSim does not handle zero weights.")
