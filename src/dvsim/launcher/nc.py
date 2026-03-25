@@ -181,7 +181,7 @@ class NcLauncher(Launcher):
         assert self.process is not None
         if self.process.poll() is None:
             run_timeout_mins = self.job_spec.timeout_mins
-            if run_timeout_mins is not None and not self.job_spec.gui:
+            if run_timeout_mins is not None:
                 wait_timeout_mins = 180  # max wait time in job / license queue
                 # We consider the job to have started once its log file contains
                 # something. file_size_thresh_bytes is a threshold: once the log

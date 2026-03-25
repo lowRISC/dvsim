@@ -321,7 +321,6 @@ def job_spec_factory(
         "exports": {},
         "dry_run": False,
         "interactive": False,
-        "gui": False,
         "pre_launch": lambda _: None,
         "post_finish": lambda _: None,
         "pass_patterns": [],
