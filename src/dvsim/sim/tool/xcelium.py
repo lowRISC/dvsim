@@ -170,3 +170,27 @@ class Xcelium:
             deploy: the deploy object to mutate.
 
         """
+
+    @staticmethod
+    def get_dvplan_parser_name() -> str:
+        """Return the name of the DVPlan parser for this tool.
+
+        Returns:
+            The DVPlan coverage parser string.
+
+        """
+        return "cadence_report"
+
+    @staticmethod
+    def get_dvplan_report_path(cov_report_dir: str, cov_report_txt: str) -> str:
+        """Return the path to the coverage report required by DVPlan.
+
+        Args:
+            cov_report_dir: Path to the coverage report directory.
+            cov_report_txt: Path to the text-based coverage report.
+
+        Returns:
+            Path to the target coverage report file or directory.
+
+        """
+        return f"$(ls -t {cov_report_dir}/report_data/*.report | head -n 1)"
