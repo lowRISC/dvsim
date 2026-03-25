@@ -48,58 +48,67 @@ class LocalLauncher(Launcher):
 
         self._dump_env_vars(exports)
 
-        if not self.job_spec.interactive:
+        try:
             log_path = self.job_spec.log_path
-            timeout_mins = self.job_spec.timeout_mins
+            self._log_file = log_path.open(
+                "w",
+                encoding="UTF-8",
+                errors="surrogateescape",
+            )
+            self._log_file.write(f"[Executing]:\n{self.job_spec.cmd}\n\n")
+            self._log_file.flush()
 
-            self.timeout_secs = timeout_mins * 60 if timeout_mins else None
+            if not self.job_spec.interactive:
+                timeout_mins = self.job_spec.timeout_mins
 
-            try:
-                self._log_file = log_path.open(
-                    "w",
-                    encoding="UTF-8",
-                    errors="surrogateescape",
-                )
-                self._log_file.write(f"[Executing]:\n{self.job_spec.cmd}\n\n")
-                self._log_file.flush()
+                self.timeout_secs = timeout_mins * 60 if timeout_mins else None
 
+                try:
+                    self._process = subprocess.Popen(
+                        shlex.split(self.job_spec.cmd),
+                        bufsize=4096,
+                        universal_newlines=True,
+                        stdout=self._log_file,
+                        stderr=self._log_file,
+                        env=exports,
+                    )
+                except BlockingIOError as e:
+                    msg = f"Failed to launch job: {e}"
+                    raise LauncherBusyError(msg) from e
+                except subprocess.SubprocessError as e:
+                    msg = f"IO Error: {e}\nSee {log_path}"
+                    raise LauncherError(msg) from e
+            else:
+                # Interactive: Set RUN_INTERACTIVE to 1
+                exports["RUN_INTERACTIVE"] = "1"
+
+                # Interactive. stdin / stdout are transparent
+                # no timeout and blocking op as user controls the flow
                 self._process = subprocess.Popen(
                     shlex.split(self.job_spec.cmd),
-                    bufsize=4096,
+                    stdin=None,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    # string mode
                     universal_newlines=True,
-                    stdout=self._log_file,
-                    stderr=self._log_file,
                     env=exports,
                 )
 
-            except BlockingIOError as e:
-                msg = f"Failed to launch job: {e}"
-                raise LauncherBusyError(msg) from e
+                # stdout/stderr logs are tee'd to the log file via the pipe
+                if self._process.stdout is not None:
+                    for line in self._process.stdout:
+                        print(line, end="")  # noqa: T201
+                        self._log_file.write(line)
+                        self._log_file.flush()
 
-            except subprocess.SubprocessError as e:
-                msg = f"IO Error: {e}\nSee {log_path}"
-                raise LauncherError(msg) from e
+                # Wait until the process exits
+                self._process.wait()
 
-            finally:
-                self._close_job_log_file()
-        else:
-            # Interactive: Set RUN_INTERACTIVE to 1
-            exports["RUN_INTERACTIVE"] = "1"
-
-            # Interactive. stdin / stdout are transparent
-            # no timeout and blocking op as user controls the flow
-            self._process = subprocess.Popen(
-                shlex.split(self.job_spec.cmd),
-                stdin=None,
-                stdout=None,
-                stderr=subprocess.STDOUT,
-                # string mode
-                universal_newlines=True,
-                env=exports,
-            )
-
-            # Wait until the process exit
-            self._process.wait()
+        except BlockingIOError as e:
+            msg = f"Failed to launch job: {e}"
+            raise LauncherBusyError(msg) from e
+        finally:
+            self._close_job_log_file()
 
         self._link_odir(JobStatus.DISPATCHED)
 
