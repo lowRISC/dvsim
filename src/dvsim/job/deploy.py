@@ -28,9 +28,9 @@ if TYPE_CHECKING:
     from dvsim.flow.sim import SimCfg
     from dvsim.modes import BuildMode
 
-
 __all__ = (
     "CompileSim",
+    "CovVPlan",
     "Deploy",
 )
 
@@ -876,3 +876,87 @@ class CovAnalyze(Deploy):
         self.qual_name = self.target
         self.full_name = f"{self.sim_cfg.name}{self._variant_suffix}:{self.qual_name}"
         self.input_dirs += [self.cov_merge_db_dir]
+
+
+class CovVPlan(Deploy):
+    """Abstraction for generating a Verification Plan (vPlan) report using DVPlan."""
+
+    target = "cov_vplan"
+    weight = 10
+
+    def __init__(self, cov_report_job, sim_cfg) -> None:
+        self.report_job = cov_report_job
+        super().__init__(sim_cfg)
+        self.dependencies.append(cov_report_job)
+
+    def _define_attrs(self) -> None:
+        super()._define_attrs()
+        self.mandatory_cmd_attrs.update(
+            {
+                "proj_root": False,
+                "vplan": False,
+            }
+        )
+        self.mandatory_misc_attrs.update(
+            {
+                "dut_instance": False,
+            }
+        )
+
+    def _set_attrs(self) -> None:
+        self.cov_vplan_dir = self.sim_cfg.cov_vplan_dir
+        if not self.cov_vplan_dir:
+            self.cov_vplan_dir = f"{self.sim_cfg.scratch_path}/{self.target}"
+
+        super()._set_attrs()
+        self.qual_name = self.target
+        self.full_name = f"{self.sim_cfg.name}{self._variant_suffix}:{self.qual_name}"
+
+        self.prepare_opts = self.sim_cfg.cov_vplan_prepare_opts
+        self.process_opts = self.sim_cfg.cov_vplan_process_opts
+
+        # Determine paths for the intermediate HJSON and the final HTML report
+        self.annotated_hjson = f"{self.odir}/{self.sim_cfg.name}_annotated_vplan.hjson"
+        self.gen_html = f"{self.odir}/{self.sim_cfg.name}_annotated_vplan.html"
+        self.output_dirs = [self.odir]
+
+        # Calculate IP root
+        vplan_path = Path(self.vplan)
+        self.ip_root = str(vplan_path.parent.parent)
+
+    def _construct_cmd(self) -> str:
+        """Construct the pure bash shell command, bypassing the base Makefile assumption."""
+        import shlex
+        import shutil
+
+        if shutil.which("dvplan") is None:
+            fallback = (
+                "echo 'WARNING: dvplan tool not installed in PATH. Skipping vPlan generation.'"
+            )
+            return f"/bin/bash -c {shlex.quote(fallback)}"
+
+        plugin = get_sim_tool_plugin(tool=self.sim_cfg.tool)
+
+        def format_opts(opts):
+            return " ".join(opts) if isinstance(opts, list) else str(opts)
+
+        prepare_opts_str = format_opts(self.prepare_opts)
+        process_opts_str = format_opts(self.process_opts)
+
+        prepare_cmd = f"dvplan prepare_vplan {prepare_opts_str} {self.ip_root} {self.vplan} {self.annotated_hjson}"
+        prepare_cmd = " ".join(prepare_cmd.split())
+
+        vendor_tool = plugin.get_dvplan_parser_name()
+        cov_report_txt = getattr(self.report_job, "cov_report_txt", "")
+        report_path = plugin.get_dvplan_report_path(
+            cov_report_dir=self.report_job.cov_report_dir, cov_report_txt=cov_report_txt
+        )
+
+        process_cmd = (
+            f"dvplan process_results {process_opts_str} --coverage {vendor_tool} {report_path} "
+            f"-R {self.gen_html} -s {self.sim_cfg.name} {self.dut_instance} {self.annotated_hjson}"
+        )
+        process_cmd = " ".join(process_cmd.split())
+
+        full_command = f"set -e; mkdir -p {self.odir}; {prepare_cmd} && {process_cmd}"
+        return f"/bin/bash -c {shlex.quote(full_command)}"
