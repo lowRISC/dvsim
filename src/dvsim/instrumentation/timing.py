@@ -85,11 +85,11 @@ class TimingInstrumentation(SchedulerInstrumentation):
 
     def on_scheduler_start(self) -> None:
         """Notify instrumentation that the scheduler has begun."""
-        self._scheduler.start_time = time.time()
+        self._scheduler.start_time = time.perf_counter()
 
     def on_scheduler_end(self) -> None:
         """Notify instrumentation that the scheduler has finished."""
-        self._scheduler.end_time = time.time()
+        self._scheduler.end_time = time.perf_counter()
 
     def on_job_status_change(self, job: JobSpec, status: JobStatus) -> None:
         """Notify instrumentation of a change in status for some scheduled job."""
@@ -100,9 +100,9 @@ class TimingInstrumentation(SchedulerInstrumentation):
             self._jobs[job_id] = job_info
 
         if job_info.start_time is None and status != JobStatus.QUEUED:
-            job_info.start_time = time.time()
+            job_info.start_time = time.perf_counter()
         if status.ended:
-            job_info.end_time = time.time()
+            job_info.end_time = time.perf_counter()
 
     def build_report_fragments(self) -> InstrumentationFragments | None:
         """Build report fragments from the collected instrumentation information."""

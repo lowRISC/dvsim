@@ -177,7 +177,7 @@ class ResourceInstrumentation(SchedulerInstrumentation):
             self._thread.join()
 
     def _sampling_loop(self) -> None:
-        next_run_at = time.time()
+        next_run_at = time.perf_counter()
         while self._running:
             next_run_at += self.sample_interval
 
@@ -209,7 +209,7 @@ class ResourceInstrumentation(SchedulerInstrumentation):
                 for aggregate in self._running_jobs.values():
                     aggregate.add_sample(sys_rss, sys_cpu)
 
-            sleep_time = max(next_run_at - time.time(), 0)
+            sleep_time = max(next_run_at - time.perf_counter(), 0)
             time.sleep(sleep_time)
 
     def on_scheduler_start(self) -> None:
