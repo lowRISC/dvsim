@@ -536,7 +536,7 @@ def parse_args(argv: list[str] | None = None):
         help=(
             "Run the job in non-GUI interactive mode "
             "accepting manual user inputs and displaying the "
-            "tool outputs transparently."
+            "tool outputs transparently. This implies --reseed 1."
         ),
     )
 
