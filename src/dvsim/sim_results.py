@@ -133,19 +133,29 @@ class BucketedFailures(BaseModel):
 
         for job_status in results:
             if job_status.status in (JobStatus.FAILED, JobStatus.KILLED):
+                if job_status.fail_msg is None:
+                    continue
+
                 bucket = _bucketize(job_status.fail_msg.message)
 
                 if bucket not in buckets:
                     buckets[bucket] = []
+
+                # TODO: expose all relevant line numbers through the bucket, not just the first.
+                # We only expose the first one for now to keep changes to the scheduler minimal.
+                first_line_num = None
+                if job_status.fail_msg.lines:
+                    lines = job_status.fail_msg.lines[0]
+                    first_line_num = lines if isinstance(lines, int) else lines[0]
 
                 buckets[bucket].append(
                     JobFailureOverview(
                         name=job_status.name,
                         qual_name=job_status.qual_name,
                         seed=job_status.seed,
-                        line=job_status.fail_msg.line_number,
+                        line=first_line_num,
                         log_path=job_status.log_path,
-                        log_context=job_status.fail_msg.context,
+                        log_context=job_status.fail_msg.context or [],
                     ),
                 )
 

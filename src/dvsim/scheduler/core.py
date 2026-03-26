@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from dvsim import instrumentation
 from dvsim.instrumentation import NoOpInstrumentation
-from dvsim.job.data import CompletedJobStatus, JobSpec
+from dvsim.job.data import CompletedJobStatus, JobSpec, JobStatusInfo
 from dvsim.job.status import JobStatus
 from dvsim.launcher.base import Launcher, LauncherBusyError, LauncherError
 from dvsim.logging import log
@@ -264,6 +264,14 @@ class Scheduler:
             launcher = self._launchers[name]
             job_spec = self._jobs[name]
 
+            fail_msg = None
+            if launcher.fail_msg is not None:
+                launcher_fail = launcher.fail_msg
+                lines = None if launcher_fail.line_number is None else [launcher_fail.line_number]
+                fail_msg = JobStatusInfo(
+                    message=launcher_fail.message, lines=lines, context=launcher_fail.context
+                )
+
             results.append(
                 CompletedJobStatus(
                     name=job_spec.name,
@@ -279,7 +287,7 @@ class Scheduler:
                     job_runtime=launcher.job_runtime.with_unit("s").get()[0],
                     simulated_time=launcher.simulated_time.with_unit("us").get()[0],
                     status=status,
-                    fail_msg=launcher.fail_msg,
+                    fail_msg=fail_msg,
                 )
             )
 

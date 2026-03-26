@@ -15,12 +15,12 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from dvsim.job.status import JobStatus
-from dvsim.launcher.base import ErrorMessage
 from dvsim.report.data import IPMeta, ToolMeta
 
 __all__ = (
     "CompletedJobStatus",
     "JobSpec",
+    "JobStatusInfo",
     "WorkspaceConfig",
 )
 
@@ -123,6 +123,19 @@ class JobSpec(BaseModel):
         return None if self.timeout_mins is None else self.timeout_mins * 60
 
 
+class JobStatusInfo(BaseModel):
+    """Context about some sort of failure / error within a job."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    message: str
+    """Human readable error message."""
+    lines: Sequence[int | tuple[int, int]] | None = None
+    """Relevant line information (in the job script or the job itself)."""
+    context: Sequence[str] | None = None
+    """Arbitrary context strings."""
+
+
 class CompletedJobStatus(BaseModel):
     """Job status."""
 
@@ -166,5 +179,5 @@ class CompletedJobStatus(BaseModel):
 
     status: JobStatus
     """Status of the job."""
-    fail_msg: ErrorMessage
+    fail_msg: JobStatusInfo | None
     """Error message."""
