@@ -163,7 +163,7 @@ class NcLauncher(Launcher):
         finally:
             self._close_process()
 
-        self._link_odir(JobStatus.DISPATCHED)
+        self._link_odir(JobStatus.RUNNING)
 
     def minutes_since_start(self):
         return (datetime.datetime.now() - self.start_time).total_seconds() / 60
@@ -171,7 +171,7 @@ class NcLauncher(Launcher):
     def poll(self) -> JobStatus:
         """Check status of the running process.
 
-        This returns a job status. If DISPATCHED, the job is still running.
+        This returns a job status. If RUNNING, the job is still running.
         If PASSED, the job finished successfully. If FAILED, the job finished
         with an error. If KILLED, it was killed.
 
@@ -224,7 +224,7 @@ class NcLauncher(Launcher):
                         ),
                     )
                     return JobStatus.KILLED
-            return JobStatus.DISPATCHED
+            return JobStatus.RUNNING
 
         self.exit_code = self.process.returncode
         status, err_msg = self._check_status()

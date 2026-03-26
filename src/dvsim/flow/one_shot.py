@@ -93,7 +93,7 @@ class OneShotCfg(FlowCfg):
 
             # Set directories with links for ease of debug / triage.
             self.links = {
-                JobStatus.DISPATCHED: self.scratch_path + "/" + "dispatched",
+                JobStatus.RUNNING: self.scratch_path + "/" + "running",
                 JobStatus.PASSED: self.scratch_path + "/" + "passed",
                 JobStatus.FAILED: self.scratch_path + "/" + "failed",
                 JobStatus.KILLED: self.scratch_path + "/" + "killed",

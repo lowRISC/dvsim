@@ -229,7 +229,7 @@ class SimCfg(FlowCfg):
 
             # Set directories with links for ease of debug / triage.
             self.links = {
-                JobStatus.DISPATCHED: self.scratch_path + "/" + "dispatched",
+                JobStatus.RUNNING: self.scratch_path + "/" + "running",
                 JobStatus.PASSED: self.scratch_path + "/" + "passed",
                 JobStatus.FAILED: self.scratch_path + "/" + "failed",
                 JobStatus.KILLED: self.scratch_path + "/" + "killed",
@@ -575,7 +575,7 @@ class SimCfg(FlowCfg):
         Use the last regression coverage data to open up the GUI tool to analyze
         the coverage.
         """
-        # Create initial set of directories, such as dispatched, passed etc.
+        # Create initial set of directories, such as running, passed etc.
         self._create_dirs()
 
         cov_analyze_deploy = CovAnalyze(self)
@@ -596,7 +596,7 @@ class SimCfg(FlowCfg):
         if self.tool not in ["vcs", "xcelium"]:
             log.error("Only VCS and Xcelium are supported for the UNR flow.")
             sys.exit(1)
-        # Create initial set of directories, such as dispatched, passed etc.
+        # Create initial set of directories, such as running, passed etc.
         self._create_dirs()
 
         cov_unr_deploy = CovUnr(self)

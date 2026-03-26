@@ -110,12 +110,12 @@ class LocalLauncher(Launcher):
         finally:
             self._close_job_log_file()
 
-        self._link_odir(JobStatus.DISPATCHED)
+        self._link_odir(JobStatus.RUNNING)
 
     def poll(self) -> JobStatus:
         """Check status of the running process.
 
-        This returns a job status. If DISPATCHED, the job is still running.
+        This returns a job status. If RUNNING, the job is still running.
         If PASSED, the job finished successfully. If FAILED, the job finished
         with an error. If KILLED, it was killed.
 
@@ -146,7 +146,7 @@ class LocalLauncher(Launcher):
                 )
                 return JobStatus.KILLED
 
-            return JobStatus.DISPATCHED
+            return JobStatus.RUNNING
 
         self.exit_code = self._process.returncode
         status, err_msg = self._check_status()

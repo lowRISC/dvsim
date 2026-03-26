@@ -4,7 +4,7 @@
 
 """An enum definition for the various job statuses."""
 
-from enum import Enum
+from enum import Enum, auto
 
 __all__ = ("JobStatus",)
 
@@ -12,15 +12,15 @@ __all__ = ("JobStatus",)
 class JobStatus(Enum):
     """Status of a Job."""
 
-    QUEUED = 0
-    DISPATCHED = 1
-    PASSED = 2
-    FAILED = 3
-    KILLED = 4
+    QUEUED = auto()
+    RUNNING = auto()
+    PASSED = auto()
+    FAILED = auto()
+    KILLED = auto()
 
     @property
     def shorthand(self) -> str:
-        """Shorthand for the job status, e.g. 'D' for 'Dispatched'."""
+        """Shorthand for the job status, e.g. 'R' for 'RUNNING'."""
         return self.name[0]
 
     @property

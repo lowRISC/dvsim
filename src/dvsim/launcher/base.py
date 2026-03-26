@@ -214,15 +214,15 @@ class Launcher(ABC):
     def _link_odir(self, status: JobStatus) -> None:
         """Soft-links the job's directory based on job's status.
 
-        The DISPATCHED, PASSED and FAILED directories in the scratch area
+        The RUNNING, PASSED and FAILED directories in the scratch area
         provide a quick way to get to the job that was executed.
         """
         dest = Path(self.job_spec.links[status], self.job_spec.qual_name)
         mk_symlink(path=self.job_spec.odir, link=dest)
 
-        # Delete the symlink from dispatched directory if it exists.
-        if status != JobStatus.DISPATCHED:
-            old = Path(self.job_spec.links[JobStatus.DISPATCHED], self.job_spec.qual_name)
+        # Delete the symlink from running directory if it exists.
+        if status != JobStatus.RUNNING:
+            old = Path(self.job_spec.links[JobStatus.RUNNING], self.job_spec.qual_name)
             rm_path(old)
 
     def _dump_env_vars(self, exports: Mapping[str, str]) -> None:

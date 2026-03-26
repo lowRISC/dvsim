@@ -14,7 +14,7 @@ import enlighten
 
 from dvsim.logging import log
 
-DEFAULT_HEADER = "Q: queued, D: dispatched, P: passed, F: failed, K: killed, T: total"
+DEFAULT_HEADER = "Q: queued, R: running, P: passed, F: failed, K: killed, T: total"
 """The default header to use for printing the status."""
 
 

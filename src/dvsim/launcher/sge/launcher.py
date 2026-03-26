@@ -94,13 +94,13 @@ class SgeLauncher(Launcher):
         finally:
             self._close_process()
 
-        self._link_odir(JobStatus.DISPATCHED)
+        self._link_odir(JobStatus.RUNNING)
         f.close()
 
     def poll(self) -> JobStatus:
         """Check status of the running process.
 
-        This returns a job status. If DISPATCHED, the job is still running.
+        This returns a job status. If RUNNING, the job is still running.
         If PASSED, the job finished successfully. If FAILED, the job finished
         with an error. If KILLED, it was killed.
 
@@ -109,7 +109,7 @@ class SgeLauncher(Launcher):
         """
         assert self.process is not None
         if self.process.poll() is None:
-            return JobStatus.DISPATCHED
+            return JobStatus.RUNNING
         # -------------------------------------
         # copy SGE job results to log file
         sge_log_path = Path(f"{self.job_spec.log_path}.sge")

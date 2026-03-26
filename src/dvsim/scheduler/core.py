@@ -512,7 +512,7 @@ class Scheduler:
                     status = JobStatus.KILLED
                 level = log.VERBOSE
 
-                if status == JobStatus.DISPATCHED:
+                if status == JobStatus.RUNNING:
                     continue
 
                 if status == JobStatus.PASSED:
@@ -585,8 +585,8 @@ class Scheduler:
             return
 
         self._running[target].append(job_name)
-        self.job_status[job_name] = JobStatus.DISPATCHED
-        self._instrumentation.on_job_status_change(self._jobs[job_name], JobStatus.DISPATCHED)
+        self.job_status[job_name] = JobStatus.RUNNING
+        self._instrumentation.on_job_status_change(self._jobs[job_name], JobStatus.RUNNING)
 
     def _dispatch(self, hms: str) -> None:
         """Dispatch some queued items if possible.

@@ -86,12 +86,12 @@ class SlurmLauncher(Launcher):
         finally:
             self._close_process()
 
-        self._link_odir(JobStatus.DISPATCHED)
+        self._link_odir(JobStatus.RUNNING)
 
     def poll(self) -> JobStatus:
         """Check status of the running process.
 
-        This returns a job status. If DISPATCHED, the job is still running.
+        This returns a job status. If RUNNING, the job is still running.
         If PASSED, the job finished successfully. If FAILED, the job finished
         with an error. If KILLED, it was killed.
 
@@ -100,7 +100,7 @@ class SlurmLauncher(Launcher):
         """
         assert self.process is not None
         if self.process.poll() is None:
-            return JobStatus.DISPATCHED
+            return JobStatus.RUNNING
 
         # Copy slurm job results to log file
         if pathlib.Path(self.slurm_log_file).exists():

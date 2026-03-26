@@ -271,7 +271,7 @@ class LsfLauncher(Launcher):
         for job in LsfLauncher.jobs[cfg][job_name]:
             job.bsub_out = Path(f"{job_script}.{job.index}.out")
             job.job_id = f"{job_id}[{job.index}]"
-            job._link_odir(JobStatus.DISPATCHED)
+            job._link_odir(JobStatus.RUNNING)
 
     def poll(self) -> JobStatus:
         """Poll the status of the job.
@@ -287,7 +287,7 @@ class LsfLauncher(Launcher):
         if not self.bsub_out_fd:
             # If job id is not set, the bsub command has not been sent yet.
             if not self.job_id:
-                return JobStatus.DISPATCHED
+                return JobStatus.RUNNING
 
             # We redirect the job's output to the log file, so the job script
             # output remains empty until the point it finishes. This is a very
@@ -296,10 +296,10 @@ class LsfLauncher(Launcher):
             # created), then the job is still running.
             try:
                 if not self.bsub_out.stat().st_size:
-                    return JobStatus.DISPATCHED
+                    return JobStatus.RUNNING
 
             except FileNotFoundError:
-                return JobStatus.DISPATCHED
+                return JobStatus.RUNNING
 
             # If we got to this point,  we can now open the job script output
             # file for reading.
@@ -371,7 +371,7 @@ class LsfLauncher(Launcher):
             )
             return JobStatus.FAILED
 
-        return JobStatus.DISPATCHED
+        return JobStatus.RUNNING
 
     def _get_job_exit_code(self) -> int | None:
         """Read the job script output to retrieve the exit code.

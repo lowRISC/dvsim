@@ -189,7 +189,7 @@ class MockLauncher(Launcher):
         status = mock.current_status
         if status.ended:
             self.mock_context.update_completed(self.job_spec)
-        elif status == JobStatus.DISPATCHED:
+        elif status == JobStatus.RUNNING:
             self.mock_context.update_running(self.job_spec)
         return status
 
@@ -499,7 +499,7 @@ class TestScheduling:
         """Test that the scheduler will repeatedly poll for a dispatched job."""
         job = job_spec_factory(fxt.tmp_path)
         fxt.mock_ctx.set_config(
-            job, MockJob(status_thresholds=[(0, JobStatus.DISPATCHED), (polls, final_status)])
+            job, MockJob(status_thresholds=[(0, JobStatus.RUNNING), (polls, final_status)])
         )
         result = Scheduler([job], fxt.mock_launcher).run()
         _assert_result_status(result, 1, expected=final_status)
@@ -516,9 +516,7 @@ class TestScheduling:
         for i in range(10):
             fxt.mock_ctx.set_config(
                 jobs[i],
-                MockJob(
-                    status_thresholds=[(0, JobStatus.DISPATCHED), (polls[i], JobStatus.PASSED)]
-                ),
+                MockJob(status_thresholds=[(0, JobStatus.RUNNING), (polls[i], JobStatus.PASSED)]),
             )
         result = Scheduler(jobs, fxt.mock_launcher).run()
         _assert_result_status(result, 10)
@@ -541,7 +539,7 @@ class TestScheduling:
         fxt.mock_ctx.set_config(
             job,
             MockJob(
-                status_thresholds=[(0, JobStatus.DISPATCHED), (10, JobStatus.PASSED)],
+                status_thresholds=[(0, JobStatus.RUNNING), (10, JobStatus.PASSED)],
                 launcher_error=LauncherError("abc"),
             ),
         )
@@ -558,7 +556,7 @@ class TestScheduling:
         fxt.mock_ctx.set_config(
             job,
             MockJob(
-                status_thresholds=[(0, JobStatus.DISPATCHED), (10, JobStatus.PASSED)],
+                status_thresholds=[(0, JobStatus.RUNNING), (10, JobStatus.PASSED)],
                 launcher_busy_error=err_mock,
             ),
         )
@@ -732,9 +730,7 @@ class TestSchedulingStructure:
         for i in range(1, 5):
             fxt.mock_ctx.set_config(
                 jobs[i],
-                MockJob(
-                    status_thresholds=[(0, JobStatus.DISPATCHED), (polls[i], JobStatus.PASSED)]
-                ),
+                MockJob(status_thresholds=[(0, JobStatus.RUNNING), (polls[i], JobStatus.PASSED)]),
             )
         result = Scheduler(jobs, fxt.mock_launcher).run()
         _assert_result_status(result, 5)
@@ -912,11 +908,11 @@ class TestSchedulingPriority:
         # The blockers should take a bit of time, to let the non-blocked jobs progress
         fxt.mock_ctx.set_config(
             short_blocker,
-            MockJob(status_thresholds=[(0, JobStatus.DISPATCHED), (1, JobStatus.PASSED)]),
+            MockJob(status_thresholds=[(0, JobStatus.RUNNING), (1, JobStatus.PASSED)]),
         )
         fxt.mock_ctx.set_config(
             long_blocker,
-            MockJob(status_thresholds=[(0, JobStatus.DISPATCHED), (5, JobStatus.PASSED)]),
+            MockJob(status_thresholds=[(0, JobStatus.RUNNING), (5, JobStatus.PASSED)]),
         )
         result = Scheduler(jobs, fxt.mock_launcher).run()
         _assert_result_status(result, 8)
@@ -960,23 +956,19 @@ class TestSignals:
         jobs = make_many_jobs(tmp_path, 3, ensure_paths_exist=True)
         # When testing non-graceful exits, we make `kill()` hang and send two signals.
         kill_time = None if not repeat else 100.0
-        # Job 0 is permanently "dispatched", it never completes.
-        mock_ctx.set_config(
-            jobs[0], MockJob(default_status=JobStatus.DISPATCHED, kill_time=kill_time)
-        )
+        # Job 0 is permanently "running", it never completes.
+        mock_ctx.set_config(jobs[0], MockJob(default_status=JobStatus.RUNNING, kill_time=kill_time))
         # Job 1 will pass, but after a long time (a large number of polls).
         mock_ctx.set_config(
             jobs[1],
             MockJob(
-                status_thresholds=[(0, JobStatus.DISPATCHED), (1000000000, JobStatus.PASSED)],
+                status_thresholds=[(0, JobStatus.RUNNING), (1000000000, JobStatus.PASSED)],
                 kill_time=kill_time,
             ),
         )
-        # Job 2 is also permanently "dispatched", but will never run due to the
+        # Job 2 is also permanently "running", but will never run due to the
         # max paralellism limit on the launcher. It will instead be cancelled.
-        mock_ctx.set_config(
-            jobs[2], MockJob(default_status=JobStatus.DISPATCHED, kill_time=kill_time)
-        )
+        mock_ctx.set_config(jobs[2], MockJob(default_status=JobStatus.RUNNING, kill_time=kill_time))
         scheduler = Scheduler(jobs, SignalTestMockLauncher)
 
         def _get_signal(sig_received: int, _: FrameType | None) -> None:
