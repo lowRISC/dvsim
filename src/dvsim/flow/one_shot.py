@@ -93,10 +93,9 @@ class OneShotCfg(FlowCfg):
 
             # Set directories with links for ease of debug / triage.
             self.links = {
-                JobStatus.RUNNING: self.scratch_path + "/" + "running",
-                JobStatus.PASSED: self.scratch_path + "/" + "passed",
-                JobStatus.FAILED: self.scratch_path + "/" + "failed",
-                JobStatus.KILLED: self.scratch_path + "/" + "killed",
+                status: f"{self.scratch_path}/{status.name.lower()}"
+                for status in JobStatus
+                if status.ended or status == JobStatus.RUNNING
             }
 
             # Use the default build mode for tests that do not specify it
