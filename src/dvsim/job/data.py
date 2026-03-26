@@ -118,6 +118,12 @@ class JobSpec(BaseModel):
     """regex patterns to match on to determine if the job has failed."""
 
     @property
+    def id(self) -> str:
+        """Returns a string that uniquely identifies this job."""
+        # The full name disambiguates jobs, so `id` is just an alias here.
+        return self.full_name
+
+    @property
     def timeout_secs(self) -> int | None:
         """Returns the timeout applied to the launched job, in seconds."""
         return None if self.timeout_mins is None else self.timeout_mins * 60
