@@ -565,7 +565,7 @@ class RunTest(Deploy):
                 self.run_timeout_mins,
             )
 
-        if build_job is not None:
+        if build_job is not None and not self.sim_cfg.run_only:
             self.dependencies.append(build_job)
 
         # We did something wrong if build_mode is not the same as the build_job
