@@ -231,7 +231,7 @@ class SimCfg(FlowCfg):
             self.links = {
                 status: f"{self.scratch_path}/{status.name.lower()}"
                 for status in JobStatus
-                if status.ended or status == JobStatus.RUNNING
+                if status.is_terminal or status == JobStatus.RUNNING
             }
 
             # Use the default build mode for tests that do not specify it

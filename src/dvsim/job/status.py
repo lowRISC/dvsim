@@ -24,6 +24,6 @@ class JobStatus(Enum):
         return self.name[0]
 
     @property
-    def ended(self) -> bool:
+    def is_terminal(self) -> bool:
         """Whether this status corresponds to some ended job."""
         return self in (JobStatus.PASSED, JobStatus.FAILED, JobStatus.KILLED)

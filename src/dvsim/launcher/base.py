@@ -417,7 +417,7 @@ class Launcher(ABC):
             err_msg: an instance of the named tuple ErrorMessage.
 
         """
-        assert status.ended
+        assert status.is_terminal
         self._link_odir(status)
         log.debug("Item %s has completed execution: %s", self, status.shorthand)
 

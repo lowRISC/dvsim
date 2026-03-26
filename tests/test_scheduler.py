@@ -187,7 +187,7 @@ class MockLauncher(Launcher):
         # Increment the poll count, and update the run state based on the reported status
         mock.poll_count += 1
         status = mock.current_status
-        if status.ended:
+        if status.is_terminal:
             self.mock_context.update_completed(self.job_spec)
         elif status == JobStatus.RUNNING:
             self.mock_context.update_running(self.job_spec)

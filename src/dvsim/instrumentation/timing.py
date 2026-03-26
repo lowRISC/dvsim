@@ -101,7 +101,7 @@ class TimingInstrumentation(SchedulerInstrumentation):
 
         if job_info.start_time is None and status != JobStatus.QUEUED:
             job_info.start_time = time.perf_counter()
-        if status.ended:
+        if status.is_terminal:
             job_info.end_time = time.perf_counter()
 
     def build_report_fragments(self) -> InstrumentationFragments | None:

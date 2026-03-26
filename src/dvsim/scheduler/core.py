@@ -434,7 +434,7 @@ class Scheduler:
                 return False
 
             # Has the dep completed?
-            if not self.job_status[dep].ended:
+            if not self.job_status[dep].is_terminal:
                 return False
 
         return True
@@ -462,7 +462,7 @@ class Scheduler:
                 continue
 
             dep_status = self.job_status[dep_name]
-            if not dep_status.ended:
+            if not dep_status.is_terminal:
                 msg = f"Expected dependent job {dep_name} to be ended, not {dep_status.name}."
                 raise ValueError(msg)
 

@@ -230,7 +230,7 @@ class ResourceInstrumentation(SchedulerInstrumentation):
             if not started and status != JobStatus.QUEUED:
                 self._running_jobs[job_id] = JobResourceAggregate(job)
                 running = True
-            if running and status.ended:
+            if running and status.is_terminal:
                 aggregates = self._running_jobs.pop(job_id)
                 self._finished_jobs[job_id] = aggregates
 
