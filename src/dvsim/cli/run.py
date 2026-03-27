@@ -43,6 +43,7 @@ from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
 from dvsim.launcher.slurm import SlurmLauncher
 from dvsim.logging import LOG_LEVELS, configure_logging, log
+from dvsim.runtime.registry import BackendType, backend_registry
 from dvsim.scheduler.async_status_printer import StatusPrinter
 from dvsim.scheduler.status_printer import get_status_printer
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer, rm_path, run_cmd_with_timeout
@@ -840,6 +841,36 @@ def parse_args(argv: list[str] | None = None):
     return args
 
 
+def set_backend_type(*, is_local: bool = False, fake: bool = False) -> None:
+    """Set the default backend type that will be used to launch jobs (unless overridden).
+
+    The DVSIM_BACKEND/DVSIM_LAUNCHER environment variables are used to identify what
+    backend should be used by default, and is intended to be specific to the user's
+    work site and set externally before invoking DVSim. Selecting a local or fake backend
+    via the command line will override this.
+    """
+    if is_local:
+        backend = "local"
+    elif fake:
+        backend = "fake"
+    else:
+        backend = os.environ.get("DVSIM_BACKEND")
+
+        if backend is None:
+            # Fall back to the legacy launcher environment variable
+            backend = os.environ.get("DVSIM_LAUNCHER", "local")
+
+        if backend not in backend_registry:
+            log.error(
+                "Backend %s set using the DVSIM_BACKEND/DVSIM_LAUNCHER environment variables "
+                "does not exist. Using the local backend instead."
+            )
+            backend = "local"
+
+    # Configure the resolved backend type as the default backend
+    backend_registry.default = BackendType(backend)
+
+
 def main(argv: list[str] | None = None) -> None:
     """DVSim CLI entry point."""
     args = parse_args(argv)
@@ -894,6 +925,9 @@ def main(argv: list[str] | None = None) -> None:
     Launcher.max_odirs = args.max_odirs
     FakeLauncher.max_parallel = args.max_parallel
     set_launcher_type(is_local=args.local, fake=args.fake)
+
+    # Configure the runtime backend. TODO: deprecate `set_launcher_type` above.
+    set_backend_type(is_local=args.local, fake=args.fake)
 
     # Configure scheduler instrumentation
     set_instrumentation(InstrumentationFactory.create(args.instrumentation))
