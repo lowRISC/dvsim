@@ -4,6 +4,8 @@
 
 import time
 
+from dvsim.utils.time import TS_HMS_FORMAT
+
 
 class Timer:
     """A timer to keep track of how long jobs have been running.
@@ -26,11 +28,7 @@ class Timer:
 
     def hms(self) -> str:
         """Get the time since start in hh:mm:ss."""
-        period = self.period()
-        secs = int(period + 0.5)
-        mins = secs // 60
-        hours = mins // 60
-        return f"{hours:02}:{mins % 60:02}:{secs % 60:02}"
+        return time.strftime(TS_HMS_FORMAT, time.gmtime(self.period()))
 
     def check_time(self) -> bool:
         """Return true if we have passed next_print.
