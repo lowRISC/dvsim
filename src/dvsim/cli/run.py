@@ -35,9 +35,6 @@ from dvsim.flow.factory import make_cfg
 from dvsim.instrumentation import InstrumentationFactory, set_instrumentation
 from dvsim.job.deploy import RunTest
 from dvsim.launcher.base import Launcher
-from dvsim.launcher.factory import set_launcher_type
-from dvsim.launcher.fake import FakeLauncher
-from dvsim.launcher.local import LocalLauncher
 from dvsim.launcher.lsf import LsfLauncher
 from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
@@ -917,17 +914,14 @@ def main(argv: list[str] | None = None) -> None:
 
     # Register the common deploy settings.
     StatusPrinter.print_interval = args.print_interval
-    LocalLauncher.max_parallel = args.max_parallel
     SlurmLauncher.max_parallel = args.max_parallel
     SgeLauncher.max_parallel = args.max_parallel
     LsfLauncher.max_parallel = args.max_parallel
     NcLauncher.max_parallel = args.max_parallel
     Launcher.max_odirs = args.max_odirs
     RuntimeBackend.max_output_dirs = args.max_odirs
-    FakeLauncher.max_parallel = args.max_parallel
-    set_launcher_type(is_local=args.local, fake=args.fake)
 
-    # Configure the runtime backend. TODO: deprecate `set_launcher_type` above.
+    # Configure the runtime backend.
     set_backend_type(is_local=args.local, fake=args.fake)
 
     # Configure scheduler instrumentation
