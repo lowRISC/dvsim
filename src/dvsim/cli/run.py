@@ -46,7 +46,7 @@ from dvsim.logging import LOG_LEVELS, configure_logging, log
 from dvsim.runtime.backend import RuntimeBackend
 from dvsim.runtime.registry import BackendType, backend_registry
 from dvsim.scheduler.status_printer import StatusPrinter, get_status_printer
-from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer, rm_path, run_cmd_with_timeout
+from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, rm_path, run_cmd_with_timeout
 
 # The different categories that can be passed to the --list argument.
 _LIST_CATEGORIES = ["build_modes", "run_modes", "tests", "regressions"]
@@ -916,7 +916,6 @@ def main(argv: list[str] | None = None) -> None:
     RunTest.fixed_seed = args.fixed_seed
 
     # Register the common deploy settings.
-    Timer.print_interval = args.print_interval
     StatusPrinter.print_interval = args.print_interval
     LocalLauncher.max_parallel = args.max_parallel
     SlurmLauncher.max_parallel = args.max_parallel
