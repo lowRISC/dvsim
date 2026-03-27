@@ -947,13 +947,14 @@ class CovReport(Deploy):
             If the extraction fails, an appropriate exception is raised, which must
             be caught by the caller to mark the job as a failure.
             """
-            if self.dry_run or status != JobStatus.PASSED:
+            cov_report_path = Path(self.cov_report_txt)
+            if self.dry_run or status != JobStatus.PASSED or not cov_report_path.exists():
                 return
 
             plugin = get_sim_tool_plugin(tool=self._typed_sim_cfg.tool)
 
             results, self.cov_total = plugin.get_cov_summary_table(
-                cov_report_path=Path(self.cov_report_txt),
+                cov_report_path=cov_report_path,
             )
 
             for tup in zip(*results, strict=False):
