@@ -99,7 +99,7 @@ class TimingInstrumentation(SchedulerInstrumentation):
             job_info = TimingJobFragment(job)
             self._jobs[job_id] = job_info
 
-        if job_info.start_time is None and status != JobStatus.QUEUED:
+        if job_info.start_time is None and status not in (JobStatus.SCHEDULED, JobStatus.QUEUED):
             job_info.start_time = time.perf_counter()
         if status.is_terminal:
             job_info.end_time = time.perf_counter()

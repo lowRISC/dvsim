@@ -12,11 +12,14 @@ __all__ = ("JobStatus",)
 class JobStatus(Enum):
     """Status of a Job."""
 
-    QUEUED = auto()
-    RUNNING = auto()
-    PASSED = auto()
-    FAILED = auto()
-    KILLED = auto()
+    # SCHEDULED is currently unused in the old sync scheduler, there `SCHEDULED` and `QUEUED`
+    # are combined under `QUEUED`. It is intended to be used in the new async scheduler.
+    SCHEDULED = auto()  # Waiting for dependencies
+    QUEUED = auto()  # Dependencies satisfied, waiting to be dispatched
+    RUNNING = auto()  # Dispatched to a backend and actively executing
+    PASSED = auto()  # Completed successfully
+    FAILED = auto()  # Completed with failure
+    KILLED = auto()  # Forcibly terminated or never executed
 
     @property
     def shorthand(self) -> str:
