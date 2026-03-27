@@ -91,8 +91,6 @@ class JobSpec(BaseModel):
     """Go through the motions but don't actually run the job."""
     interactive: bool
     """Enable interactive mode."""
-    gui: bool
-    """Enable GUI mode."""
 
     odir: Path
     """Output directory for the job results files."""
