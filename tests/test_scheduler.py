@@ -312,6 +312,7 @@ def job_spec_factory(
         "name": "test_job",
         "job_type": "mock_type",
         "target": "mock_target",
+        "backend": None,
         "seed": None,
         "dependencies": [],
         "needs_all_dependencies_passing": True,
