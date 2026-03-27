@@ -45,8 +45,12 @@ from dvsim.launcher.slurm import SlurmLauncher
 from dvsim.logging import LOG_LEVELS, configure_logging, log
 from dvsim.runtime.registry import BackendType, backend_registry
 from dvsim.scheduler.async_status_printer import StatusPrinter
+from dvsim.scheduler.async_status_printer import get_status_printer as get_async_status_printer
 from dvsim.scheduler.status_printer import get_status_printer
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer, rm_path, run_cmd_with_timeout
+
+# Temporary: set to 1 to enable experimental use of the async scheduler (not yet fully integrated)
+EXPERIMENTAL_ENABLE_ASYNC_SCHEDULER = os.environ.get("EXPERIMENTAL_ENABLE_ASYNC_SCHEDULER", None)
 
 # The different categories that can be passed to the --list argument.
 _LIST_CATEGORIES = ["build_modes", "run_modes", "tests", "regressions"]
@@ -972,8 +976,13 @@ def main(argv: list[str] | None = None) -> None:
         # Now that we have printed the results from the scheduler, we close the
         # status printer, to ensure the status remains relevant in the UI context
         # (for applicable status printers).
-        status_printer = get_status_printer(args.interactive)
-        status_printer.exit()
+        if EXPERIMENTAL_ENABLE_ASYNC_SCHEDULER:
+            if not args.interactive:
+                status_printer = get_async_status_printer()
+                status_printer.exit()
+        else:
+            status_printer = get_status_printer(args.interactive)
+            status_printer.exit()
 
     else:
         log.error("Nothing to run!")
