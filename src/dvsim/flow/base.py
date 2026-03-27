@@ -474,11 +474,28 @@ class FlowCfg(ABC):
             # TODO: introduce a better prioritization function that accounts for timeout
         )
 
+        # Setup instrumentation
+        inst = instrumentation.get()
+        if inst is not None:
+            inst.start()
+
+            # Add instrumentation hooks
+            scheduler.add_run_start_callback(inst.on_scheduler_start)
+            scheduler.add_run_end_callback(inst.on_scheduler_end)
+            scheduler.add_job_status_change_callback(
+                lambda spec, _old, new: inst.on_job_status_change(spec, new)
+            )
+
         # Run the scheduler and cleanup
         try:
             results = await scheduler.run()
         finally:
             await default_backend.close()
+
+        # Finalize instrumentation
+        if inst is not None:
+            inst.stop()
+            instrumentation.flush()
 
         return results
 
