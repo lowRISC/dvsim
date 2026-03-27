@@ -12,6 +12,8 @@ from collections.abc import Sequence
 
 from dvsim.job.data import JobSpec
 from dvsim.job.status import JobStatus
+from dvsim.logging import log
+from dvsim.utils import TS_HMS_FORMAT
 
 
 class StatusPrinter(ABC):
@@ -169,3 +171,55 @@ class StatusPrinter(ABC):
 
     def exit(self) -> None:  # noqa: B027
         """Do cleanup activities before exiting."""
+
+
+class TtyStatusPrinter(StatusPrinter):
+    """Prints the current scheduler target status onto the console / TTY via logging."""
+
+    hms_fmt = "\x1b[1m{hms:9s}\x1b[0m"
+    header_fmt = hms_fmt + " [{target:^13s}]: [{msg}]"
+    status_fmt = header_fmt + " {percent:3.0f}%  {running}"
+
+    def __init__(self, jobs: Sequence[JobSpec]) -> None:
+        """Initialise the TtyStatusPrinter."""
+        super().__init__(jobs)
+
+        # Maintain a mapping of completed targets, so we only print the status one last
+        # time when it reaches 100% for a target.
+        self._target_done: dict[str, bool] = {}
+
+    def _print_header(self) -> None:
+        """Initialize / print the header, displaying the legend of job status meanings."""
+        log.info(self.header_fmt.format(hms="", target="legend", msg=self._get_header()))
+
+    def _init_target(self, target: str, _msg: str) -> None:
+        """Initialize the status bar for a target."""
+        self._target_done[target] = False
+
+    def _trunc_running(self, running: str, width: int = 30) -> str:
+        """Truncate the list of running items to a specified length."""
+        if len(running) <= width:
+            return running
+        return running[: width - 3] + "..."
+
+    def _update_target(self, current_time: float, target: str) -> None:
+        """Update the status bar for a given target."""
+        if self._target_done[target]:
+            return
+        if self.target_is_done(target):
+            self._target_done[target] = True
+
+        status_counts = self._target_counts[target]
+        done_count = sum(status_counts[status] for status in JobStatus if status.is_terminal)
+        percent = (done_count / self._totals[target] * 100) if self._totals[target] else 100
+        elapsed_time = time.gmtime(current_time - self._start_time)
+
+        log.info(
+            self.status_fmt.format(
+                hms=time.strftime(TS_HMS_FORMAT, elapsed_time),
+                target=target,
+                msg=self._get_target_row(target),
+                percent=percent,
+                running=self._trunc_running(", ".join(self._running[target])),
+            ),
+        )
