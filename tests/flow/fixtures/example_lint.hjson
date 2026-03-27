@@ -1,0 +1,50 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+// Example lint flow configuration for integration testing
+{
+  name: aes_dv_lint
+  flow: lint
+
+  // Design under test
+  dut: aes
+
+  // FuseSoC configuration
+  fusesoc_core: lowrisc:dv:aes_sim
+  additional_fusesoc_argument: --mapping=lowrisc:systems:top_earlgrey:0.1
+
+  // Build configuration
+  build_dir: "{scratch_path}/{build_mode}"
+  build_log: "{build_dir}/{tool}.log"
+  build_cmd: fusesoc
+  build_opts: [
+    "--cores-root {proj_root}/hw"
+    "run"
+    "--target={flow}"
+    "--tool={tool}"
+    "--work-root={build_dir}/fusesoc-work"
+  ]
+
+  // Lint configuration
+  is_style_lint: false
+  report_severities: ["info", "warning", "error"]
+  fail_severities: ["warning", "error"]
+
+  // Message bucket configuration
+  message_buckets: [
+    {category: "flow", severity: "info",    label: "Flow Info"}
+    {category: "flow", severity: "warning", label: "Flow Warnings"}
+    {category: "flow", severity: "error",   label: "Flow Errors"}
+    {category: "lint", severity: "info",    label: "Lint Info"}
+    {category: "lint", severity: "warning", label: "Lint Warnings"}
+    {category: "lint", severity: "error",   label: "Lint Errors"}
+  ]
+
+  // Tool configuration
+  tool: ascentlint
+
+  // Paths
+  scratch_path: /tmp/dvsim/scratch
+  rel_path: hw/ip/aes/dv/lint/{tool}
+}

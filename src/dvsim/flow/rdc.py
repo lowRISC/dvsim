@@ -4,7 +4,7 @@
 
 """RDC Configuration Class."""
 
-from dvsim.flow.lint import LintCfg
+from dvsim.linting.flow import LintCfg
 
 
 class RdcCfg(LintCfg):

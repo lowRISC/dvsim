@@ -9,9 +9,9 @@ from dvsim.flow.base import FlowCfg
 from dvsim.flow.cdc import CdcCfg
 from dvsim.flow.formal import FormalCfg
 from dvsim.flow.hjson import load_hjson
-from dvsim.flow.lint import LintCfg
 from dvsim.flow.rdc import RdcCfg
 from dvsim.flow.syn import SynCfg
+from dvsim.linting.flow import LintCfg
 from dvsim.logging import log
 from dvsim.sim.flow import SimCfg
 

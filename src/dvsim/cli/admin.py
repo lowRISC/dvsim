@@ -60,6 +60,28 @@ def dashboard_gen(json_path: Path, output_dir: Path, base_url: str | None) -> No
     )
 
 
+@cli.command()
+@click.argument(
+    "hjson_file",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+)
+def check(hjson_file: Path) -> None:
+    """Check a flow configuration file for validity."""
+    from dvsim.check.flow import check_flow_config  # noqa: PLC0415
+
+    success, message, flow_type = check_flow_config(hjson_file)
+
+    if flow_type:
+        click.echo(f"Flow type: {flow_type}")
+
+    if success:
+        click.secho(f"✓ {message}", fg="green")
+        sys.exit(0)
+    else:
+        click.secho(f"✗ {message}", fg="red")
+        sys.exit(1)
+
+
 @cli.group()
 def report() -> None:
     """Reporting helper commands."""

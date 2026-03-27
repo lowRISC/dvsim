@@ -2,94 +2,96 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Helper class for parsing lint reports into a generic hjson format."""
+"""Parser for lint flow hjson configuration files."""
 
-import re
 from pathlib import Path
 
 import hjson
+from pydantic import ValidationError
+
+from dvsim.linting.config import LintFlowConfig, MessageBucket
 
 
-# TODO(#9079): this class will be refactored so that it can be integrated into
-# the Dvsim core code.
-class LintParser:
-    def __init__(self) -> None:
-        self.buckets = {
-            "flow_info": [],
-            "flow_warning": [],
-            "flow_error": [],
-            "lint_info": [],
-            "lint_warning": [],
-            "lint_error": [],
-            # this bucket is temporary and will be removed at the end of the
-            # parsing pass.
-            "fusesoc-error": [],
-        }
-        self.severities = {
-            "flow_info": "info",
-            "flow_warning": "warning",
-            "flow_error": "error",
-            "lint_info": "info",
-            "lint_warning": "warning",
-            "lint_error": "error",
-        }
+def parse_lint_flow_config(hjson_path: str | Path) -> LintFlowConfig:
+    """Parse a lint flow hjson configuration file.
 
-    def extract_messages(self, log_content: str, patterns: list[str]) -> None:
-        """Extract messages from the string buffer log_content.
+    This function loads an hjson file and validates it against the LintFlowConfig
+    pydantic model. This is a new parser specifically for lint flows and does not
+    modify the existing flow config parsing infrastructure.
 
-        The argument patterns needs to be a list of tuples with
-        (<error_severity>, <pattern_to_match_for>).
+    Args:
+        hjson_path: Path to the hjson configuration file
 
-        A substring that matches two different patterns will be stored in the
-        bucket associated with the first pattern that matches.
-        """
-        # Iterate through all the patterns in reverse order and store hits
-        # against the index of their first character. Doing this in reverse
-        # order means that patterns earlier in the list "win": if two different
-        # patterns match a particular substring, only the bucket of the first
-        # one will end up in the found dict.
-        found = {}
-        for bucket, pattern in reversed(patterns):
-            for m in re.finditer(pattern, log_content, flags=re.MULTILINE):
-                found[m.start()] = (bucket, m.group(0))
+    Returns:
+        LintFlowConfig: Validated lint flow configuration
 
-        # Now that we've ignored duplicate hits, flatten things out into
-        # self.buckets.
-        for bucket, hit in found.values():
-            self.buckets[bucket].append(hit)
+    Raises:
+        FileNotFoundError: If the hjson file doesn't exist
+        ValidationError: If the hjson data doesn't match the expected schema
+        RuntimeError: If there are other errors parsing the hjson
 
-    def get_results(self, args: dict[Path, list[tuple]]) -> dict[str, int]:
-        """Parse report and corresponding logfiles and extract error, warning
-        and info messages for each IP present in the result folder.
-        """
-        # Open all log files
-        for path, patterns in args.items():
-            try:
-                with path.open() as f:
-                    log_content = f.read()
-                    self.extract_messages(log_content, patterns)
-            except OSError as err:
-                self.buckets["flow_error"] += [f"IOError: {err}"]
+    Example:
+        >>> config = parse_lint_flow_config("path/to/lint_cfg.hjson")
+        >>> print(config.name)
+        >>> print(config.report_severities)
 
-        # If there are no errors or warnings, add the "fusesoc-error" field to
-        # "errors" (which will be reported as tooling errors). Remove the
-        # "fusesoc-error" field either way.
-        num_messages = {"info": 0, "warning": 0, "error": 0}
-        for key, sev in self.severities.items():
-            num_messages[sev] += len(self.buckets[key])
-        if num_messages["error"] == 0 and num_messages["warning"] == 0:
-            self.buckets["flow_error"] = self.buckets["fusesoc-error"]
-        del self.buckets["fusesoc-error"]
+    """
+    hjson_path = Path(hjson_path)
 
-        return num_messages
+    if not hjson_path.exists():
+        msg = f"Configuration file not found: {hjson_path}"
+        raise FileNotFoundError(msg)
 
-    def write_results_as_hjson(self, outpath: Path) -> None:
-        with outpath.open("w") as results_file:
-            # Construct results dict for Hjson file.
-            hjson.dump(
-                self.buckets,
-                results_file,
-                ensure_ascii=False,
-                for_json=True,
-                use_decimal=True,
-            )
+    # Parse the hjson file using hjson library directly
+    try:
+        with hjson_path.open() as f:
+            hjson_data = hjson.load(f, use_decimal=True)
+    except hjson.HjsonDecodeError as e:
+        msg = f"Failed to parse hjson file {hjson_path}: {e}"
+        raise RuntimeError(msg) from e
+    except OSError as e:
+        msg = f"Failed to read hjson file {hjson_path}: {e}"
+        raise RuntimeError(msg) from e
+
+    # Validate against the pydantic model
+    try:
+        # Convert message_buckets from list of dicts to list of MessageBucket objects
+        if "message_buckets" in hjson_data:
+            hjson_data["message_buckets"] = [
+                MessageBucket(**bucket) if isinstance(bucket, dict) else bucket
+                for bucket in hjson_data["message_buckets"]
+            ]
+
+        return LintFlowConfig(**hjson_data)
+    except ValidationError as e:
+        msg = f"Configuration validation failed for {hjson_path}:\n{e}"
+        raise RuntimeError(msg) from e
+
+
+def load_lint_config_from_dict(config_dict: dict) -> LintFlowConfig:
+    """Load a lint flow configuration from a dictionary.
+
+    This is useful for loading inline configurations or for testing.
+
+    Args:
+        config_dict: Dictionary containing lint flow configuration
+
+    Returns:
+        LintFlowConfig: Validated lint flow configuration
+
+    Raises:
+        ValidationError: If the dictionary doesn't match the expected schema
+
+    Example:
+        >>> config_dict = {"name": "test_lint", "flow": "lint"}
+        >>> config = load_lint_config_from_dict(config_dict)
+
+    """
+    # Convert message_buckets if present
+    if "message_buckets" in config_dict:
+        config_dict["message_buckets"] = [
+            MessageBucket(**bucket) if isinstance(bucket, dict) else bucket
+            for bucket in config_dict["message_buckets"]
+        ]
+
+    return LintFlowConfig(**config_dict)
