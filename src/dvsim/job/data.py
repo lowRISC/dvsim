@@ -54,6 +54,11 @@ class JobSpec(BaseModel):
     target: str
     """run phase [build, run, ...]"""
 
+    backend: str | None
+    """The runtime backend to execute this job with. If not provided (None), this
+    indicates that whatever is configured as the 'default' backend should be used.
+    """
+
     seed: int | None
     """Seed if there is one."""
 
