@@ -4,7 +4,9 @@
 
 """Job status printing during a scheduled run."""
 
+import os
 import sys
+import termios
 from collections.abc import Sequence
 from typing import ClassVar
 
@@ -211,6 +213,32 @@ class EnlightenStatusPrinter(TtyStatusPrinter):
         if not self._stopped:
             self.stop()
         self.manager.stop()
+        # Sometimes, exiting via a signal (e.g. Ctrl-C) can cause Enlighten to leave the
+        # terminal in some non-raw mode. Just in case, restore regular operation.
+        self._restore_terminal()
+
+    def _restore_terminal(self) -> None:
+        """Restore regular terminal operation after using Enlighten."""
+        # Try open /dev/tty, otherwise fallback to sys.stdin
+        try:
+            fd = os.open("/dev/tty", os.O_RDWR)
+            close_fd = True
+        except (OSError, termios.error):
+            fd = sys.stdin.fileno()
+            close_fd = False
+
+        # By default, the terminal should echo input (ECHO) and run in canonical mode (ICANON).
+        # We make this change after all buffered output is transmitted (TCSADRAIN).
+        try:
+            attrs = termios.tcgetattr(fd)
+            control_flag = 3
+            attrs[control_flag] |= termios.ECHO | termios.ICANON
+            termios.tcsetattr(fd, termios.TCSADRAIN, attrs)
+        except termios.error:
+            log.debug("Unable to restore terminal attributes safely")
+
+        if close_fd:
+            os.close(fd)
 
 
 class StatusPrinterSingleton:
