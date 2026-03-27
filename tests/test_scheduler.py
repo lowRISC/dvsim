@@ -487,11 +487,18 @@ class TestScheduling:
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize("num_jobs", [5, 10, 20])
     @pytest.mark.parametrize("max_parallel", [1, 5, 15, 25])
-    async def test_max_parallel(fxt: Fxt, num_jobs: int, max_parallel: int) -> None:
-        """Test that max parallel limits of launchers are used & respected."""
+    @pytest.mark.parametrize("on_scheduler", [True, False])
+    async def test_max_parallel(
+        fxt: Fxt, num_jobs: int, max_parallel: int, *, on_scheduler: bool
+    ) -> None:
+        """Test that max parallel limits of launchers & the scheduler are used & respected."""
         jobs = make_many_jobs(fxt.tmp_path, num_jobs)
-        fxt.mock_legacy_backend.max_parallelism = max_parallel
-        scheduler = Scheduler(jobs, fxt.backends, MOCK_BACKEND)
+        if on_scheduler:
+            fxt.mock_legacy_backend.max_parallelism = 0
+            scheduler = Scheduler(jobs, fxt.backends, MOCK_BACKEND, max_parallelism=max_parallel)
+        else:
+            fxt.mock_legacy_backend.max_parallelism = max_parallel
+            scheduler = Scheduler(jobs, fxt.backends, MOCK_BACKEND)
         assert_that(fxt.mock_ctx.max_concurrent, equal_to(0))
         result = await scheduler.run()
         _assert_result_status(result, num_jobs)
@@ -893,16 +900,22 @@ class TestSchedulingPriority:
         assert_that(fxt.mock_ctx.order_started[0], equal_to(start_job))
         assert_that(fxt.mock_ctx.order_started[-1], equal_to(high))
 
-    # TODO: we do not currently test the logic to schedule multiple queued jobs per target
-    # across different targets based on the weights of those jobs/targets, because this
-    # will require the test to be quite complex and specific to the intricacies of the
-    # current DVSim scheduler due to the current implementation. Due to only one successor
-    # in another target being discovered at once, we must carefully construct a dependency
-    # tree of jobs with specially modelled delays which relies on this implementation
-    # detail. Instead, for now at least, we leave this untested.
-    #
-    # Note also that DVSim currently assumes weights within a target are constant,
-    # which may not be the case with the current JobSpec model.
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    async def test_custom_priority(fxt: Fxt) -> None:
+        """Test that a custom prioritization function can be given to and used by the scheduler."""
+        jobs = make_many_jobs(
+            fxt.tmp_path, n=5, per_job=lambda n: {"name": str(n), "weight": n + 1}
+        )
+        # Prioritizes jobs via their names (lower names have higher priority, so come first).
+        # So jobs should be scheduled in the order created, instead of the opposite default order
+        # by decreasing weight.
+        result = await Scheduler(
+            jobs, fxt.backends, MOCK_BACKEND, priority_fn=lambda job: -int(job.spec.name)
+        ).run()
+        _assert_result_status(result, len(jobs))
+        assert_that(fxt.mock_ctx.order_started, equal_to(jobs))
 
 
 class TestSignals:
