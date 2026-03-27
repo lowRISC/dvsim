@@ -23,37 +23,10 @@ from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
 from dvsim.report.data import IPMeta, ToolMeta
-from dvsim.scheduler.core import Scheduler
+from dvsim.runtime.legacy import LegacyLauncherAdapter
+from dvsim.scheduler.async_core import Scheduler
 
 __all__ = ()
-
-# Common reasoning for expected failures to avoid duplication across tests.
-# Ideally these will be removed as incorrect behaviour is fixed.
-FAIL_DEP_ON_MULTIPLE_TARGETS = """
-DVSim cannot handle dependency fan-in (i.e. depending on jobs) across multiple targets.
-
-Specifically, when all successors of the first target are initially enqueued, they are
-removed from the `scheduled` queues. If any item in another target then also depends
-on those items (i.e. across *another* target), then the completion of these items will
-in turn attempt to enqueue their own successors, which cannot be found as they are no
-longer present in the `scheduled` queues.
-"""
-FAIL_DEPS_ACROSS_MULTIPLE_TARGETS = (
-    "DVSim cannot handle dependency fan-out across multiple targets."
-)
-FAIL_DEPS_ACROSS_NON_CONSECUTIVE_TARGETS = (
-    "DVSim cannot handle dependencies that span non-consecutive (non-adjacent) targets."
-)
-FAIL_IF_NO_DEPS_WITHOUT_ALL_DEPS_NEEDED = """
-Current DVSim has a strange behaviour where a job with no dependencies is dispatched if it is
-marked as needing all its dependencies to pass, but fails (i.e. is killed) if it is marked as
-*not* needing all of its dependencies.
-"""
-FAIL_DEP_OUT_OF_ORDER = """
-DVSim cannot handle jobs given in an order that define dependencies and targets such that, to
-resolve the jobs according to those dependencies, the targets must be processed in a different
-order to the ordering of the jobs.
-"""
 
 
 # Default scheduler test timeout to handle infinite loops in the scheduler
@@ -170,7 +143,7 @@ class MockLauncher(Launcher):
             if mock.launcher_error:
                 raise mock.launcher_error
             status = mock.current_status
-            if status == JobStatus.QUEUED:
+            if status in (JobStatus.SCHEDULED, JobStatus.QUEUED):
                 return  # Do not mark as running if still mocking a queued status.
         self.mock_context.update_running(self.job_spec)
 
@@ -226,6 +199,20 @@ def mock_launcher(mock_ctx: MockLauncherContext) -> type[MockLauncher]:
     return TestMockLauncher
 
 
+# TODO: we should implement mock runtime backends now that we can give different
+# job runtime backends, rather than going through the mock_ctx and mock_launcher
+# interfaces. For now, to keep things simple, simply wrap the legacy mock backend
+# in the adapter interface. There is value in testing this as well, but ideally we
+# also want to test a native mocked runtime backend.
+@pytest.fixture
+def mock_legacy_backend(mock_launcher: type[MockLauncher]) -> LegacyLauncherAdapter:
+    """Legacy runtime backend for the mock launcher."""
+    return LegacyLauncherAdapter(mock_launcher)
+
+
+MOCK_BACKEND: str = "legacy"
+
+
 @dataclass
 class Fxt:
     """Collection of fixtures used for mocking and testing the scheduler."""
@@ -233,12 +220,23 @@ class Fxt:
     tmp_path: Path
     mock_ctx: MockLauncherContext
     mock_launcher: type[MockLauncher]
+    mock_legacy_backend: LegacyLauncherAdapter
+
+    @property
+    def backends(self) -> dict[str, LegacyLauncherAdapter]:
+        """Get a backend mapping for the mocked legacy backend."""
+        return {MOCK_BACKEND: self.mock_legacy_backend}
 
 
 @pytest.fixture
-def fxt(tmp_path: Path, mock_ctx: MockLauncherContext, mock_launcher: type[MockLauncher]) -> Fxt:
+def fxt(
+    tmp_path: Path,
+    mock_ctx: MockLauncherContext,
+    mock_launcher: type[MockLauncher],
+    mock_legacy_backend: LegacyLauncherAdapter,
+) -> Fxt:
     """Fixtures used for mocking and testing the scheduler."""
-    return Fxt(tmp_path, mock_ctx, mock_launcher)
+    return Fxt(tmp_path, mock_ctx, mock_launcher, mock_legacy_backend)
 
 
 def ip_meta_factory(**overrides: str | None) -> IPMeta:
@@ -293,7 +291,7 @@ def make_job_paths(
     log = root / "log.txt"
     statuses = {}
     for status in JobStatus:
-        if status == JobStatus.QUEUED:
+        if status in (JobStatus.SCHEDULED, JobStatus.QUEUED):
             continue
         status_dir = output / status.name.lower()
         statuses[status] = status_dir
@@ -427,31 +425,35 @@ class TestScheduling:
     """Unit tests for the scheduling decisions of the scheduler."""
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_empty(fxt: Fxt) -> None:
+    async def test_empty(fxt: Fxt) -> None:
         """Test that the scheduler can handle being given no jobs."""
-        result = Scheduler([], fxt.mock_launcher).run()
+        result = await Scheduler([], fxt.backends, MOCK_BACKEND).run()
         assert_that(result, empty())
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_job_run(fxt: Fxt) -> None:
+    async def test_job_run(fxt: Fxt) -> None:
         """Small smoketest that the scheduler can actually run a valid job."""
         job = job_spec_factory(fxt.tmp_path)
-        result = Scheduler([job], fxt.mock_launcher).run()
+        result = await Scheduler([job], fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, 1)
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_many_jobs_run(fxt: Fxt) -> None:
+    async def test_many_jobs_run(fxt: Fxt) -> None:
         """Smoketest that the scheduler can run multiple valid jobs."""
         job_specs = make_many_jobs(fxt.tmp_path, n=5)
-        result = Scheduler(job_specs, fxt.mock_launcher).run()
+        result = await Scheduler(job_specs, fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, 5)
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_duplicate_jobs(fxt: Fxt) -> None:
+    async def test_duplicate_jobs(fxt: Fxt) -> None:
         """Test that the scheduler does not double-schedule jobs with duplicate names."""
         workspace = build_workspace(fxt.tmp_path)
         job_specs = make_many_jobs(fxt.tmp_path, n=3, workspace=workspace)
@@ -459,7 +461,7 @@ class TestScheduling:
         for _ in range(10):
             job_specs.append(job_spec_factory(fxt.tmp_path, name="extra_job"))
             job_specs.append(job_spec_factory(fxt.tmp_path, name="extra_job_2"))
-        result = Scheduler(job_specs, fxt.mock_launcher).run()
+        result = await Scheduler(job_specs, fxt.backends, MOCK_BACKEND).run()
         # Current behaviour expects duplicate jobs to be *silently ignored*.
         # We should therefore have 3 + 3 + 2 = 8 jobs.
         _assert_result_status(result, 8)
@@ -468,50 +470,54 @@ class TestScheduling:
         assert_that(len(names), equal_to(len(set(names))))
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize("num_jobs", [2, 3, 5, 10, 20, 100])
-    def test_parallel_dispatch(fxt: Fxt, num_jobs: int) -> None:
+    async def test_parallel_dispatch(fxt: Fxt, num_jobs: int) -> None:
         """Test that many jobs can be dispatched in parallel."""
         jobs = make_many_jobs(fxt.tmp_path, num_jobs)
-        scheduler = Scheduler(jobs, fxt.mock_launcher)
+        scheduler = Scheduler(jobs, fxt.backends, MOCK_BACKEND)
         assert_that(fxt.mock_ctx.max_concurrent, equal_to(0))
-        result = scheduler.run()
+        result = await scheduler.run()
         _assert_result_status(result, num_jobs)
         assert_that(fxt.mock_ctx.max_concurrent, equal_to(num_jobs))
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize("num_jobs", [5, 10, 20])
     @pytest.mark.parametrize("max_parallel", [1, 5, 15, 25])
-    def test_max_parallel(fxt: Fxt, num_jobs: int, max_parallel: int) -> None:
+    async def test_max_parallel(fxt: Fxt, num_jobs: int, max_parallel: int) -> None:
         """Test that max parallel limits of launchers are used & respected."""
         jobs = make_many_jobs(fxt.tmp_path, num_jobs)
-        fxt.mock_launcher.max_parallel = max_parallel
-        scheduler = Scheduler(jobs, fxt.mock_launcher)
+        fxt.mock_legacy_backend.max_parallelism = max_parallel
+        scheduler = Scheduler(jobs, fxt.backends, MOCK_BACKEND)
         assert_that(fxt.mock_ctx.max_concurrent, equal_to(0))
-        result = scheduler.run()
+        result = await scheduler.run()
         _assert_result_status(result, num_jobs)
         assert_that(fxt.mock_ctx.max_concurrent, equal_to(min(num_jobs, max_parallel)))
 
     @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize("polls", [5, 10, 50])
     @pytest.mark.parametrize("final_status", [JobStatus.PASSED, JobStatus.FAILED, JobStatus.KILLED])
-    @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_repeated_poll(fxt: Fxt, polls: int, final_status: JobStatus) -> None:
+    async def test_repeated_poll(fxt: Fxt, polls: int, final_status: JobStatus) -> None:
         """Test that the scheduler will repeatedly poll for a dispatched job."""
         job = job_spec_factory(fxt.tmp_path)
         fxt.mock_ctx.set_config(
             job, MockJob(status_thresholds=[(0, JobStatus.RUNNING), (polls, final_status)])
         )
-        result = Scheduler([job], fxt.mock_launcher).run()
+        result = await Scheduler([job], fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, 1, expected=final_status)
         config = fxt.mock_ctx.get_config(job)
         if config is not None:
             assert_that(config.poll_count, equal_to(polls))
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_no_over_poll(fxt: Fxt) -> None:
+    async def test_no_over_poll(fxt: Fxt) -> None:
         """Test that the schedule stops polling when it sees `PASSED`, and does not over-poll."""
         jobs = make_many_jobs(fxt.tmp_path, 10)
         polls = [(i + 1) * 10 for i in range(10)]
@@ -520,7 +526,7 @@ class TestScheduling:
                 jobs[i],
                 MockJob(status_thresholds=[(0, JobStatus.RUNNING), (polls[i], JobStatus.PASSED)]),
             )
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, 10)
         # Check we do not unnecessarily over-poll the jobs
         for i in range(10):
@@ -529,13 +535,8 @@ class TestScheduling:
                 assert_that(config.poll_count, equal_to(polls[i]))
 
     @staticmethod
-    @pytest.mark.xfail(
-        reason="DVSim currently errors on this case. When DVSim dispatches and thus launches a"
-        " job, it is only set to running after the launch. If a launcher error occurs, it"
-        " immediately invokes `_kill_item` which tries to remove it from the list of running jobs"
-        " (where it does not exist)."
-    )
-    def test_launcher_error(fxt: Fxt) -> None:
+    @pytest.mark.asyncio
+    async def test_launcher_error(fxt: Fxt) -> None:
         """Test that the launcher correctly handles an error during job launching."""
         job = job_spec_factory(fxt.tmp_path, paths=make_job_paths(fxt.tmp_path, ensure_exists=True))
         fxt.mock_ctx.set_config(
@@ -545,13 +546,14 @@ class TestScheduling:
                 launcher_error=LauncherError("abc"),
             ),
         )
-        result = Scheduler([job], fxt.mock_launcher).run()
+        result = await Scheduler([job], fxt.backends, MOCK_BACKEND).run()
         # On a launcher error, the job has failed and should be killed.
         _assert_result_status(result, 1, expected=JobStatus.KILLED)
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.parametrize("busy_polls", [1, 2, 5, 10])
-    def test_launcher_busy_error(fxt: Fxt, busy_polls: int) -> None:
+    async def test_launcher_busy_error(fxt: Fxt, busy_polls: int) -> None:
         """Test that the launcher correctly handles the launcher busy case."""
         job = job_spec_factory(fxt.tmp_path)
         err_mock = (busy_polls, LauncherBusyError("abc"))
@@ -562,7 +564,7 @@ class TestScheduling:
                 launcher_busy_error=err_mock,
             ),
         )
-        result = Scheduler([job], fxt.mock_launcher).run()
+        result = await Scheduler([job], fxt.backends, MOCK_BACKEND).run()
         # We expect to have successfully launched and ran, eventually.
         _assert_result_status(result, 1)
         # Check that the scheduler tried to `launch()` the correct number of times.
@@ -578,25 +580,17 @@ class TestSchedulingStructure:
     """
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    @pytest.mark.parametrize(
-        "needs_all_passing",
-        [
-            True,
-            pytest.param(
-                False,
-                marks=pytest.mark.xfail(reason=FAIL_IF_NO_DEPS_WITHOUT_ALL_DEPS_NEEDED),
-            ),
-        ],
-    )
-    def test_no_deps(fxt: Fxt, *, needs_all_passing: bool) -> None:
+    @pytest.mark.parametrize("needs_all_passing", [True, False])
+    async def test_no_deps(fxt: Fxt, *, needs_all_passing: bool) -> None:
         """Tests scheduling of jobs without any listed dependencies."""
         job = job_spec_factory(fxt.tmp_path, needs_all_dependencies_passing=needs_all_passing)
-        result = Scheduler([job], fxt.mock_launcher).run()
+        result = await Scheduler([job], fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, 1)
 
     @staticmethod
-    def _dep_test_case(
+    async def _dep_test_case(
         fxt: Fxt,
         dep_list: dict[int, list[int]],
         passes: list[int],
@@ -612,7 +606,7 @@ class TestSchedulingStructure:
         )
         fxt.mock_ctx.set_config(jobs[2], MockJob(default_status=JobStatus.FAILED))
         fxt.mock_ctx.set_config(jobs[4], MockJob(default_status=JobStatus.FAILED))
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         assert_that(len(result), equal_to(5))
         for job in range(5):
             if job in passes:
@@ -624,9 +618,7 @@ class TestSchedulingStructure:
             assert_that(result[job].status, equal_to(expected))
 
     @staticmethod
-    @pytest.mark.xfail(
-        reason=FAIL_DEP_ON_MULTIPLE_TARGETS + " " + FAIL_IF_NO_DEPS_WITHOUT_ALL_DEPS_NEEDED
-    )
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize(
         ("dep_list", "passes"),
@@ -638,16 +630,16 @@ class TestSchedulingStructure:
             ({0: [1, 2, 3, 4]}, [0, 1, 3]),
         ],
     )
-    def test_needs_any_dep(
+    async def test_needs_any_dep(
         fxt: Fxt,
         dep_list: dict[int, list[int]],
         passes: list[int],
     ) -> None:
         """Tests scheduling of jobs with dependencies that don't need all passing."""
-        TestSchedulingStructure._dep_test_case(fxt, dep_list, passes, all_passing=False)
+        await TestSchedulingStructure._dep_test_case(fxt, dep_list, passes, all_passing=False)
 
     @staticmethod
-    @pytest.mark.xfail(reason=FAIL_DEP_ON_MULTIPLE_TARGETS)
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize(
         ("dep_list", "passes"),
@@ -660,19 +652,16 @@ class TestSchedulingStructure:
             ({1: [0, 2, 3, 4]}, [0, 3]),
         ],
     )
-    def test_needs_all_deps(
+    async def test_needs_all_deps(
         fxt: Fxt,
         dep_list: dict[int, list[int]],
         passes: list[int],
     ) -> None:
         """Tests scheduling of jobs with dependencies that need all passing."""
-        TestSchedulingStructure._dep_test_case(fxt, dep_list, passes, all_passing=True)
+        await TestSchedulingStructure._dep_test_case(fxt, dep_list, passes, all_passing=True)
 
     @staticmethod
-    @pytest.mark.xfail(
-        reason="DVSim does not currently have logic to detect and error on"
-        "dependency cycles within provided job specifications."
-    )
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize(
         ("dep_list"),
@@ -684,19 +673,18 @@ class TestSchedulingStructure:
             {0: [1, 2, 3, 4], 1: [2, 3, 4], 2: [3, 4], 3: [4], 4: [0]},
         ],
     )
-    def test_dep_cycle(fxt: Fxt, dep_list: dict[int, list[int]]) -> None:
+    async def test_dep_cycle(fxt: Fxt, dep_list: dict[int, list[int]]) -> None:
         """Test that the scheduler can detect and handle cycles in dependencies."""
         jobs = make_many_jobs(fxt.tmp_path, 5, interdeps=dep_list)
         # Expect that we get a ValueError when trying to make the scheduler,
         # due to the cycle(s) in the dependencies
         assert_that(
-            calling(Scheduler).with_args(jobs, fxt.mock_launcher), raises(ValueError, "cycle")
+            calling(Scheduler).with_args(jobs, fxt.backends, MOCK_BACKEND),
+            raises(ValueError, "cycle"),
         )
 
     @staticmethod
-    @pytest.mark.xfail(
-        reason=FAIL_DEP_ON_MULTIPLE_TARGETS + " " + FAIL_DEPS_ACROSS_MULTIPLE_TARGETS
-    )
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize(
         ("dep_list"),
@@ -707,34 +695,25 @@ class TestSchedulingStructure:
             {0: [1, 2, 3, 4], 1: [2], 3: [2, 4], 4: [2]},
         ],
     )
-    def test_dep_resolution(fxt: Fxt, dep_list: dict[int, list[int]]) -> None:
+    async def test_dep_resolution(fxt: Fxt, dep_list: dict[int, list[int]]) -> None:
         """Test that the scheduler can correctly resolve complex job dependencies."""
         jobs = make_many_jobs(fxt.tmp_path, 5, interdeps=dep_list)
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, 5)
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_deps_across_polls(fxt: Fxt) -> None:
+    async def test_deps_across_polls(fxt: Fxt) -> None:
         """Test that the scheduler can resolve multiple deps that complete at different times."""
-        jobs = make_many_jobs(fxt.tmp_path, 4)
-        # For now, define the end job separately so that we can put it in a different target
-        # but keep the other jobs in the same target (to circumvent FAIL_DEP_ON_MULTIPLE_TARGETS).
-        jobs.append(
-            job_spec_factory(
-                fxt.tmp_path,
-                name="end",
-                dependencies=[job.name for job in jobs],
-                target="end_target",
-            )
-        )
+        jobs = make_many_jobs(fxt.tmp_path, 5, interdeps={4: [0, 1, 2, 3]})
         polls = [i * 5 for i in range(5)]
         for i in range(1, 5):
             fxt.mock_ctx.set_config(
                 jobs[i],
                 MockJob(status_thresholds=[(0, JobStatus.RUNNING), (polls[i], JobStatus.PASSED)]),
             )
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, 5)
         # Sanity check that we did poll each job the correct number of times as well
         for i in range(1, 5):
@@ -743,101 +722,93 @@ class TestSchedulingStructure:
                 assert_that(config.poll_count, equal_to(polls[i]))
 
     @staticmethod
-    @pytest.mark.xfail(
-        reason="DVSim currently implicitly assumes that job with/in other targets"
-        " will be reachable (i.e. transitive) dependencies of jobs in the first target."
-    )
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_multiple_targets(fxt: Fxt) -> None:
+    async def test_multiple_targets(fxt: Fxt) -> None:
         """Test that the scheduler can handle jobs across many targets."""
         # Create 15 jobs across 5 targets (3 jobs per target), with no dependencies.
         jobs = make_many_jobs(fxt.tmp_path, 15, per_job=lambda i: {"target": f"target_{i // 3}"})
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, 15)
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize("num_deps", range(2, 6))
-    def test_cross_target_deps(fxt: Fxt, num_deps: int) -> None:
+    async def test_cross_target_deps(fxt: Fxt, num_deps: int) -> None:
         """Test that the scheduler can handle dependencies across targets."""
         deps = {i: [i - 1] for i in range(1, num_deps)}
         jobs = make_many_jobs(fxt.tmp_path, num_deps, interdeps=deps, vary_targets=True)
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, num_deps)
 
     @staticmethod
-    @pytest.mark.xfail(reason=FAIL_DEP_ON_MULTIPLE_TARGETS)
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize("num_deps", range(2, 6))
-    def test_dep_fan_in(fxt: Fxt, num_deps: int) -> None:
+    async def test_dep_fan_in(fxt: Fxt, num_deps: int) -> None:
         """Test that job dependencies can fan-in from multiple other jobs."""
         num_jobs = num_deps + 1
         deps = {0: list(range(1, num_jobs))}
         jobs = make_many_jobs(fxt.tmp_path, num_jobs, interdeps=deps)
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, num_jobs)
 
     @staticmethod
-    @pytest.mark.xfail(reason=FAIL_DEPS_ACROSS_MULTIPLE_TARGETS)
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize("num_deps", range(2, 6))
-    def test_dep_fan_out(fxt: Fxt, num_deps: int) -> None:
+    async def test_dep_fan_out(fxt: Fxt, num_deps: int) -> None:
         """Test that job dependencies can fan-out to multiple other jobs."""
         num_jobs = num_deps + 1
         deps = {i: [num_deps] for i in range(num_deps)}
         jobs = make_many_jobs(fxt.tmp_path, num_jobs, interdeps=deps, vary_targets=True)
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, num_jobs)
 
     @staticmethod
-    @pytest.mark.xfail(reason=FAIL_DEPS_ACROSS_NON_CONSECUTIVE_TARGETS)
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_non_consecutive_targets(fxt: Fxt) -> None:
+    async def test_non_consecutive_targets(fxt: Fxt) -> None:
         """Test that jobs can have non-consecutive dependencies (deps in non-adjacent targets)."""
         jobs = make_many_jobs(fxt.tmp_path, 4, interdeps={3: [0]}, vary_targets=True)
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, 4)
 
     @staticmethod
-    @pytest.mark.xfail(reason=FAIL_DEP_OUT_OF_ORDER)
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_target_out_of_order(fxt: Fxt) -> None:
+    async def test_target_out_of_order(fxt: Fxt) -> None:
         """Test that the scheduler can handle targets being given out-of-dependency-order."""
         jobs = make_many_jobs(fxt.tmp_path, 4, interdeps={1: [0], 2: [3]}, vary_targets=True)
         # First test jobs 0 and 1 (0 -> 1). Then test jobs 2 and 3 (2 <- 3).
         for order in (jobs[:2], jobs[2:]):
-            result = Scheduler(order, fxt.mock_launcher).run()
+            result = await Scheduler(order, fxt.backends, MOCK_BACKEND).run()
             _assert_result_status(result, 2)
 
-    # TODO: it isn't clear if this is a feature that DVSim should actually support.
-    # If Job specifications can form any DAG where targets are essentially just vertex
-    # labels/groups, then it makes sense that we can support a target-/layer-annotated
-    # specification with "bi-directional" edges. If layers are structural and intended
-    # to be monotonically increasing, this test should be changed / removed. For now,
-    # we test as if the former is the intended behaviour.
     @staticmethod
-    @pytest.mark.xfail(reason="DVSim cannot currently handle this case.")
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_bidirectional_deps(fxt: Fxt) -> None:
+    async def test_bidirectional_deps(fxt: Fxt) -> None:
         """Test that the scheduler handles bidirectional cross-target deps."""
         # job_0 (target_0) -> job_1 (target_1) -> job_2 (target_0)
         targets = ["target_0", "target_1", "target_0"]
         jobs = make_many_jobs(
             fxt.tmp_path, 3, interdeps={0: [1], 1: [2]}, per_job=lambda i: {"target": targets[i]}
         )
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, 3)
 
     @staticmethod
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize("error_status", [JobStatus.FAILED, JobStatus.KILLED])
-    def test_dep_fail_propagation(fxt: Fxt, error_status: JobStatus) -> None:
+    async def test_dep_fail_propagation(fxt: Fxt, error_status: JobStatus) -> None:
         """Test that failures in job dependencies propagate."""
-        # Note: job order is due to working around FAIL_DEP_OUT_OF_ORDER.
         deps = {i: [i - 1] for i in range(1, 5)}
-        jobs = make_many_jobs(fxt.tmp_path, n=5, interdeps=deps, vary_targets=True)
+        jobs = make_many_jobs(fxt.tmp_path, n=5, interdeps=deps)
         fxt.mock_ctx.set_config(jobs[0], MockJob(default_status=error_status))
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         assert_that(len(result), equal_to(5))
         # The job that we configured to error should show the error status
         assert_that(result[0].status, equal_to(error_status))
@@ -849,12 +820,10 @@ class TestSchedulingPriority:
     """Unit tests for scheduler decisions related to job/target weighting/priority."""
 
     @staticmethod
-    @pytest.mark.xfail(
-        reason=FAIL_DEPS_ACROSS_MULTIPLE_TARGETS + " " + FAIL_DEPS_ACROSS_NON_CONSECUTIVE_TARGETS
-    )
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_job_priority(fxt: Fxt) -> None:
-        """Test that jobs across targets are prioritised according to their weight."""
+    async def test_job_priority(fxt: Fxt) -> None:
+        """Test that jobs across targets are prioritised according to their weight by default."""
         start_job = job_spec_factory(fxt.tmp_path, name="start")
         weighted_jobs = make_many_jobs(
             fxt.tmp_path,
@@ -867,28 +836,26 @@ class TestSchedulingPriority:
         by_weight_dec = sorted(weighted_jobs, key=lambda job: job.weight, reverse=True)
         # Set max parallel = 1 so that order dispatched becomes the priority order
         # With max parallel > 1, jobs of many priorities are dispatched "at once".
-        fxt.mock_launcher.max_parallel = 1
-        result = Scheduler(jobs, fxt.mock_launcher).run()
+        fxt.mock_legacy_backend.max_parallelism = 1
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, len(jobs))
         expected_order = [start_job, *by_weight_dec]
         assert_that(fxt.mock_ctx.order_started, equal_to(expected_order))
 
     @staticmethod
-    @pytest.mark.xfail(reason="DVSim does not handle zero weights.")
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_zero_weight(fxt: Fxt) -> None:
+    async def test_zero_weight(fxt: Fxt) -> None:
         """Test that the scheduler can handle the case where jobs have a total weight of zero."""
         jobs = make_many_jobs(fxt.tmp_path, 5, weight=0)
-        result = Scheduler(jobs, fxt.mock_launcher).run()
-        # TODO: not clear if this should evenly distribute and succeed, or error.
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND).run()
+        # Zero weight should just mark a job as the lowest priority, but the jobs should still run.
         _assert_result_status(result, 5)
 
     @staticmethod
-    @pytest.mark.xfail(
-        reason=FAIL_DEPS_ACROSS_MULTIPLE_TARGETS + " " + FAIL_DEPS_ACROSS_NON_CONSECUTIVE_TARGETS
-    )
+    @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    def test_blocked_weight_starvation(fxt: Fxt) -> None:
+    async def test_blocked_weight_starvation(fxt: Fxt) -> None:
         """Test that high weight jobs without fulfilled deps do not block lower weight jobs."""
         # All jobs spawn from a start job.
         # There is one chain "start -> long_blocker -> high" where we have a high weight job
@@ -916,8 +883,11 @@ class TestSchedulingPriority:
             long_blocker,
             MockJob(status_thresholds=[(0, JobStatus.RUNNING), (5, JobStatus.PASSED)]),
         )
-        result = Scheduler(jobs, fxt.mock_launcher).run()
-        _assert_result_status(result, 8)
+        # Do not coalesce nearby events, as otherwise the blockers may complete close
+        # enough with a low/zero polling frequency that they get batched and the
+        # high priority job is scheduled first.
+        result = await Scheduler(jobs, fxt.backends, MOCK_BACKEND, coalesce_window=None).run()
+        _assert_result_status(result, len(jobs))
         # We expect that the high weight job should have been scheduled last, since
         # it was blocked by the blocker (unlike all the other lower weight jobs)
         assert_that(fxt.mock_ctx.order_started[0], equal_to(start_job))
@@ -939,7 +909,7 @@ class TestSignals:
     """Integration tests for the signal-handling of the scheduler."""
 
     @staticmethod
-    def _run_signal_test(tmp_path: Path, sig: int, *, repeat: bool, long_poll: bool) -> None:
+    async def _run_signal_test(tmp_path: Path, sig: int, *, repeat: bool, long_poll: bool) -> None:
         """Test that the scheduler can be gracefully killed by incoming signals."""
 
         # We cannot access the fixtures from the separate process, so define a minimal
@@ -954,6 +924,9 @@ class TestSignals:
             # Set a very long poll frequency to be sure that the signal interrupts the
             # scheduler from a sleep if configured with infrequent polls.
             SignalTestMockLauncher.poll_freq = 360000
+
+        # TODO: use a mocked runtime backend instead of a wrapper around the launcher
+        backend = LegacyLauncherAdapter(SignalTestMockLauncher)
 
         jobs = make_many_jobs(tmp_path, 3, ensure_paths_exist=True)
         # When testing non-graceful exits, we make `kill()` hang and send two signals.
@@ -971,7 +944,7 @@ class TestSignals:
         # Job 2 is also permanently "running", but will never run due to the
         # max paralellism limit on the launcher. It will instead be cancelled.
         mock_ctx.set_config(jobs[2], MockJob(default_status=JobStatus.RUNNING, kill_time=kill_time))
-        scheduler = Scheduler(jobs, SignalTestMockLauncher)
+        scheduler = Scheduler(jobs, {MOCK_BACKEND: backend}, MOCK_BACKEND)
 
         def _get_signal(sig_received: int, _: FrameType | None) -> None:
             assert_that(sig_received, equal_to(sig))
@@ -997,7 +970,7 @@ class TestSignals:
 
         # Send signals from a separate thread
         threading.Thread(target=_send_signals).start()
-        result = scheduler.run()
+        result = await scheduler.run()
 
         # If we didn't reach `_get_signal`, this should be a graceful exit
         assert_that(not repeat)
