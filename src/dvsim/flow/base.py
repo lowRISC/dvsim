@@ -4,6 +4,7 @@
 
 """Flow config base class."""
 
+import asyncio
 import json
 import os
 import pprint
@@ -17,9 +18,11 @@ import hjson
 
 from dvsim import instrumentation
 from dvsim.flow.hjson import set_target_attribute
-from dvsim.job.data import CompletedJobStatus
+from dvsim.job.data import CompletedJobStatus, JobSpec
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
+from dvsim.runtime.registry import backend_registry
+from dvsim.scheduler.async_core import Scheduler as AsyncScheduler
 from dvsim.scheduler.core import Scheduler
 from dvsim.utils import (
     find_and_substitute_wildcards,
@@ -31,6 +34,10 @@ if TYPE_CHECKING:
     from dvsim.job.deploy import Deploy
 
 __all__ = ("FlowCfg",)
+
+
+# Temporary: set to 1 to enable experimental use of the async scheduler (not yet fully integrated)
+EXPERIMENTAL_ENABLE_ASYNC_SCHEDULER = os.environ.get("EXPERIMENTAL_ENABLE_ASYNC_SCHEDULER", None)
 
 
 # Interface class for extensions.
@@ -442,11 +449,36 @@ class FlowCfg(ABC):
                 ),
             )
 
+        if EXPERIMENTAL_ENABLE_ASYNC_SCHEDULER:
+            return asyncio.run(self.run_scheduler(jobs))
+
         return Scheduler(
             items=jobs,
             launcher_cls=get_launcher_cls(),
             interactive=self.interactive,
         ).run()
+
+    async def run_scheduler(self, jobs: list[JobSpec]) -> list[CompletedJobStatus]:
+        """Run the scheduler with the given set of job specifications."""
+        # Create the runtime backends. TODO: support multiple runtime backends at once
+        default_backend_factory = backend_registry.get()
+        default_backend = default_backend_factory()
+
+        scheduler = AsyncScheduler(
+            jobs=jobs,
+            backends={default_backend.name: default_backend},
+            default_backend=default_backend.name,
+            max_parallelism=self.args.max_parallel,
+            # TODO: introduce a better prioritization function that accounts for timeout
+        )
+
+        # Run the scheduler and cleanup
+        try:
+            results = await scheduler.run()
+        finally:
+            await default_backend.close()
+
+        return results
 
     @abstractmethod
     def gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
