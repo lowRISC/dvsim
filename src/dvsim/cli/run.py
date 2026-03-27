@@ -815,7 +815,16 @@ def parse_args(argv: list[str] | None = None):
         help=("Use a fake launcher that generates random results"),
     )
 
+    dvg.add_argument(
+        "--experimental-enable-async-scheduler",
+        action="store_true",
+        help="Enable experimental use of the async scheduler (not fully integrated).",
+    )
+
     args = parser.parse_args(argv) if argv else parser.parse_args()
+
+    if args.experimental_enable_async_scheduler:
+        log.warning("DVSim configured to use new experimental async scheduler.")
 
     # Check conflicts
     # interactive and remote, r

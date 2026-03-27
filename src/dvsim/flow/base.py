@@ -4,6 +4,7 @@
 
 """Flow config base class."""
 
+import asyncio
 import json
 import os
 import pprint
@@ -17,9 +18,11 @@ import hjson
 
 from dvsim import instrumentation
 from dvsim.flow.hjson import set_target_attribute
-from dvsim.job.data import CompletedJobStatus
+from dvsim.job.data import CompletedJobStatus, JobSpec
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
+from dvsim.runtime.registry import backend_registry
+from dvsim.scheduler.async_core import Scheduler as AsyncScheduler
 from dvsim.scheduler.core import Scheduler
 from dvsim.utils import (
     find_and_substitute_wildcards,
@@ -449,11 +452,35 @@ class FlowCfg(ABC):
                 ),
             )
 
+        if self.args.experimental_enable_async_scheduler:
+            return asyncio.run(self.run_scheduler(jobs))
+
         return Scheduler(
             items=jobs,
             launcher_cls=get_launcher_cls(),
             interactive=self.interactive,
         ).run()
+
+    async def run_scheduler(self, jobs: list[JobSpec]) -> list[CompletedJobStatus]:
+        """Run the scheduler with the given set of job specifications."""
+        # Create the runtime backends. TODO: support multiple runtime backends at once
+        default_backend = backend_registry.create(name=None)
+
+        scheduler = AsyncScheduler(
+            jobs=jobs,
+            backends={default_backend.name: default_backend},
+            default_backend=default_backend.name,
+            max_parallelism=self.args.max_parallel,
+            # TODO: introduce a better prioritization function that accounts for timeout
+        )
+
+        # Run the scheduler and cleanup
+        try:
+            results = await scheduler.run()
+        finally:
+            await default_backend.close()
+
+        return results
 
     @abstractmethod
     def gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
