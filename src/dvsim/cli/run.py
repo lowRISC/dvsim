@@ -45,9 +45,7 @@ from dvsim.launcher.slurm import SlurmLauncher
 from dvsim.logging import LOG_LEVELS, configure_logging, log
 from dvsim.runtime.backend import RuntimeBackend
 from dvsim.runtime.registry import BackendType, backend_registry
-from dvsim.scheduler.async_status_printer import StatusPrinter
-from dvsim.scheduler.async_status_printer import get_status_printer as get_async_status_printer
-from dvsim.scheduler.status_printer import get_status_printer
+from dvsim.scheduler.async_status_printer import StatusPrinter, get_status_printer
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer, rm_path, run_cmd_with_timeout
 
 # The different categories that can be passed to the --list argument.
@@ -785,10 +783,11 @@ def parse_args(argv: list[str] | None = None):
     dvg.add_argument(
         "--print-interval",
         "-pi",
-        type=int,
+        type=float,
         default=10,
         metavar="N",
-        help="Print status every N seconds.",
+        help="Print status every N seconds (default %(default)d). A zero value means that every"
+        " job status change will cause a print.",
     )
 
     dvg.add_argument(
@@ -817,16 +816,7 @@ def parse_args(argv: list[str] | None = None):
         help=("Use a fake launcher that generates random results"),
     )
 
-    dvg.add_argument(
-        "--experimental-enable-async-scheduler",
-        action="store_true",
-        help="Enable experimental use of the async scheduler (not fully integrated).",
-    )
-
     args = parser.parse_args(argv) if argv else parser.parse_args()
-
-    if args.experimental_enable_async_scheduler:
-        log.warning("DVSim configured to use new experimental async scheduler.")
 
     # Check conflicts
     # interactive and remote, r
@@ -983,12 +973,8 @@ def main(argv: list[str] | None = None) -> None:
         # Now that we have printed the results from the scheduler, we close the
         # status printer, to ensure the status remains relevant in the UI context
         # (for applicable status printers).
-        if args.experimental_enable_async_scheduler:
-            if not args.interactive:
-                status_printer = get_async_status_printer()
-                status_printer.exit()
-        else:
-            status_printer = get_status_printer(args.interactive)
+        if not args.interactive:
+            status_printer = get_status_printer()
             status_printer.exit()
 
     else:

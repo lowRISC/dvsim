@@ -12,8 +12,6 @@ __all__ = ("JobStatus",)
 class JobStatus(Enum):
     """Status of a Job."""
 
-    # SCHEDULED is currently unused in the old sync scheduler, there `SCHEDULED` and `QUEUED`
-    # are combined under `QUEUED`. It is used only in the new async scheduler.
     SCHEDULED = auto()  # Waiting for dependencies
     QUEUED = auto()  # Dependencies satisfied, waiting to be dispatched
     RUNNING = auto()  # Dispatched to a backend and actively executing
