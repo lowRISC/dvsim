@@ -5,9 +5,9 @@
 """Job status printing during a scheduled run."""
 
 import os
+import shutil
 import sys
 import termios
-from collections.abc import Sequence
 from typing import ClassVar
 
 import enlighten
@@ -45,7 +45,7 @@ class StatusPrinter:
         hms: str,
         msg: str,
         perc: float,
-        running: Sequence[str],
+        running: str,
     ) -> None:
         """Periodically update the status bar for each target.
 
@@ -105,9 +105,11 @@ class TtyStatusPrinter(StatusPrinter):
         """Initialize the status bar for each target."""
         self.target_done[target] = False
 
-    def _trunc_running(self, running) -> str:
-        """Truncate the list of running items to 30 character string."""
-        return running[:28] + (running[28:] and "..")
+    def _trunc_running(self, running: str, width: int = 30) -> str:
+        """Truncate the list of running items to a specified width."""
+        if len(running) <= width:
+            return running
+        return running[: width - 3] + "..."
 
     def update_target(
         self,
@@ -115,7 +117,7 @@ class TtyStatusPrinter(StatusPrinter):
         hms: str,
         msg: str,
         perc: float,
-        running: Sequence[str],
+        running: str,
     ) -> None:
         """Periodically update the status bar for each target.
 
@@ -159,6 +161,9 @@ class EnlightenStatusPrinter(TtyStatusPrinter):
     example - it needs to be attached to a TTY enabled stream.
     """
 
+    status_fmt_no_running = TtyStatusPrinter.status_fmt.removesuffix("{running}")
+    status_fmt = "{status_msg}{running}"
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -178,25 +183,34 @@ class EnlightenStatusPrinter(TtyStatusPrinter):
 
     def init_target(self, target, msg) -> None:
         super().init_target(target, msg)
+        status_msg = self.status_fmt_no_running.format(hms="", target=target, msg=msg, perc=0.0)
         self.status_target[target] = self.manager.status_bar(
             status_format=self.status_fmt,
-            hms="",
-            target=target,
-            msg=msg,
-            perc=0.0,
+            status_msg=status_msg,
             running="",
         )
+
+    def _trunc_running_to_terminal(self, running: str, offset: int) -> str:
+        """Truncate the list of running items to match the max terminal width."""
+        cols = shutil.get_terminal_size(fallback=(80, 24)).columns
+        width = max(30, cols - offset)
+        return self._trunc_running(running, width)
 
     def update_target(self, target, hms, msg, perc, running) -> None:
         if self.target_done[target]:
             return
 
-        self.status_target[target].update(
+        status_msg = self.status_fmt_no_running.format(
             hms=hms,
+            target=target,
             msg=msg,
             perc=perc,
-            running=self._trunc_running(running),
         )
+
+        offset = len(status_msg)
+        running = self._trunc_running_to_terminal(running, offset)
+
+        self.status_target[target].update(status_msg=status_msg, running=running)
         if perc == 100:
             self.target_done[target] = True
 
