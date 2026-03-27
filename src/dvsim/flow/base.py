@@ -19,8 +19,10 @@ import hjson
 from dvsim import instrumentation
 from dvsim.flow.hjson import set_target_attribute
 from dvsim.job.data import CompletedJobStatus, JobSpec
+from dvsim.job.status import JobStatus
 from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
+from dvsim.runtime.fake import FakeRuntimeBackend
 from dvsim.runtime.registry import backend_registry
 from dvsim.scheduler.async_core import Scheduler as AsyncScheduler
 from dvsim.scheduler.async_status_printer import create_status_printer
@@ -477,6 +479,10 @@ class FlowCfg(ABC):
         # Create the runtime backends. TODO: support multiple runtime backends at once
         default_backend = backend_registry.create(name=None)
 
+        # If we're using the fake backend, tell it *how* to fake jobs for this flow.
+        if isinstance(default_backend, FakeRuntimeBackend):
+            default_backend.attach_fake_policy(self._fake_policy)
+
         max_timeout = max((job.timeout_mins for job in jobs if job.timeout_mins), default=0)
 
         scheduler = AsyncScheduler(
@@ -547,3 +553,7 @@ class FlowCfg(ABC):
     def has_errors(self) -> bool:
         """Return error state."""
         return self.errors_seen
+
+    def _fake_policy(self, _job: JobSpec) -> JobStatus:
+        """Tell the fake backend how to fake jobs for this flow. Default flow always passes."""
+        return JobStatus.PASSED

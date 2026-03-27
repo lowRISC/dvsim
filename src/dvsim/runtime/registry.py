@@ -148,7 +148,7 @@ def register_legacy_launcher_backend(name: BackendType, launcher_cls: type[Launc
 
 # Register built-in backends. TODO: migrate the legacy launchers to runtime backends.
 register_backend(BackendType("local"), "dvsim.runtime.local.LocalRuntimeBackend")
-register_legacy_launcher_backend(BackendType("fake"), "dvsim.launcher.fake.FakeLauncher")
+register_backend(BackendType("fake"), "dvsim.runtime.fake.FakeRuntimeBackend")
 register_legacy_launcher_backend(BackendType("lsf"), "dvsim.launcher.lsf.LsfLauncher")
 register_legacy_launcher_backend(BackendType("nc"), "dvsim.launcher.nc.NcLauncher")
 register_legacy_launcher_backend(BackendType("sge"), "dvsim.launcher.sge.SgeLauncher")

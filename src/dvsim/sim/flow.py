@@ -5,6 +5,7 @@
 """Class describing simulation configuration object."""
 
 import fnmatch
+import random
 import sys
 from collections import OrderedDict, defaultdict
 from collections.abc import Mapping, Sequence
@@ -14,7 +15,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from dvsim.flow.base import FlowCfg
-from dvsim.job.data import CompletedJobStatus
+from dvsim.job.data import CompletedJobStatus, JobSpec
 from dvsim.job.deploy import (
     CompileSim,
     CovAnalyze,
@@ -856,3 +857,46 @@ class SimCfg(FlowCfg):
             total=total_runs,
             percent=100.0 * total_passed / total_runs if total_runs else 0.0,
         )
+
+    def _fake_policy(self, job: JobSpec) -> JobStatus:
+        """Tell the fake backend how to fake jobs for this flow.
+
+        Currently randomly returns 50% pass / 50% fail for RunTest jobs, and fakes injecting
+        randomized 0-100% coverage results into the CovReport job's Deploy object.
+        """
+        if job.job_type == "RunTest":
+            return random.choice((JobStatus.PASSED, JobStatus.FAILED))
+
+        # TODO: hack, try to remove. Annotate the deploy object with some faked
+        # coverage results. Just allows us to fake coverage results for now
+        # without needing to create a fake result file or significantly refactor.
+        if job.job_type == "CovReport":
+            for item in self.cfgs:
+                for deploy in item.deploy:
+                    if deploy.full_name == job.full_name:
+                        fake_keys = [
+                            "score",
+                            "assert",
+                            "group",
+                            "block",
+                            "line",
+                            "branch",
+                            "cond",
+                            "toggle",
+                            "fsm",
+                        ]
+                        # Approximate the correct keys; in reality some jobs might not
+                        # have certain types of coverage (e.g. FSM) depending on the RTL
+                        if job.tool == "vcs":
+                            fake_keys.remove("block")
+                        elif job.tool == "xcelium":
+                            fake_keys.remove("cond")
+                        deploy.cov_results_dict = {
+                            k: f"{random.random() * 100:.2f} %" for k in fake_keys
+                        }
+                        break
+                else:
+                    continue
+                break
+
+        return JobStatus.PASSED
