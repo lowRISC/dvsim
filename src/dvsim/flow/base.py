@@ -468,12 +468,22 @@ class FlowCfg(ABC):
         # Create the runtime backends. TODO: support multiple runtime backends at once
         default_backend = backend_registry.create(name=None)
 
+        max_timeout = max((job.timeout_mins for job in jobs if job.timeout_mins), default=0)
+
         scheduler = AsyncScheduler(
             jobs=jobs,
             backends={default_backend.name: default_backend},
             default_backend=default_backend.name,
             max_parallelism=self.args.max_parallel,
-            # TODO: introduce a better prioritization function that accounts for timeout
+            # The scheduler prioritizes jobs in (lexicographically) decreasing order based on
+            # the given `priority_fn`. We hence define a prioritization scheme that prioritizes
+            # first by decreasing weight, then by decreasing timeout, and finally by the decreasing
+            # number of jobs that depend on this job.
+            priority_fn=lambda job: (
+                job.spec.weight,
+                job.spec.timeout_mins or max_timeout + 1,
+                len(job.dependents),
+            ),
         )
 
         if not self.interactive:
