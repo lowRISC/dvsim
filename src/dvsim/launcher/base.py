@@ -358,10 +358,19 @@ class Launcher(ABC):
 
             except RuntimeError as e:
                 log.warning(
-                    f"{self.job_spec.full_name}: {e} Using dvsim-maintained job_runtime instead."
+                    "%s: %s Using dvsim-maintained job_runtime instead.",
+                    self.job_spec.full_name,
+                    str(e),
                 )
 
         self.job_runtime.set(time, unit)
+
+        if self.job_spec.job_type == "RunTest":
+            try:
+                time, unit = plugin.get_simulated_time(log_text=lines)
+                self.simulated_time.set(time, unit)
+            except RuntimeError as e:
+                log.debug("%s: %s", self.job_spec.full_name, str(e))
 
         if chk_failed or chk_passed:
             for cnt, line in enumerate(lines):
