@@ -12,20 +12,15 @@ from datetime import datetime
 from pathlib import Path
 
 from dvsim.logging import log
+from dvsim.utils.time import TS_FORMAT
 
 __all__ = (
-    "TS_FORMAT",
-    "TS_FORMAT_LONG",
+    "clean_odirs",
     "mk_path",
     "mk_symlink",
+    "relative_to",
     "rm_path",
 )
-
-# Timestamp format when creating directory backups.
-TS_FORMAT = "%Y%m%d_%H%M%S"
-
-# Timestamp format when generating reports.
-TS_FORMAT_LONG = "%A %B %d %Y %H:%M:%S UTC"
 
 
 def rm_path(path: Path, *, ignore_error: bool = False) -> None:
