@@ -45,7 +45,7 @@ from dvsim.launcher.slurm import SlurmLauncher
 from dvsim.logging import LOG_LEVELS, configure_logging, log
 from dvsim.runtime.backend import RuntimeBackend
 from dvsim.runtime.registry import BackendType, backend_registry
-from dvsim.scheduler.async_status_printer import StatusPrinter, get_status_printer
+from dvsim.scheduler.status_printer import StatusPrinter, get_status_printer
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer, rm_path, run_cmd_with_timeout
 
 # The different categories that can be passed to the --list argument.

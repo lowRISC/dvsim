@@ -24,7 +24,7 @@ from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
 from dvsim.report.data import IPMeta, ToolMeta
 from dvsim.runtime.legacy import LegacyLauncherAdapter
-from dvsim.scheduler.async_core import Scheduler
+from dvsim.scheduler.core import Scheduler
 
 __all__ = ()
 

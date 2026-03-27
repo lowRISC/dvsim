@@ -23,9 +23,9 @@ from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.runtime.fake import FakeRuntimeBackend
 from dvsim.runtime.registry import backend_registry
-from dvsim.scheduler.async_core import Scheduler
-from dvsim.scheduler.async_status_printer import create_status_printer
+from dvsim.scheduler.core import Scheduler
 from dvsim.scheduler.log_manager import LogManager
+from dvsim.scheduler.status_printer import create_status_printer
 from dvsim.utils import (
     find_and_substitute_wildcards,
     rm_path,
