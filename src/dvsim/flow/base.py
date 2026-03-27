@@ -23,6 +23,7 @@ from dvsim.launcher.factory import get_launcher_cls
 from dvsim.logging import log
 from dvsim.runtime.registry import backend_registry
 from dvsim.scheduler.async_core import Scheduler as AsyncScheduler
+from dvsim.scheduler.async_status_printer import create_status_printer
 from dvsim.scheduler.core import Scheduler
 from dvsim.scheduler.log_manager import LogManager
 from dvsim.utils import (
@@ -474,6 +475,15 @@ class FlowCfg(ABC):
             max_parallelism=self.args.max_parallel,
             # TODO: introduce a better prioritization function that accounts for timeout
         )
+
+        if not self.interactive:
+            status_printer = create_status_printer(jobs)
+
+            # Add status printer hooks
+            scheduler.add_run_start_callback(status_printer.start)
+            scheduler.add_job_status_change_callback(status_printer.update_status)
+            scheduler.add_run_end_callback(status_printer.stop)
+            scheduler.add_kill_signal_callback(status_printer.pause)
 
         # Add log manager hooks
         log_manager = LogManager()
