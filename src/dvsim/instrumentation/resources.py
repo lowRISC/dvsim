@@ -254,13 +254,13 @@ class ResourceInstrumentation(SchedulerInstrumentation):
                 vms_bytes = None
 
             scheduler_frag = ResourceSchedulerFragment(
-                scheduler_avg_rss_bytes=self._scheduler_sum_rss / self._sample_count,
+                scheduler_avg_rss_bytes=round(self._scheduler_sum_rss / self._sample_count),
                 scheduler_max_rss_bytes=self._scheduler_max_rss,
                 scheduler_vms_bytes=vms_bytes,
                 scheduler_cpu_percent=self._scheduler_sum_cpu / self._sample_count,
                 scheduler_cpu_time=scheduler_cpu_time,
                 sys_max_rss_bytes=self._sys_max_rss,
-                sys_avg_rss_bytes=self._sys_sum_rss / self._sample_count,
+                sys_avg_rss_bytes=round(self._sys_sum_rss / self._sample_count),
                 sys_cpu_percent=self._sys_sum_cpu / self._sample_count,
                 sys_cpu_per_core=sys_cpu_per_core,
                 sys_swap_used_bytes=self._sys_max_swap,
