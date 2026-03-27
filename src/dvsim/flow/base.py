@@ -24,6 +24,7 @@ from dvsim.logging import log
 from dvsim.runtime.registry import backend_registry
 from dvsim.scheduler.async_core import Scheduler as AsyncScheduler
 from dvsim.scheduler.core import Scheduler
+from dvsim.scheduler.log_manager import LogManager
 from dvsim.utils import (
     find_and_substitute_wildcards,
     rm_path,
@@ -472,6 +473,12 @@ class FlowCfg(ABC):
             default_backend=default_backend.name,
             max_parallelism=self.args.max_parallel,
             # TODO: introduce a better prioritization function that accounts for timeout
+        )
+
+        # Add log manager hooks
+        log_manager = LogManager()
+        scheduler.add_job_status_change_callback(
+            lambda spec, _old, new: log_manager.on_job_status_change(spec, new)
         )
 
         # Setup instrumentation
