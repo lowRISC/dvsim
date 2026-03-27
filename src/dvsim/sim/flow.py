@@ -744,6 +744,8 @@ class SimCfg(FlowCfg):
 
         # --- Build stages only from testpoints that have at least one executed test ---
         stage_to_tps: defaultdict[str, dict[str, Testpoint]] = defaultdict(dict)
+        stage_to_trs: defaultdict[str, dict[str, TestResult]] = defaultdict(dict)
+        all_trs: defaultdict[str, TestResult] = {}
 
         def make_test_result(tr) -> TestResult | None:
             if tr.total == 0 and not self.map_full_testplan:
@@ -782,6 +784,10 @@ class SimCfg(FlowCfg):
                 percent=100.0 * tp_passed / tp_total if tp_total else 0.0,
             )
 
+            for name, tr in test_results.items():
+                stage_to_trs[tp.stage][name] = tr
+                all_trs[name] = tr
+
         # 2. Unmapped tests — only if they actually ran
         unmapped_tests: dict[str, TestResult] = {}
         for tr in sim_results.table:
@@ -798,15 +804,16 @@ class SimCfg(FlowCfg):
                 percent=100.0 * tp_passed / tp_total if tp_total else 0.0,
             )
 
+            for name, tr in unmapped_tests.items():
+                stage_to_trs["unmapped"][name] = tr
+                all_trs[name] = tr
+
         # --- Final stage aggregation ---
         stages: dict[str, TestStage] = {}
-        total_passed = total_runs = 0
 
         for stage_name, testpoints in stage_to_tps.items():
-            stage_passed = stage_total = 0
-            for tp in testpoints.values():
-                stage_passed += tp.passed
-                stage_total += tp.total
+            stage_passed = sum(tr.passed for tr in stage_to_trs[stage_name].values())
+            stage_total = sum(tr.total for tr in stage_to_trs[stage_name].values())
 
             stages[stage_name] = TestStage(
                 testpoints=testpoints,
@@ -815,8 +822,8 @@ class SimCfg(FlowCfg):
                 percent=100.0 * stage_passed / stage_total if stage_total else 0.0,
             )
 
-            total_passed += stage_passed
-            total_runs += stage_total
+        total_passed = sum(tr.passed for tr in all_trs.values())
+        total_runs = sum(tr.total for tr in all_trs.values())
 
         # --- Coverage ---
         coverage: dict[str, float | None] = {}
