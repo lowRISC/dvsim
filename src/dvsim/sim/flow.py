@@ -44,7 +44,7 @@ from dvsim.testplan import Testplan
 from dvsim.tool.utils import get_sim_tool_plugin
 from dvsim.utils import TS_FORMAT, rm_path
 from dvsim.utils.fs import relative_to
-from dvsim.utils.git import git_commit_hash, git_https_url_with_commit
+from dvsim.utils.git import git_https_url_with_commit
 
 __all__ = ("SimCfg",)
 
@@ -175,11 +175,6 @@ class SimCfg(FlowCfg):
         self.results_summary = OrderedDict()
 
         super().__init__(flow_cfg_file, hjson_data, args, mk_config)
-
-        # After initialisation & expansion, save some useful revision metadata
-        proj_root = Path(self.proj_root)
-        self.commit = git_commit_hash(path=proj_root, short=False)
-        self.commit_short = git_commit_hash(path=proj_root, short=True)
 
     def _expand(self) -> None:
         # Choose a wave format now. Note that this has to happen after parsing

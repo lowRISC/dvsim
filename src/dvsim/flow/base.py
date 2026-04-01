@@ -26,6 +26,7 @@ from dvsim.utils import (
     rm_path,
     subst_wildcards,
 )
+from dvsim.utils.git import git_commit_hash
 
 if TYPE_CHECKING:
     from dvsim.job.deploy import Deploy
@@ -151,6 +152,11 @@ class FlowCfg(ABC):
         # after merging the hjson but before expansion, they can override
         # _expand and add the code at the start.
         self._expand()
+
+        # After initialisation & expansion, save some useful revision metadata
+        proj_root = Path(self.proj_root)
+        self.commit = git_commit_hash(path=proj_root, short=False)
+        self.commit_short = git_commit_hash(path=proj_root, short=True)
 
         # Construct the path variables after variable expansion.
         reports_dir = Path(self.scratch_base_path) / "reports"
