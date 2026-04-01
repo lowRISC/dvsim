@@ -110,6 +110,9 @@ class Deploy:
             name=self.name,
             job_type=self.__class__.__name__,
             target=self.target,
+            # TODO: for now we always use the default configured backend, but it might be good
+            # to allow different jobs to run on different backends in the future?
+            backend=None,
             seed=getattr(self, "seed", None),
             full_name=self.full_name,
             qual_name=self.qual_name,

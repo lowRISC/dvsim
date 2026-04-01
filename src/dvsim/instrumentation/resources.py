@@ -227,7 +227,7 @@ class ResourceInstrumentation(SchedulerInstrumentation):
         with self._lock:
             running = job_id in self._running_jobs
             started = running or job_id in self._finished_jobs
-            if not started and status != JobStatus.QUEUED:
+            if not started and status not in (JobStatus.SCHEDULED, JobStatus.QUEUED):
                 self._running_jobs[job_id] = JobResourceAggregate(job)
                 running = True
             if running and status.is_terminal:
