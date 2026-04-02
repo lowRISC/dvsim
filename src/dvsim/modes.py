@@ -301,7 +301,6 @@ class RunMode(Mode):
         self.run_opts = []
         self.uvm_test = ""
         self.uvm_test_seq = ""
-        self.build_mode = ""
         self.run_timeout_mins = None
         self.run_timeout_multiplier = None
         self.sw_images = []
@@ -309,6 +308,14 @@ class RunMode(Mode):
         self.sw_build_opts = []
 
         super().__init__("run mode", rdict)
+
+        # The base class constructor should have provided a BuildMode object in
+        # self.build_mode. Check this at run-time. The odd assignment to
+        # self.build_mode is to teach pyright about the field.
+        if not isinstance(self.build_mode, BuildMode):
+            raise TypeError("build_mode not computed by constructor")
+        self.build_mode: BuildMode = self.build_mode
+
         self.en_run_modes = list(set(self.en_run_modes))
 
     def get_sub_modes(self) -> list[str]:
