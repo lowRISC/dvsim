@@ -80,7 +80,7 @@ class JobSpec(BaseModel):
     """Wait for dependent jobs to pass before scheduling."""
     weight: int
     """Weight to apply to the scheduling priority."""
-    timeout_mins: int | None
+    timeout_mins: float | None
     """Timeout to apply to the launched job."""
 
     cmd: str
@@ -124,7 +124,7 @@ class JobSpec(BaseModel):
         return self.full_name
 
     @property
-    def timeout_secs(self) -> int | None:
+    def timeout_secs(self) -> float | None:
         """Returns the timeout applied to the launched job, in seconds."""
         return None if self.timeout_mins is None else self.timeout_mins * 60
 
