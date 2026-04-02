@@ -69,6 +69,7 @@ class FakeBuildMode:
         self.build_timeout_mins = 500
         self.build_mode = "build_mode"
         self.build_opts = ["-b path/here", '-a "Quoted"']
+        self.post_build_opts = ["E"]
 
 
 def _build_compile_sim(
@@ -122,6 +123,7 @@ class TestCompileSim:
                 "build_dir=build/dir "
                 "build_opts='-b path/here -a \"Quoted\"' "
                 "post_build_cmds='C && D' "
+                "post_build_opts=E "
                 "pre_build_cmds='A && B' "
                 "proj_root=/project "
                 "sv_flist_gen_cmd=gen_cmd "
@@ -136,6 +138,7 @@ class TestCompileSim:
                 "build_dir=build/dir "
                 "build_opts='-b path/here -a \"Quoted\"' "
                 "post_build_cmds='C && D' "
+                "post_build_opts=E "
                 "pre_build_cmds='A && B' "
                 "proj_root=/project "
                 "sv_flist_gen_cmd=gen_cmd "
