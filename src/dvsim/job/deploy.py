@@ -16,6 +16,7 @@ from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
 from dvsim.logging import log
 from dvsim.report.data import IPMeta, ToolMeta
+from dvsim.test import Test
 from dvsim.tool.utils import get_sim_tool_plugin
 from dvsim.utils import (
     clean_odirs,
@@ -382,10 +383,14 @@ class CompileSim(Deploy):
     cmds_list_vars: ClassVar = ["pre_build_cmds", "post_build_cmds"]
     weight = 5
 
-    def __init__(self, build_mode, sim_cfg) -> None:
+    def __init__(self, build_mode: "BuildMode", sim_cfg: "SimCfg") -> None:
         """Initialise a Sim compile stage job deployment."""
         self.build_mode_obj = build_mode
         self.seed = sim_cfg.build_seed
+
+        # Register a copy of sim_cfg which is explicitly the SimCfg type
+        self._typed_sim_cfg: SimCfg = sim_cfg
+
         super().__init__(sim_cfg)
 
         # Needs to be after the wildcard expansion to log anything meaningful
@@ -449,7 +454,7 @@ class CompileSim(Deploy):
         # 'build_mode' is used as a substitution variable in the HJson.
         self.build_mode = self.name
         self.job_name += f"_{self.build_mode}"
-        if self.sim_cfg.cov:
+        if self._typed_sim_cfg.cov:
             self.output_dirs += [self.cov_db_dir]
         self.pass_patterns = self.build_pass_patterns
         self.fail_patterns = self.build_fail_patterns
@@ -552,7 +557,10 @@ class RunTest(Deploy):
     fixed_seed = None
     cmds_list_vars = ["pre_run_cmds", "post_run_cmds"]
 
-    def __init__(self, index, test, build_job, sim_cfg: "SimCfg") -> None:
+    def __init__(self, index: int, test: Test, build_job: CompileSim, sim_cfg: "SimCfg") -> None:
+        # Register a copy of sim_cfg which is explicitly the SimCfg type
+        self._typed_sim_cfg: SimCfg = sim_cfg
+
         self.test_obj = test
         self.index = index
         self.build_seed = sim_cfg.build_seed
@@ -577,7 +585,7 @@ class RunTest(Deploy):
                 self.run_timeout_mins,
             )
 
-        if build_job is not None and not self.sim_cfg.run_only:
+        if build_job is not None and not self._typed_sim_cfg.run_only:
             self.dependencies.append(build_job)
 
         # We did something wrong if build_mode is not the same as the build_job
@@ -631,7 +639,7 @@ class RunTest(Deploy):
         self.qual_name = self.run_dir_name + "." + str(self.seed)
         self.full_name = f"{self.sim_cfg.name}{self._variant_suffix}:{self.qual_name}"
         self.job_name += f"_{self.build_mode}"
-        if self.sim_cfg.cov:
+        if self._typed_sim_cfg.cov:
             self.output_dirs += [self.cov_db_dir]
 
         # In GUI mode, the log file is not updated; hence, nothing to check.
@@ -807,8 +815,11 @@ class CovReport(Deploy):
     target = "cov_report"
     weight = 10
 
-    def __init__(self, merge_job, sim_cfg) -> None:
+    def __init__(self, merge_job: CovMerge, sim_cfg: "SimCfg") -> None:
         """Initialise a job deployment to generate a coverage report."""
+        # Register a copy of sim_cfg which is explicitly the SimCfg type
+        self._typed_sim_cfg: SimCfg = sim_cfg
+
         super().__init__(sim_cfg)
         self.dependencies.append(merge_job)
 
@@ -845,7 +856,7 @@ class CovReport(Deploy):
             if self.dry_run or status != JobStatus.PASSED:
                 return
 
-            plugin = get_sim_tool_plugin(tool=self.sim_cfg.tool)
+            plugin = get_sim_tool_plugin(tool=self._typed_sim_cfg.tool)
 
             results, self.cov_total = plugin.get_cov_summary_table(
                 cov_report_path=self.cov_report_txt,
