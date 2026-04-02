@@ -75,10 +75,14 @@ class Deploy:
         self.sim_cfg = sim_cfg
         self.flow = sim_cfg.name
 
-        if not hasattr(self.sim_cfg, "variant"):
-            self.sim_cfg.variant = ""
+        # The sim_cfg argument might be a SimCfg, in which case it might define
+        # a variant. We don't depend on this, though: if sim_cfg is an instance
+        # of some other subclass of FlowCfg, just take an empty "variant".
+        self._variant: str | None = getattr(self.sim_cfg, "variant", None)
+        if not (isinstance(self._variant, str) or self._variant is None):
+            raise TypeError("Unexpected type for variant")
 
-        self._variant_suffix = f"_{self.sim_cfg.variant}" if self.sim_cfg.variant else ""
+        self._variant_suffix = f"_{self._variant}" if self._variant is not None else ""
 
         # A list of jobs on which this job depends.
         self.dependencies = []
@@ -130,6 +134,9 @@ class Deploy:
             )
             raise RuntimeError(msg)
 
+        # If the FlowCfg object in self.sim_cfg doesn't have a links dictionary, default to {}.
+        links = getattr(self.sim_cfg, "links", {})
+
         return JobSpec(
             name=self.name,
             job_type=self.__class__.__name__,
@@ -142,7 +149,7 @@ class Deploy:
             qual_name=self.qual_name,
             block=IPMeta(
                 name=self.sim_cfg.name,
-                variant=self.sim_cfg.variant,
+                variant=self._variant,
                 commit=self.sim_cfg.commit,
                 commit_short=self.sim_cfg.commit_short,
                 branch=self.sim_cfg.branch,
@@ -170,7 +177,7 @@ class Deploy:
             odir=self.odir,
             renew_odir=self.renew_odir,
             log_path=Path(f"{self.odir}/{self.target}.log"),
-            links=self.sim_cfg.links,
+            links=links,
             pre_launch=self.pre_launch(),
             post_finish=self.post_finish(),
             pass_patterns=self.pass_patterns,
