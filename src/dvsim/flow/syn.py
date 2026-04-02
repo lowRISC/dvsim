@@ -42,7 +42,7 @@ class SynCfg(OneShotCfg):
         # Return only the tables
         return self.results_summary_md
 
-    def _gen_results(self, results):
+    def _gen_results_for_cfg(self, results):
         """The function is called after the regression has completed.
 
         It looks for a regr_results.hjson file with aggregated results from the
@@ -115,7 +115,7 @@ class SynCfg(OneShotCfg):
         }
 
         note that if this is a primary config, the results will
-        be generated using the _gen_results_summary function
+        be generated using the gen_results_summary function
         """
 
         def _create_entry(val, norm=1.0, total=None, perctag="%"):

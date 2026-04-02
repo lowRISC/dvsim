@@ -179,7 +179,7 @@ class FormalCfg(OneShotCfg):
 
         return self.results_summary_md
 
-    def _gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
+    def _gen_results_for_cfg(self, results: Sequence[CompletedJobStatus]) -> None:
         """Generate results.
 
         This function is called after the regression and looks for

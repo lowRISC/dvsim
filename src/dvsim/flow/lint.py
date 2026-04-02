@@ -101,7 +101,7 @@ class LintCfg(OneShotCfg):
 
     # TODO(#9079): This way of parsing out messages into an intermediate
     # results.hjson file will be replaced by a native parser mechanism.
-    def _gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
+    def _gen_results_for_cfg(self, results: Sequence[CompletedJobStatus]) -> None:
         """Generate results.
 
         The function is called after the regression has completed. It looks
@@ -119,7 +119,7 @@ class LintCfg(OneShotCfg):
         config files.
 
         Note that if this is a primary config, the results will
-        be generated using the _gen_results_summary function
+        be generated using the gen_results_summary function
         """
         # Generate results table for runs.
         results_str = f"## {self.results_title}\n\n"

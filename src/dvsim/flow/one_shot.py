@@ -4,10 +4,12 @@
 
 """Class describing a one-shot build configuration object."""
 
+import argparse
 from abc import abstractmethod
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
+from typing import Any, ClassVar
 
 from dvsim.flow.base import FlowCfg
 from dvsim.job.data import CompletedJobStatus
@@ -21,9 +23,29 @@ from dvsim.utils import rm_path
 class OneShotCfg(FlowCfg):
     """Simple one-shot build flow for non-simulation targets like linting, synthesis and FPV."""
 
-    ignored_wildcards = [*FlowCfg.ignored_wildcards, "build_mode", "index", "test"]
+    ignored_wildcards: ClassVar[list[str]] = [
+        *FlowCfg.ignored_wildcards,
+        "build_mode",
+        "index",
+        "test",
+    ]
 
-    def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
+    def __init__(
+        self,
+        flow_cfg_file: str,
+        hjson_data: Mapping[str, Any],
+        args: argparse.Namespace,
+        mk_config: Callable[[str], FlowCfg],
+    ) -> None:
+        """Initialise OneShotCfg object.
+
+        Args:
+          flow_cfg_file: Path to hjson cfg that was loaded.
+          hjson_data: The parsed hjson from flow_cfg_file.
+          args: Arguments passed to dvsim
+          mk_config: A factory method to allow multi-layer builds.
+
+        """
         # Options set from command line
         self.verbose = args.verbose
         self.flist_gen_cmd = ""
@@ -75,7 +97,7 @@ class OneShotCfg(FlowCfg):
 
         super().__init__(flow_cfg_file, hjson_data, args, mk_config)
 
-    def _merge_hjson(self, hjson_data) -> None:
+    def _merge_hjson(self, hjson_data: Mapping[str, Any]) -> None:
         # If build_unique is set, then add current timestamp to uniquify it
         if self.build_unique:
             self.build_dir += "_" + self.timestamp
@@ -107,7 +129,9 @@ class OneShotCfg(FlowCfg):
 
     # Purge the output directories. This operates on self.
     def _purge(self) -> None:
-        assert self.scratch_path
+        if not self.scratch_path:
+            raise RuntimeError("Scratch path is '', so cannot purge.")
+
         log.info("Purging scratch path %s", self.scratch_path)
         rm_path(self.scratch_path)
 
@@ -153,11 +177,11 @@ class OneShotCfg(FlowCfg):
         self._create_dirs()
 
     @abstractmethod
-    def _gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
+    def _gen_results_for_cfg(self, results: Sequence[CompletedJobStatus]) -> None:
         """Generate results for this config."""
 
     @abstractmethod
-    def gen_results_summary(self):
+    def gen_results_summary(self) -> str:
         """Gathers the aggregated results from all sub configs."""
 
     def gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
@@ -190,19 +214,23 @@ class OneShotCfg(FlowCfg):
                 if res.block.name == item.name and res.block.variant == item_variant
             ]
 
-            result = item._gen_results(item_results)
+            # Parse results from the parsed results.hjson for the given config.
+            # The item_results list has been filtered so that it only contains
+            # results from the runs corresponding to the config.
+            #
+            # The noqa line is to tell the linter that this isn't an external
+            # use of an internal method: the prototype comes from this class.
+            result = item._gen_results_for_cfg(item_results)  # noqa: SLF001
 
             log.info("[results]: [%s]:\n%s\n", project, result)
             log.info("[scratch_path]: [%s] [%s]", project, item.scratch_path)
 
             # TODO: Implement HTML report using templates
+            #
+            # This was previously implemented by rendering the markdown results for the item.
 
             results_dir = Path(self.results_dir)
             results_dir.mkdir(exist_ok=True, parents=True)
-
-            # (results_dir / self.results_html_name).write_text(
-            #     md_results_to_html(self.results_title, self.css_file, item.results_md)
-            # )
 
             log.verbose("[report]: [%s] [%s/report.html]", project, item.results_dir)
 
@@ -210,4 +238,4 @@ class OneShotCfg(FlowCfg):
 
         if self.is_primary_cfg:
             self.gen_results_summary()
-            # self.write_results(self.results_html_name, self.results_summary_md)
+            # TODO: Write a combined HTML report to self.results_html_name
