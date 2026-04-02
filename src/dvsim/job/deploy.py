@@ -86,6 +86,15 @@ class Deploy:
         # this current job to run
         self.needs_all_dependencies_passing = True
 
+        # These variables will be extracted from the hjson file by _set_attrs,
+        # and then _check_attrs checks that they were indeed extracted. Define
+        # placeholder values here to allow a type checker to know the class has
+        # the field.
+        self.build_mode = ""
+        self.dry_run = False
+        self.flow_makefile = ""
+        self.name = ""
+
         # Declare attributes that need to be extracted from the HJSon cfg.
         self._define_attrs()
 
