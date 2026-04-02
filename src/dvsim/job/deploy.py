@@ -11,6 +11,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from dvsim.flow.base import FlowCfg
 from dvsim.job.data import JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
@@ -26,7 +27,6 @@ from dvsim.utils import (
 )
 
 if TYPE_CHECKING:
-    from dvsim.flow.base import FlowCfg
     from dvsim.modes import BuildMode
     from dvsim.sim.flow import SimCfg
 
@@ -391,6 +391,23 @@ class CompileSim(Deploy):
         # Register a copy of sim_cfg which is explicitly the SimCfg type
         self._typed_sim_cfg: SimCfg = sim_cfg
 
+        # Declare (typed) variables for values that will be loaded in in
+        # super().__init__. This teaches a type checker about the existence of
+        # the fields.
+        self.proj_root: str = ""
+        self.sv_flist_gen_cmd: str = ""
+        self.sv_flist_gen_dir: str = ""
+        self.sv_flist_gen_opts: list[str] = []
+        self.pre_build_cmds: list[str] = []
+        self.build_cmd: str = ""
+        self.build_dir: str = ""
+        self.build_opts: list[str] = []
+        self.post_build_cmds: list[str] = []
+        self.build_fail_patterns: list[str] = []
+        self.build_pass_patterns: list[str] = []
+        self.build_timeout_mins: float | None = None
+        self.cov_db_dir: str = ""
+
         super().__init__(sim_cfg)
 
         # Needs to be after the wildcard expansion to log anything meaningful
@@ -469,7 +486,7 @@ class CompileSim(Deploy):
             """Perform pre-launch tasks."""
             # Delete old coverage database directories before building again. We
             # need to do this because the build directory is not 'renewed'.
-            rm_path(self.cov_db_dir)
+            rm_path(Path(self.cov_db_dir))
 
         return callback
 
@@ -486,9 +503,29 @@ class CompileOneShot(Deploy):
 
     target = "build"
 
-    def __init__(self, build_mode, sim_cfg) -> None:
+    def __init__(self, build_mode: "BuildMode", sim_cfg: "FlowCfg") -> None:
         """Initialise a CompileOneShot object."""
         self.build_mode_obj = build_mode
+
+        # Declare (typed) variables for values that will be loaded in in
+        # super().__init__. This teaches a type checker about the existence of
+        # the fields.
+        self.proj_root: str = ""
+        self.sv_flist_gen_cmd: str = ""
+        self.sv_flist_gen_dir: str = ""
+        self.sv_flist_gen_opts: list[str] = []
+        self.build_dir: str = ""
+        self.build_cmd: str = ""
+        self.build_opts: list[str] = []
+        self.build_log: str = ""
+        self.build_timeout_mins: float | None = None
+        self.post_build_cmds: list[str] = []
+        self.pre_build_cmds: list[str] = []
+        self.report_cmd: str = ""
+        self.report_opts: list[str] = []
+        self.build_fail_patterns: list[str] = []
+        self.build_pass_patterns: list[str] = []
+
         super().__init__(sim_cfg)
 
         # Needs to be after the wildcard expansion to log anything meaningful
@@ -575,6 +612,30 @@ class RunTest(Deploy):
             index,
             self.seed,
         )
+
+        # Declare (typed) variables for values that will be loaded in in
+        # super().__init__. This teaches a type checker about the existence of
+        # the fields.
+        self.proj_root: str = ""
+        self.uvm_test: str = ""
+        self.uvm_test_seq: str = ""
+        self.sw_images: list[str] = []
+        self.sw_build_device: str = ""
+        self.sw_build_cmd: str = ""
+        self.sw_build_opts: list[str] = []
+        self.run_dir: str = ""
+        self.pre_run_cmds: list[str] = []
+        self.run_cmd: str = ""
+        self.run_opts: list[str] = []
+        self.post_run_cmds: list[str] = []
+        self.cov_db_dir: str = ""
+        self.cov_db_test_dir: str = ""
+        self.run_dir_name: str = ""
+        self.run_fail_patterns: list[str] = []
+        self.run_pass_patterns: list[str] = []
+        self.run_timeout_mins: float | None = None
+        self.run_timeout_multiplier: float = 1
+
         super().__init__(sim_cfg)
 
         # Needs to be after the wildcard expansion to log anything meaningful
@@ -678,7 +739,7 @@ class RunTest(Deploy):
             """Perform tidy up tasks."""
             if status != JobStatus.PASSED:
                 # Delete the coverage data if available.
-                rm_path(self.cov_db_test_dir)
+                rm_path(Path(self.cov_db_test_dir))
 
         return callback
 
@@ -709,8 +770,24 @@ class CovUnr(Deploy):
 
     target = "cov_unr"
 
-    def __init__(self, sim_cfg) -> None:
+    def __init__(self, sim_cfg: FlowCfg) -> None:
         """Initialise a UNR coverage calculation job deployment."""
+        # Declare (typed) variables for values that will be loaded in in
+        # super().__init__. This teaches a type checker about the existence of
+        # the fields.
+        self.proj_root: str = ""
+        self.sv_flist_gen_cmd: str = ""
+        self.sv_flist_gen_dir: str = ""
+        self.sv_flist_gen_opts: list[str] = []
+        self.build_dir: str = ""
+        self.cov_unr_build_cmd: str = ""
+        self.cov_unr_build_opts: list[str] = []
+        self.cov_unr_run_cmd: str = ""
+        self.cov_unr_run_opts: list[str] = []
+        self.cov_unr_dir: str = ""
+        self.cov_merge_db_dir: str = ""
+        self.build_fail_patterns: list[str] = []
+
         super().__init__(sim_cfg)
 
     def _define_attrs(self) -> None:
@@ -777,7 +854,7 @@ class CovMerge(Deploy):
         self.cov_merge_db_dir = subst_wildcards("{cov_merge_db_dir}", sim_cfg.__dict__)
 
         # Prune previous merged cov directories, keeping past 7 dbs.
-        prev_cov_db_dirs = clean_odirs(odir=self.cov_merge_db_dir, max_odirs=7)
+        prev_cov_db_dirs = clean_odirs(odir=Path(self.cov_merge_db_dir), max_odirs=7)
 
         # If the --cov-merge-previous command line switch is passed, then
         # merge coverage with the previous runs.
@@ -820,6 +897,15 @@ class CovReport(Deploy):
         # Register a copy of sim_cfg which is explicitly the SimCfg type
         self._typed_sim_cfg: SimCfg = sim_cfg
 
+        # Declare (typed) variables for values that will be loaded in in
+        # super().__init__. This teaches a type checker about the existence of
+        # the fields.
+        self.cov_report_cmd: str = ""
+        self.cov_report_opts: list[str] = []
+        self.cov_report_dir: str = ""
+        self.cov_merge_db_dir: str = ""
+        self.cov_report_txt: str = ""
+
         super().__init__(sim_cfg)
         self.dependencies.append(merge_job)
 
@@ -859,7 +945,7 @@ class CovReport(Deploy):
             plugin = get_sim_tool_plugin(tool=self._typed_sim_cfg.tool)
 
             results, self.cov_total = plugin.get_cov_summary_table(
-                cov_report_path=self.cov_report_txt,
+                cov_report_path=Path(self.cov_report_txt),
             )
 
             for tup in zip(*results, strict=False):
@@ -873,10 +959,20 @@ class CovAnalyze(Deploy):
 
     target = "cov_analyze"
 
-    def __init__(self, sim_cfg) -> None:
+    def __init__(self, sim_cfg: FlowCfg) -> None:
         """Initialise a job deployment for running coverage analysis."""
         # Enforce GUI mode for coverage analysis.
         sim_cfg.gui = True
+
+        # Declare (typed) variables for values that will be loaded in in
+        # super().__init__. This teaches a type checker about the existence of
+        # the fields.
+        self.proj_root: str = ""
+        self.cov_analyze_cmd: str = ""
+        self.cov_analyze_opts: list[str] = []
+        self.cov_analyze_dir: str = ""
+        self.cov_merge_db_dir: str = ""
+
         super().__init__(sim_cfg)
 
     def _define_attrs(self) -> None:
