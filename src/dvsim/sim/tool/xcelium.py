@@ -8,8 +8,12 @@ import re
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from dvsim.sim.data import CodeCoverageMetrics, CoverageMetrics
+
+if TYPE_CHECKING:
+    from dvsim.job.deploy import Deploy
 
 __all__ = ("Xcelium",)
 
@@ -157,3 +161,12 @@ class Xcelium:
                 fsm=raw_metrics.get("fsm"),
             ),
         )
+
+    @staticmethod
+    def set_additional_attrs(deploy: "Deploy") -> None:
+        """Define any additional tool-specific attrs on the deploy object.
+
+        Args:
+            deploy: the deploy object to mutate.
+
+        """
