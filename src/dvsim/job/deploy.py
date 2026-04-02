@@ -7,7 +7,7 @@
 import pprint
 import random
 import shlex
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -96,6 +96,7 @@ class Deploy:
         self.dry_run = False
         self.flow_makefile = ""
         self.name = ""
+        self.exports: Iterable[Mapping[str, str]] = []
 
         # Declare attributes that need to be extracted from the HJSon cfg.
         self._define_attrs()
@@ -109,8 +110,10 @@ class Deploy:
         # Do variable substitutions.
         self._subst_vars()
 
-        # List of vars required to be exported to sub-shell, as a dict.
-        self.exports = self._process_exports()
+        # List of vars required to be exported to sub-shell, as a dict. This
+        # has been loaded from the hjson as a list of dicts and we want to
+        # flatten it to a single dictionary.
+        self.merged_exports: dict[str, str] = self._process_exports(self.exports)
 
         # Construct the job's command.
         self.cmd = self._construct_cmd()
@@ -148,7 +151,7 @@ class Deploy:
             weight=self.weight,
             timeout_mins=(None if self.gui else self.get_timeout_mins()),
             cmd=self.cmd,
-            exports=self.exports,
+            exports=self.merged_exports,
             dry_run=self.dry_run,
             interactive=self.sim_cfg.interactive,
             odir=self.odir,
@@ -287,7 +290,7 @@ class Deploy:
             ignore_error=False,
         )
 
-    def _process_exports(self) -> Mapping:
+    def _process_exports(self, exports_list: Iterable[Mapping[str, str]]) -> dict[str, str]:
         """Convert 'exports' as a list of dicts in the HJson to a dict.
 
         Exports is a list of key-value pairs that are to be exported to the
@@ -297,7 +300,7 @@ class Deploy:
         into a dict variable, which makes it easy to merge the list of exports
         with the subprocess' env where the ASIC tool is invoked.
         """
-        return {k: str(v) for item in self.exports for k, v in item.items()}
+        return {k: str(v) for item in exports_list for k, v in item.items()}
 
     def _construct_cmd(self) -> str:
         """Construct the command that will eventually be launched."""
@@ -336,12 +339,12 @@ class Deploy:
             return False
 
         # Check if exports have identical set of keys.
-        if self.exports.keys() != item.exports.keys():
+        if self.merged_exports.keys() != item.merged_exports.keys():
             return False
 
         # Check if exports have identical values.
-        for key, val in self.exports.items():
-            item_val = item.exports[key]
+        for key, val in self.merged_exports.items():
+            item_val = item.merged_exports[key]
             if type(item_val) is str:
                 item_val = item_val.replace(item.name, self.name)
             if val != item_val:
@@ -867,7 +870,7 @@ class CovMerge(Deploy):
         self.needs_all_dependencies_passing = False
 
         # Append cov_db_dirs to the list of exports.
-        self.exports["cov_db_dirs"] = shlex.quote(" ".join(self.cov_db_dirs))
+        self.merged_exports["cov_db_dirs"] = shlex.quote(" ".join(self.cov_db_dirs))
 
     def _define_attrs(self) -> None:
         super()._define_attrs()
