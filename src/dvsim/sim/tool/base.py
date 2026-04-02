@@ -6,9 +6,12 @@
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from dvsim.sim.data import CoverageMetrics
+
+if TYPE_CHECKING:
+    from dvsim.job.deploy import Deploy
 
 __all__ = ("SimTool",)
 
@@ -79,6 +82,16 @@ class SimTool(Protocol):
 
         Returns:
             CoverageMetrics model.
+
+        """
+        ...
+
+    @staticmethod
+    def set_additional_attrs(deploy: "Deploy") -> None:
+        """Define any additional tool-specific attrs on the deploy object.
+
+        Args:
+            deploy: the deploy object to mutate.
 
         """
         ...

@@ -108,6 +108,14 @@ class Deploy:
         # Set class instance attributes.
         self._set_attrs()
 
+        # Mutate the attributes based on any tool plugins.
+        if self.sim_cfg.flow == "sim":
+            try:
+                plugin = get_sim_tool_plugin(self.sim_cfg.tool)
+                plugin.set_additional_attrs(self)
+            except NotImplementedError as e:
+                log.debug("Could not find sim tool for %s: %s", self.sim_cfg.tool, str(e))
+
         # Check if all attributes that are needed are set.
         self._check_attrs()
 
