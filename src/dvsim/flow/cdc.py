@@ -4,7 +4,7 @@
 
 """Class describing lint configuration object."""
 
-from dvsim.flow.lint import LintCfg
+from dvsim.linting.flow import LintCfg
 
 
 class CdcCfg(LintCfg):
