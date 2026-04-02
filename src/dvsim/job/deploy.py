@@ -7,7 +7,7 @@
 import pprint
 import random
 import shlex
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -590,9 +590,9 @@ class RunTest(Deploy):
 
     # Initial seed values when running tests (if available).
     target = "run"
-    seeds = []
+    seeds: ClassVar[list[int]] = []
     fixed_seed = None
-    cmds_list_vars = ["pre_run_cmds", "post_run_cmds"]
+    cmds_list_vars: ClassVar[list[str]] = ["pre_run_cmds", "post_run_cmds"]
 
     def __init__(self, index: int, test: Test, build_job: CompileSim, sim_cfg: "SimCfg") -> None:
         # Register a copy of sim_cfg which is explicitly the SimCfg type
@@ -651,7 +651,12 @@ class RunTest(Deploy):
 
         # We did something wrong if build_mode is not the same as the build_job
         # arg's name.
-        assert self.build_mode == build_job.name
+        if self.build_mode != build_job.name:
+            msg = (
+                f"Created a build job with name {build_job.name}, when we "
+                f"expected the name to be {self.build_mode}."
+            )
+            raise AssertionError(msg)
 
     def _define_attrs(self) -> None:
         super()._define_attrs()
@@ -757,7 +762,7 @@ class RunTest(Deploy):
                 RunTest.seeds.append(seed)
         return RunTest.seeds.pop(0)
 
-    def get_timeout_mins(self):
+    def get_timeout_mins(self) -> float:
         """Return the timeout in minutes.
 
         Limit run jobs to 60 minutes if the timeout is not set.
@@ -832,7 +837,7 @@ class CovMerge(Deploy):
     target = "cov_merge"
     weight = 10
 
-    def __init__(self, run_items, sim_cfg) -> None:
+    def __init__(self, run_items: Iterable[RunTest], sim_cfg: FlowCfg) -> None:
         """Initialise a job deployment to merge coverage databases."""
         # Construct the cov_db_dirs right away from the run_items. This is a
         # special variable used in the HJson. The coverage associated with
@@ -862,7 +867,7 @@ class CovMerge(Deploy):
             self.cov_db_dirs += [str(item) for item in prev_cov_db_dirs]
 
         super().__init__(sim_cfg)
-        self.dependencies += run_items
+        self.dependencies.extend(run_items)
         # Run coverage merge even if one test passes.
         self.needs_all_dependencies_passing = False
 
