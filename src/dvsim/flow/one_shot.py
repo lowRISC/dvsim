@@ -171,10 +171,24 @@ class OneShotCfg(FlowCfg):
         for item in self.cfgs:
             project = item.name
 
+            # Children of this configuration should all be OneShotCfg objects
+            # too. Check that they are.
+            if not isinstance(item, OneShotCfg):
+                msg = "sub-configs of a OneShotCfg should also be instances of OneShotCfg."
+                raise TypeError(msg)
+
+            # We want to report all the results with the correct block
+            # (checking the name) and also with the correct variant.
+            #
+            # For the latter check, we don't necessarily know that item (the
+            # configuration that is being run) is a type that defines variant
+            # at all. If not, we just interpret the variant as None.
+            item_variant = getattr(item, "variant", None)
+
             item_results = [
                 res
                 for res in results
-                if res.block.name == item.name and res.block.variant == item.variant
+                if res.block.name == item.name and res.block.variant == item_variant
             ]
 
             result = item._gen_results(item_results)
