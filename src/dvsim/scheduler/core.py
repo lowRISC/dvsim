@@ -153,7 +153,7 @@ class Scheduler:
             width = len(str(self._total[target]))
             field_fmt = f"{{:0{width}d}}"
             self._msg_fmt = (
-                f"Q: {field_fmt}, D: {field_fmt}, P: {field_fmt}, "
+                f"Q: {field_fmt}, R: {field_fmt}, P: {field_fmt}, "
                 f"F: {field_fmt}, K: {field_fmt}, T: {field_fmt}"
             )
             msg = self._msg_fmt.format(0, 0, 0, 0, 0, self._total[target])
