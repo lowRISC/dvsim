@@ -140,7 +140,6 @@ class SimCfg(FlowCfg):
         self.sw_build_opts = []
         self.pass_patterns = []
         self.fail_patterns = []
-        self.name = ""
         self.variant = ""
         self.dut = ""
         self.tb = ""

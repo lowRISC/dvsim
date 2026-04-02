@@ -74,6 +74,7 @@ class FlowCfg(ABC):
         self.interactive = args.interactive
 
         # Options set from hjson cfg.
+        self.name = ""
         self.project = ""
         self.scratch_path = ""
         self.scratch_base_path = ""
