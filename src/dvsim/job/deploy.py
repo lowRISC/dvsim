@@ -138,7 +138,7 @@ class Deploy:
             ),
             workspace_cfg=WorkspaceConfig(
                 timestamp=self.sim_cfg.args.timestamp,
-                project_root=self.sim_cfg.proj_root,
+                project_root=Path(self.sim_cfg.proj_root),
                 scratch_root=Path(self.sim_cfg.scratch_root),
                 scratch_path=Path(self.sim_cfg.scratch_path),
             ),

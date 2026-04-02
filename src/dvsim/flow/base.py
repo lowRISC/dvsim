@@ -78,6 +78,7 @@ class FlowCfg(ABC):
         self.project = ""
         self.scratch_path = ""
         self.scratch_base_path = ""
+        self.proj_root = ""
 
         # Add exports using 'exports' keyword - these are exported to the child
         # process' environment.
@@ -153,6 +154,10 @@ class FlowCfg(ABC):
         # after merging the hjson but before expansion, they can override
         # _expand and add the code at the start.
         self._expand()
+
+        # Check that proj_root has indeed been defined in the hjson config file
+        if not self.proj_root:
+            raise RuntimeError("Config file did not define proj_root.")
 
         # After initialisation & expansion, save some useful revision metadata
         proj_root = Path(self.proj_root)
