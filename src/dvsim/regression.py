@@ -37,6 +37,7 @@ class Regression(Mode):
         self.pre_run_cmds = []
         self.post_run_cmds = []
         self.build_opts = []
+        self.post_build_opts = []
         self.run_opts = []
         super().__init__("regression", regdict)
 
@@ -110,6 +111,7 @@ class Regression(Mode):
                 # Merge the build and run cmds & opts from the sim modes
                 regression_obj.pre_build_cmds.extend(sim_mode_obj.pre_build_cmds)
                 regression_obj.post_build_cmds.extend(sim_mode_obj.post_build_cmds)
+                regression_obj.post_build_opts.extend(sim_mode_obj.post_build_opts)
                 regression_obj.build_opts.extend(sim_mode_obj.build_opts)
                 regression_obj.pre_run_cmds.extend(sim_mode_obj.pre_run_cmds)
                 regression_obj.post_run_cmds.extend(sim_mode_obj.post_run_cmds)
@@ -165,6 +167,7 @@ class Regression(Mode):
             if test.build_mode.name not in processed_build_modes:
                 test.build_mode.pre_build_cmds.extend(self.pre_build_cmds)
                 test.build_mode.post_build_cmds.extend(self.post_build_cmds)
+                test.build_mode.post_build_opts.extend(self.post_build_opts)
                 test.build_mode.build_opts.extend(self.build_opts)
                 processed_build_modes.append(test.build_mode.name)
             test.pre_run_cmds.extend(self.pre_run_cmds)

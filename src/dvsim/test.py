@@ -121,6 +121,7 @@ class Test(RunMode):
         global_pre_build_cmds,
         global_post_build_cmds,
         global_build_opts,
+        global_post_build_opts,
         global_pre_run_cmds,
         global_post_run_cmds,
         global_run_opts,
@@ -133,6 +134,7 @@ class Test(RunMode):
                 test.build_mode.pre_build_cmds.extend(global_pre_build_cmds)
                 test.build_mode.post_build_cmds.extend(global_post_build_cmds)
                 test.build_mode.build_opts.extend(global_build_opts)
+                test.build_mode.post_build_opts.extend(global_post_build_opts)
                 processed_build_modes.add(test.build_mode.name)
             test.pre_run_cmds.extend(global_pre_run_cmds)
             test.post_run_cmds.extend(global_post_run_cmds)
