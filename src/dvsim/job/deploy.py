@@ -113,6 +113,19 @@ class Deploy:
         # If the FlowCfg object in self.sim_cfg doesn't have a links dictionary, default to {}.
         links = getattr(self.sim_cfg, "links", {})
 
+        # Get commit and commit_short arguments to pass to JobSpec. We don't
+        # necessarily know that self.sim_cfg is actually a SimCfg object, so it
+        # might not have them defined. If it doesn't, we can't generate a
+        # meaningful job spec.
+        commit: str = self.sim_cfg.commit
+        commit_short: str = self.sim_cfg.commit_short
+        if not (commit and commit_short):
+            msg = (
+                "Cannot generate job spec. FlowCfg object "
+                "commit/commit_short is {commit}/{commit_short}."
+            )
+            raise TypeError(msg)
+
         return JobSpec(
             name=self.name,
             job_type=self.__class__.__name__,
@@ -123,8 +136,8 @@ class Deploy:
             block=IPMeta(
                 name=self.sim_cfg.name,
                 variant=self._variant,
-                commit=self.sim_cfg.commit,
-                commit_short=self.sim_cfg.commit_short,
+                commit=commit,
+                commit_short=commit_short,
                 branch=self.sim_cfg.branch,
                 url="",
                 revision_info=self.sim_cfg.revision,
