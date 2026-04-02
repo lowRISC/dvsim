@@ -104,7 +104,7 @@ def _build_logger() -> DVSimLogger:
     # Log any unhandled exceptions
     _previous_excepthook = sys.excepthook
 
-    def _handle_exception(exc_type, exc_value, exc_tb):
+    def _handle_exception(exc_type, exc_value, exc_tb) -> None:
         logger.critical("Unhandled exception", exc_info=(exc_type, exc_value, exc_tb))
         _previous_excepthook(exc_type, exc_value, exc_tb)
 

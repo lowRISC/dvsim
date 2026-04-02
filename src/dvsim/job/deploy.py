@@ -25,8 +25,9 @@ from dvsim.utils import (
 )
 
 if TYPE_CHECKING:
-    from dvsim.flow.sim import SimCfg
+    from dvsim.flow.base import FlowCfg
     from dvsim.modes import BuildMode
+    from dvsim.sim.flow import SimCfg
 
 
 __all__ = (
@@ -59,7 +60,7 @@ class Deploy:
         """Get a string representation of the deployment object."""
         return pprint.pformat(self.__dict__) if log.isEnabledFor(log.VERBOSE) else self.full_name
 
-    def __init__(self, sim_cfg: "SimCfg") -> None:
+    def __init__(self, sim_cfg: "FlowCfg") -> None:
         """Initialise deployment object.
 
         Args:
