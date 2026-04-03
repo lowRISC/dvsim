@@ -80,7 +80,6 @@ class SimCfg(FlowCfg):
 
     def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
         # Options set from command line
-        self.tool = args.tool
         self.build_opts = []
         self.build_opts.extend(args.build_opts)
         self.en_build_modes = args.build_modes.copy()
