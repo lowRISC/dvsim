@@ -267,7 +267,7 @@ class Deploy:
                     msg,
                 )
 
-    def _subst_vars(self, ignored_subst_vars=None) -> None:
+    def _subst_vars(self) -> None:
         """Recursively search and replace substitution variables.
 
         First pass: search within self dict. We ignore errors since some
@@ -277,13 +277,13 @@ class Deploy:
         self.__dict__ = find_and_substitute_wildcards(
             obj=self.__dict__,
             wildcard_values=self.__dict__,
-            ignored_wildcards=ignored_subst_vars,
+            ignored_wildcards=None,
             ignore_error=True,
         )
         self.__dict__ = find_and_substitute_wildcards(
             obj=self.__dict__,
             wildcard_values=self.sim_cfg.__dict__,
-            ignored_wildcards=ignored_subst_vars,
+            ignored_wildcards=None,
             ignore_error=False,
         )
 
