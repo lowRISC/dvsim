@@ -43,8 +43,14 @@ from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
 from dvsim.launcher.slurm import SlurmLauncher
 from dvsim.logging import LOG_LEVELS, configure_logging, log
+from dvsim.runtime.registry import BackendType, backend_registry
+from dvsim.scheduler.async_status_printer import StatusPrinter
+from dvsim.scheduler.async_status_printer import get_status_printer as get_async_status_printer
 from dvsim.scheduler.status_printer import get_status_printer
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, Timer, rm_path, run_cmd_with_timeout
+
+# Temporary: set to 1 to enable experimental use of the async scheduler (not yet fully integrated)
+EXPERIMENTAL_ENABLE_ASYNC_SCHEDULER = os.environ.get("EXPERIMENTAL_ENABLE_ASYNC_SCHEDULER", None)
 
 # The different categories that can be passed to the --list argument.
 _LIST_CATEGORIES = ["build_modes", "run_modes", "tests", "regressions"]
@@ -839,6 +845,37 @@ def parse_args(argv: list[str] | None = None):
     return args
 
 
+def set_backend_type(*, is_local: bool = False, fake: bool = False) -> None:
+    """Set the default backend type that will be used to launch jobs (unless overridden).
+
+    The DVSIM_BACKEND/DVSIM_LAUNCHER environment variables are used to identify what
+    backend should be used by default, and is intended to be specific to the user's
+    work site and set externally before invoking DVSim. Selecting a local or fake backend
+    via the command line will override this.
+    """
+    if is_local:
+        backend = "local"
+    elif fake:
+        backend = "fake"
+    else:
+        backend = os.environ.get("DVSIM_BACKEND")
+
+        if backend is None:
+            # Fall back to the legacy launcher environment variable
+            backend = os.environ.get("DVSIM_LAUNCHER", "local")
+
+        available_backends = backend_registry.available()
+        if backend not in available_backends:
+            log.error(
+                "Backend %s set using the DVSIM_BACKEND/DVSIM_LAUNCHER environment variables "
+                "does not exist. Using the local backend instead."
+            )
+            backend = "local"
+
+    # Configure the resolved backend type as the default backend
+    backend_registry.set_default(BackendType(backend))
+
+
 def main(argv: list[str] | None = None) -> None:
     """DVSim CLI entry point."""
     args = parse_args(argv)
@@ -884,6 +921,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # Register the common deploy settings.
     Timer.print_interval = args.print_interval
+    StatusPrinter.print_interval = args.print_interval
     LocalLauncher.max_parallel = args.max_parallel
     SlurmLauncher.max_parallel = args.max_parallel
     SgeLauncher.max_parallel = args.max_parallel
@@ -892,6 +930,9 @@ def main(argv: list[str] | None = None) -> None:
     Launcher.max_odirs = args.max_odirs
     FakeLauncher.max_parallel = args.max_parallel
     set_launcher_type(is_local=args.local, fake=args.fake)
+
+    # Configure the runtime backend. TODO: deprecate `set_launcher_type` above.
+    set_backend_type(is_local=args.local, fake=args.fake)
 
     # Configure scheduler instrumentation
     set_instrumentation(InstrumentationFactory.create(args.instrumentation))
@@ -935,8 +976,13 @@ def main(argv: list[str] | None = None) -> None:
         # Now that we have printed the results from the scheduler, we close the
         # status printer, to ensure the status remains relevant in the UI context
         # (for applicable status printers).
-        status_printer = get_status_printer(args.interactive)
-        status_printer.exit()
+        if EXPERIMENTAL_ENABLE_ASYNC_SCHEDULER:
+            if not args.interactive:
+                status_printer = get_async_status_printer()
+                status_printer.exit()
+        else:
+            status_printer = get_status_printer(args.interactive)
+            status_printer.exit()
 
     else:
         log.error("Nothing to run!")

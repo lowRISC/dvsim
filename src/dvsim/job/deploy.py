@@ -111,6 +111,9 @@ class Deploy:
             name=self.name,
             job_type=self.__class__.__name__,
             target=self.target,
+            # TODO: for now we always use the default configured backend, but it might be good
+            # to allow different jobs to run on different backends in the future?
+            backend=None,
             seed=getattr(self, "seed", None),
             full_name=self.full_name,
             qual_name=self.qual_name,
@@ -833,13 +836,14 @@ class CovReport(Deploy):
             If the extraction fails, an appropriate exception is raised, which must
             be caught by the caller to mark the job as a failure.
             """
-            if self.dry_run or status != JobStatus.PASSED:
+            cov_report_path = Path(self.cov_report_txt)
+            if self.dry_run or status != JobStatus.PASSED or not cov_report_path.exists():
                 return
 
             plugin = get_sim_tool_plugin(tool=self.sim_cfg.tool)
 
             results, self.cov_total = plugin.get_cov_summary_table(
-                cov_report_path=self.cov_report_txt,
+                cov_report_path=cov_report_path,
             )
 
             for tup in zip(*results, strict=False):
