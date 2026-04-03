@@ -25,7 +25,6 @@ class OneShotCfg(FlowCfg):
 
     def __init__(self, flow_cfg_file, hjson_data, args, mk_config) -> None:
         # Options set from command line
-        self.tool = args.tool
         self.verbose = args.verbose
         self.flist_gen_cmd = ""
         self.flist_gen_opts = []

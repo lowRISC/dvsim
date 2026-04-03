@@ -79,6 +79,10 @@ class FlowCfg(ABC):
         self.scratch_path = ""
         self.scratch_base_path = ""
 
+        # The command line might specify the tool (with --tool). If not, we
+        # leave it as None (allowing an hjson file to populate it)
+        self.tool: str | None = args.tool
+
         # Add exports using 'exports' keyword - these are exported to the child
         # process' environment.
         self.exports = []

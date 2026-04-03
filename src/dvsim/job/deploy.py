@@ -116,6 +116,16 @@ class Deploy:
 
     def get_job_spec(self) -> "JobSpec":
         """Get the job spec for this deployment."""
+        # At this point, the configuration should have populated its tool field
+        # (either from a command line argument or a value in the hjson that was
+        # loaded. If not, we don't know what to do.
+        if self.sim_cfg.tool is None:
+            msg = (
+                "No tool selected in job configuration. It must either be "
+                "specified in the hjson or passed with the  --tool argument."
+            )
+            raise RuntimeError(msg)
+
         return JobSpec(
             name=self.name,
             job_type=self.__class__.__name__,
@@ -844,6 +854,11 @@ class CovReport(Deploy):
             """
             if self.dry_run or status != JobStatus.PASSED:
                 return
+
+            # At this point, we have finished running a tool, so we know that
+            # self.sim_cfg.tool must have been set.
+            if self.sim_cfg.tool is None:
+                raise AssertionError("sim_cfg.tool cannot be None now.")
 
             plugin = get_sim_tool_plugin(tool=self.sim_cfg.tool)
 
