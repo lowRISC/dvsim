@@ -279,8 +279,8 @@ class SimCfg(FlowCfg):
 
     def _create_objects(self) -> None:
         # Create build and run modes objects
-        self.build_modes = Mode.create_modes(BuildMode, self.build_modes)
-        self.run_modes = Mode.create_modes(RunMode, self.run_modes)
+        self.build_modes = BuildMode.create_modes(self.build_modes)
+        self.run_modes = RunMode.create_modes(self.run_modes)
 
         # Walk through build modes enabled on the CLI and append the opts
         for en_build_mode in self.en_build_modes:

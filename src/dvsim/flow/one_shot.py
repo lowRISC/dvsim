@@ -14,7 +14,7 @@ from dvsim.job.data import CompletedJobStatus
 from dvsim.job.deploy import CompileOneShot
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
-from dvsim.modes import BuildMode, Mode
+from dvsim.modes import BuildMode
 from dvsim.utils import rm_path
 
 
@@ -114,7 +114,7 @@ class OneShotCfg(FlowCfg):
 
     def _create_objects(self) -> None:
         # Create build and run modes objects
-        build_modes = Mode.create_modes(BuildMode, self.build_modes)
+        build_modes = BuildMode.create_modes(self.build_modes)
         self.build_modes = build_modes
 
         # All defined build modes are being built, h
