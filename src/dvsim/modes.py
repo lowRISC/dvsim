@@ -5,7 +5,10 @@
 """Modes are an abstraction for a collection of options and configuration for a dvsim job."""
 
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any
+
+from typing_extensions import Self
 
 from dvsim.logging import log
 
@@ -145,13 +148,13 @@ class Mode:
 
         return True
 
-    @staticmethod
-    def create_modes(mode_type: "type[Mode]", mdicts: Mapping) -> Sequence["Mode"]:
-        """Create modes of type mode_type.
+    @classmethod
+    def create_modes(cls, mdicts: Iterable[Mapping[str, Any]]) -> list[Self]:
+        """Create modes of type cls.
 
         Use the given list of raw dicts Process dependencies.
 
-        Return a list of modes objects.
+        Return a list of created objects.
         """
 
         def merge_sub_modes(mode, parent, objs) -> None:
@@ -189,7 +192,7 @@ class Mode:
 
         modes_objs = []
         # create a default mode if available
-        default_mode = mode_type.get_default_mode()
+        default_mode = cls.get_default_mode()
         if default_mode is not None:
             modes_objs.append(default_mode)
 
@@ -198,7 +201,7 @@ class Mode:
         for mdict in mdicts:
             # Create a new item
             new_mode_merged = False
-            new_mode = mode_type(mdict)
+            new_mode = cls(mdict)
             for mode in modes_objs:
                 # Merge new one with existing if available
                 if mode.name == new_mode.name:
@@ -209,7 +212,7 @@ class Mode:
             # Add the new mode to the list if not already appended
             if not new_mode_merged:
                 modes_objs.append(new_mode)
-                mode_type.item_names.append(new_mode.name)
+                cls.item_names.append(new_mode.name)
 
         # Pass 2: Recursively expand sub modes within parent modes
         for mode in modes_objs:
