@@ -53,7 +53,7 @@ class OneShotCfg(FlowCfg):
         self.dut = ""
         self.fusesoc_core = ""
         self.ral_spec = ""
-        self.build_modes = []
+        self.build_modes: Sequence[BuildMode] = []
         self.run_modes = []
         self.regressions = []
         self.max_msg_count = -1
@@ -110,16 +110,28 @@ class OneShotCfg(FlowCfg):
     def _purge(self) -> None:
         assert self.scratch_path
         log.info("Purging scratch path %s", self.scratch_path)
-        rm_path(self.scratch_path)
+        rm_path(Path(self.scratch_path))
 
     def _create_objects(self) -> None:
-        # Create build and run modes objects
-        build_modes = BuildMode.create_modes(self.build_modes)
-        self.build_modes = build_modes
+        # Create build modes objects based on the names that were stored in
+        # self.build_modes by the superclass constructor's call to
+        # _merge_hjson.
+        #
+        # We've lied to the type checker about the type of self.build_modes,
+        # giving it the type that it will contain after this function is
+        # complete.
+        mode_dicts: list[dict[object, object]] = []
+        for mode_dict in self.build_modes:
+            if not isinstance(mode_dict, dict):
+                msg = f"Found a build mode item of {mode_dict} when we expected a dict."
+                raise TypeError(msg)
 
-        # All defined build modes are being built, h
-        # ence extend all with the global opts.
-        for build_mode in build_modes:
+            mode_dicts.append(mode_dict)
+
+        self.build_modes = BuildMode.create_modes(mode_dicts)
+
+        # Extend all of the build modes (that are being built) with the global build_opts.
+        for build_mode in self.build_modes:
             build_mode.build_opts.extend(self.build_opts)
 
     def _print_list(self) -> None:
