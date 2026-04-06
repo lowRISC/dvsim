@@ -48,6 +48,12 @@ class BackendRegistry(Mapping):
         factory = self[name]
         return factory(*args, **kwargs)
 
+    def clear(self) -> None:
+        """Clear the backend registry."""
+        log.debug("Cleared the backend registry.")
+        self._registry.clear()
+        self._default = None
+
     @property
     def default(self) -> BackendType | None:
         """Get the configured default runtime backend type."""
