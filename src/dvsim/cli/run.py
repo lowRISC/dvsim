@@ -43,6 +43,7 @@ from dvsim.launcher.nc import NcLauncher
 from dvsim.launcher.sge import SgeLauncher
 from dvsim.launcher.slurm import SlurmLauncher
 from dvsim.logging import LOG_LEVELS, configure_logging, log
+from dvsim.runtime.backend import RuntimeBackend
 from dvsim.runtime.registry import BackendType, backend_registry
 from dvsim.scheduler.async_status_printer import StatusPrinter
 from dvsim.scheduler.async_status_printer import get_status_printer as get_async_status_printer
@@ -451,7 +452,7 @@ def parse_args(argv: list[str] | None = None):
         help=(
             "When tests are run, older runs are backed "
             "up. Discard all but the N most recent (defaults "
-            "to 5)."
+            "to %(default)d)."
         ),
     )
 
@@ -933,6 +934,7 @@ def main(argv: list[str] | None = None) -> None:
     LsfLauncher.max_parallel = args.max_parallel
     NcLauncher.max_parallel = args.max_parallel
     Launcher.max_odirs = args.max_odirs
+    RuntimeBackend.max_output_dirs = args.max_odirs
     FakeLauncher.max_parallel = args.max_parallel
     set_launcher_type(is_local=args.local, fake=args.fake)
 
