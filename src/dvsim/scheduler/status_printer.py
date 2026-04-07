@@ -77,12 +77,12 @@ class StatusPrinter(ABC):
 
         # If we need an async task to manage the print interval, create one
         if not self.updates_every_event:
+            self.update_all_targets(including_unstarted=True)
             self._task = asyncio.create_task(self._run())
 
     async def _run(self) -> None:
         """Run a timer in an async loop, printing the updated status at every interval."""
         next_tick = self._start_time + self._interval
-        self.update_all_targets(including_unstarted=True)
 
         while True:
             now = time.monotonic()
