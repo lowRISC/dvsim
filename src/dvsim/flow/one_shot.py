@@ -14,7 +14,6 @@ from typing import Any, ClassVar
 from dvsim.flow.base import FlowCfg
 from dvsim.job.data import CompletedJobStatus
 from dvsim.job.deploy import CompileOneShot
-from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.modes import BuildMode
 from dvsim.utils import rm_path
@@ -90,7 +89,6 @@ class OneShotCfg(FlowCfg):
         self.en_build_modes = []
 
         # Generated data structures
-        self.links = {}
         self.build_list = []
         self.deploy = []
         self.cov = args.cov
@@ -111,13 +109,6 @@ class OneShotCfg(FlowCfg):
         if not self.is_primary_cfg and (not self.select_cfgs or self.name in self.select_cfgs):
             # Print scratch_path at the start:
             log.info("[scratch_path]: [%s] [%s]", self.name, self.scratch_path)
-
-            # Set directories with links for ease of debug / triage.
-            self.links = {
-                status: f"{self.scratch_path}/{status.name.lower()}"
-                for status in JobStatus
-                if status.is_terminal or status == JobStatus.RUNNING
-            }
 
             # Use the default build mode for tests that do not specify it
             if not hasattr(self, "build_mode"):

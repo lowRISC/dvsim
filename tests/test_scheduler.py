@@ -337,15 +337,6 @@ def job_spec_factory(
     if "qual_name" not in spec:
         spec["qual_name"] = spec["name"]
 
-    # TODO: this will be removed along with `JobSpec.links`
-    if "links" not in spec:
-        scratch_path = spec["workspace_cfg"].scratch_path
-        spec["links"] = {
-            status: scratch_path / status.name.lower()
-            for status in JobStatus
-            if status.is_terminal or status == JobStatus.RUNNING
-        }
-
     return JobSpec(**spec)
 
 

@@ -134,9 +134,6 @@ class Deploy:
             )
             raise RuntimeError(msg)
 
-        # If the FlowCfg object in self.sim_cfg doesn't have a links dictionary, default to {}.
-        links = getattr(self.sim_cfg, "links", {})
-
         return JobSpec(
             name=self.name,
             job_type=self.__class__.__name__,
@@ -172,7 +169,6 @@ class Deploy:
             odir=self.odir,
             renew_odir=self.renew_odir,
             log_path=Path(f"{self.odir}/{self.target}.log"),
-            links=links,
             pre_launch=self.pre_launch(),
             post_finish=self.post_finish(),
             pass_patterns=self.pass_patterns,

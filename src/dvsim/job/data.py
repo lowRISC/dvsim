@@ -108,8 +108,6 @@ class JobSpec(BaseModel):
     """
     log_path: Path
     """Path for the job log file."""
-    links: Mapping[JobStatus, Path]
-    """Path for links directories."""
 
     # TODO: remove the need for these callables here
     pre_launch: Callable[[], None]
