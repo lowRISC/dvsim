@@ -4,6 +4,7 @@
 
 """DVSim Scratch Job Log Manager."""
 
+from collections.abc import Iterable
 from pathlib import Path
 
 from dvsim.job.data import JobSpec
@@ -14,10 +15,36 @@ from dvsim.utils import mk_symlink, rm_path
 class LogManager:
     """Observes job state changes in the scheduler and manages scratch output directory links."""
 
-    def __init__(self) -> None:
+    def __init__(self, jobs: Iterable[JobSpec]) -> None:
         """Construct a LogManager."""
         # Mapping from job ID -> last symlinked status
         self._links: dict[str, JobStatus] = {}
+
+        # (Re)create the directories which will contain symlinks for each status
+        workspace_cfgs = set()
+        for job in jobs:
+            if job.workspace_cfg in workspace_cfgs:
+                continue
+
+            workspace_cfgs.add(job.workspace_cfg)
+            for status in JobStatus:
+                if self.has_symlink_dir(status):
+                    link_dir = self.status_symlink_dir(job, status)
+                    rm_path(link_dir)
+                    link_dir.mkdir(parents=True)
+
+    @staticmethod
+    def has_symlink_dir(status: JobStatus) -> bool:
+        """Check whether a job status should have an output directory for symlinks or not."""
+        return status.is_terminal or status == JobStatus.RUNNING
+
+    def status_symlink_dir(self, job: JobSpec, status: JobStatus) -> Path:
+        """Get the output dir for symlinking jobs of a given status."""
+        return job.workspace_cfg.scratch_path / status.name.lower()
+
+    def status_symlink(self, job: JobSpec, status: JobStatus) -> Path:
+        """Get the output path for a symlink of a job for a given status."""
+        return self.status_symlink_dir(job, status) / job.qual_name
 
     def _link_job_output_directory(self, job: JobSpec, status: JobStatus) -> None:
         """Symbolic (soft) link the job's output directory based on its status.
@@ -29,7 +56,7 @@ class LogManager:
         if old_status == status:
             return
 
-        link_dest = Path(job.links[status], job.qual_name)
+        link_dest = self.status_symlink(job, status)
         self._links[job.id] = status
 
         # If the symlink already exists (e.g. created by legacy launcher), just keep it.
@@ -40,11 +67,11 @@ class LogManager:
 
         # Delete the previous symlink if it exists
         if old_status is not None:
-            old_link_dest = Path(job.links[old_status], job.qual_name)
+            old_link_dest = self.status_symlink(job, old_status)
             rm_path(old_link_dest)
 
     def on_job_status_change(self, job: JobSpec, status: JobStatus) -> None:
         """Notify the LogManager when a job status has changed."""
         # Only create linked output directories for defined links (terminal state or running).
-        if status in job.links:
+        if self.has_symlink_dir(status):
             self._link_job_output_directory(job, status)

@@ -436,12 +436,6 @@ class SimCfg(FlowCfg):
                 self.build_list.append(test.build_mode)
                 build_list_names.append(test.build_mode.name)
 
-    def _create_dirs(self) -> None:
-        """Create initial set of directories."""
-        for link in self.links:
-            rm_path(self.links[link])
-            Path(self.links[link]).mkdir(parents=True)
-
     def _expand_run_list(self, build_map):
         """Generate a list of tests to be run.
 
@@ -559,18 +553,12 @@ class SimCfg(FlowCfg):
                 self.cov_report_deploy = CovReport(self.cov_merge_deploy, self)
                 self.deploy += [self.cov_merge_deploy, self.cov_report_deploy]
 
-        # Create initial set of directories before kicking off the regression.
-        self._create_dirs()
-
     def _cov_analyze(self) -> None:
         """Open GUI tool for coverage analysis.
 
         Use the last regression coverage data to open up the GUI tool to analyze
         the coverage.
         """
-        # Create initial set of directories, such as running, passed etc.
-        self._create_dirs()
-
         cov_analyze_deploy = CovAnalyze(self)
         self.deploy = [cov_analyze_deploy]
 
@@ -589,8 +577,6 @@ class SimCfg(FlowCfg):
         if self.tool not in ["vcs", "xcelium"]:
             log.error("Only VCS and Xcelium are supported for the UNR flow.")
             sys.exit(1)
-        # Create initial set of directories, such as running, passed etc.
-        self._create_dirs()
 
         cov_unr_deploy = CovUnr(self)
         self.deploy = [cov_unr_deploy]

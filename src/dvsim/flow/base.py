@@ -510,7 +510,7 @@ class FlowCfg(ABC):
             scheduler.add_kill_signal_callback(status_printer.pause)
 
         # Add log manager hooks
-        log_manager = LogManager()
+        log_manager = LogManager(jobs)
         scheduler.add_job_status_change_callback(
             lambda spec, _old, new: log_manager.on_job_status_change(spec, new)
         )

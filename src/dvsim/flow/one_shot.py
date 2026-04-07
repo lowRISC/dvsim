@@ -167,14 +167,6 @@ class OneShotCfg(FlowCfg):
             else:
                 log.error("Item %s does not exist!", list_item)
 
-    def _create_dirs(self) -> None:
-        """Create initial set of directories."""
-        for link in self.links:
-            link_path = Path(self.links[link])
-
-            rm_path(link_path)
-            link_path.mkdir(parents=True)
-
     def _create_deploy_objects(self) -> None:
         """Create deploy objects from build modes."""
         builds = []
@@ -184,9 +176,6 @@ class OneShotCfg(FlowCfg):
 
         self.builds = builds
         self.deploy = builds
-
-        # Create initial set of directories before kicking off the regression.
-        self._create_dirs()
 
     @abstractmethod
     def _gen_results_for_cfg(self, results: Sequence[CompletedJobStatus]) -> None:
