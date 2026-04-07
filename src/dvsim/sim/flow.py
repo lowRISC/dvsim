@@ -513,6 +513,9 @@ class SimCfg(FlowCfg):
 
         # Check self.primary_build_mode is set correctly.
         build_mode_names = {b.name for b in self.builds}
+        if not self.build_list and not self.run_list:
+            log.error("Nothing to do as no matching jobs could be found.")
+            sys.exit(1)
         if self.primary_build_mode not in build_mode_names:
             log.error(
                 f'"primary_build_mode: {self.primary_build_mode}" '
