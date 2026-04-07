@@ -583,16 +583,6 @@ def parse_args(argv: list[str] | None = None):
     )
 
     rung.add_argument(
-        "--no-rerun",
-        action="store_true",
-        help=(
-            "Disable the default behaviour, where failing "
-            "tests are automatically rerun with waves "
-            "enabled."
-        ),
-    )
-
-    rung.add_argument(
         "--run-timeout-mins",
         type=int,
         metavar="MINUTES",

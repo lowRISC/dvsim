@@ -102,7 +102,6 @@ class SimCfg(FlowCfg):
         self.cov_merge_previous = args.cov_merge_previous
         self.profile = args.profile or "(cfg uses profile without --profile)"
         self.xprop_off = args.xprop_off
-        self.no_rerun = args.no_rerun
         self.verbosity = None  # set in _expand
         self.verbose = args.verbose
         self.dry_run = args.dry_run
