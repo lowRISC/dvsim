@@ -19,7 +19,7 @@ from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
 from dvsim.logging import log
 from dvsim.tool.utils import get_sim_tool_plugin
-from dvsim.utils import clean_odirs, mk_symlink, rm_path
+from dvsim.utils import clean_odirs
 
 if TYPE_CHECKING:
     from dvsim.job.data import JobSpec, WorkspaceConfig
@@ -210,20 +210,6 @@ class Launcher(ABC):
             clean_odirs(odir=self.job_spec.odir, max_odirs=self.max_odirs)
 
         Path(self.job_spec.odir).mkdir(exist_ok=True, parents=True)
-
-    def _link_odir(self, status: JobStatus) -> None:
-        """Soft-links the job's directory based on job's status.
-
-        The RUNNING, PASSED and FAILED directories in the scratch area
-        provide a quick way to get to the job that was executed.
-        """
-        dest = Path(self.job_spec.links[status], self.job_spec.qual_name)
-        mk_symlink(path=self.job_spec.odir, link=dest)
-
-        # Delete the symlink from running directory if it exists.
-        if status != JobStatus.RUNNING:
-            old = Path(self.job_spec.links[JobStatus.RUNNING], self.job_spec.qual_name)
-            rm_path(old)
 
     def _dump_env_vars(self, exports: Mapping[str, str]) -> None:
         """Write env vars to a file for ease of debug.
@@ -418,7 +404,6 @@ class Launcher(ABC):
 
         """
         assert status.is_terminal
-        self._link_odir(status)
         log.debug("Item %s has completed execution: %s", self, status.shorthand)
 
         try:

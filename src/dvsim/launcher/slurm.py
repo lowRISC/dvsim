@@ -86,8 +86,6 @@ class SlurmLauncher(Launcher):
         finally:
             self._close_process()
 
-        self._link_odir(JobStatus.RUNNING)
-
     def poll(self) -> JobStatus:
         """Check status of the running process.
 

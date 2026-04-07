@@ -94,7 +94,6 @@ class SgeLauncher(Launcher):
         finally:
             self._close_process()
 
-        self._link_odir(JobStatus.RUNNING)
         f.close()
 
     def poll(self) -> JobStatus:

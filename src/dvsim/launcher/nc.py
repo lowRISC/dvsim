@@ -163,8 +163,6 @@ class NcLauncher(Launcher):
         finally:
             self._close_process()
 
-        self._link_odir(JobStatus.RUNNING)
-
     def minutes_since_start(self):
         return (datetime.datetime.now() - self.start_time).total_seconds() / 60
 

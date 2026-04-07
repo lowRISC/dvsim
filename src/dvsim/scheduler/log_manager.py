@@ -58,11 +58,6 @@ class LogManager:
 
         link_dest = self.status_symlink(job, status)
         self._links[job.id] = status
-
-        # If the symlink already exists (e.g. created by legacy launcher), just keep it.
-        # TODO: when all launchers are migrated this check can be removed.
-        if link_dest.exists() and link_dest.is_symlink():
-            return
         mk_symlink(path=job.odir, link=link_dest)
 
         # Delete the previous symlink if it exists

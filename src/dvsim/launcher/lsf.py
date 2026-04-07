@@ -271,7 +271,6 @@ class LsfLauncher(Launcher):
         for job in LsfLauncher.jobs[cfg][job_name]:
             job.bsub_out = Path(f"{job_script}.{job.index}.out")
             job.job_id = f"{job_id}[{job.index}]"
-            job._link_odir(JobStatus.RUNNING)
 
     def poll(self) -> JobStatus:
         """Poll the status of the job.
