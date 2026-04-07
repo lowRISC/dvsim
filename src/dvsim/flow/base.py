@@ -18,7 +18,7 @@ import hjson
 
 from dvsim import instrumentation
 from dvsim.flow.hjson import set_target_attribute
-from dvsim.job.data import CompletedJobStatus, JobSpec
+from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.runtime.fake import FakeRuntimeBackend
@@ -177,6 +177,14 @@ class FlowCfg(ABC):
         reports_dir = Path(self.scratch_base_path) / "reports"
         self.results_dir = reports_dir / self.rel_path
         self.results_page = self.results_dir / self.results_html_name
+
+        # Construct the global workspace config
+        self.workspace_cfg = WorkspaceConfig(
+            timestamp=self.args.timestamp,
+            project_root=proj_root,
+            scratch_root=Path(self.scratch_root),
+            scratch_path=Path(self.scratch_path),
+        )
 
         # Configure the report path for instrumentation
         instrumentation.set_report_path(reports_dir / "metrics.json")

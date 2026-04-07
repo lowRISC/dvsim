@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from dvsim.flow.base import FlowCfg
-from dvsim.job.data import JobSpec, WorkspaceConfig
+from dvsim.job.data import JobSpec
 from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
 from dvsim.logging import log
@@ -160,12 +160,7 @@ class Deploy:
                 name=self.sim_cfg.tool,
                 version="",
             ),
-            workspace_cfg=WorkspaceConfig(
-                timestamp=self.sim_cfg.args.timestamp,
-                project_root=Path(self.sim_cfg.proj_root),
-                scratch_root=Path(self.sim_cfg.scratch_root),
-                scratch_path=Path(self.sim_cfg.scratch_path),
-            ),
+            workspace_cfg=self.sim_cfg.workspace_cfg,
             dependencies=[d.full_name for d in self.dependencies],
             needs_all_dependencies_passing=self.needs_all_dependencies_passing,
             weight=self.weight,
