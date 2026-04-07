@@ -110,22 +110,48 @@ def read_max_parallel(arg):
 
 
 def resolve_max_parallel(arg):
-    """Pick a value of max_parallel, defaulting to 16 or $DVSIM_MAX_PARALLEL."""
+    """Determine the maximum parallelism that should be used by DVSim.
+
+    Always use the CLI argument if provided. If not, check if some $DVSIM_MAX_PARALLEL
+    environment variable is defined. If not, try to determine the number of logical
+    CPUs on the system and use (logical CPUs - 1). Otherwise, default to 16.
+    """
     if arg is not None:
         assert arg > 0
+        log.info("Using max_parallel=%d from the command-line args.", arg)
         return arg
 
     from_env = os.environ.get("DVSIM_MAX_PARALLEL")
     if from_env is not None:
         try:
-            return read_max_parallel(from_env)
+            max_parallel = read_max_parallel(from_env)
+            log.info("Using max_parallel=%d from $DVSIM_MAX_PARALLEL.", max_parallel)
+            return max_parallel
         except argparse.ArgumentTypeError:
             log.warning(
                 "DVSIM_MAX_PARALLEL environment variable has value "
-                f"{from_env!r}, which is not a positive integer. Using default "
-                "value (16).",
+                f"{from_env!r}, which is not a positive integer. Falling back to "
+                "the default max parallelism.",
             )
 
+    # If the CLI args and env var did not define any parallelism limit, try and
+    # use the number of logical CPU cores minus one (for IO, scheduler overhead, etc.)
+    logical_cores = os.cpu_count()
+    if logical_cores == 1:
+        log.info("Using max_parallel=1 as the system has 1 logical CPU available.")
+        return 1
+    if logical_cores is not None and logical_cores > 0:
+        max_parallel = max(logical_cores - 1, 16)
+        log.info(
+            "Using max_parallel=%d%s as the system has %d logical CPUs available",
+            " (capped)" if (logical_cores - 1) > 16 else "",
+            max_parallel,
+            logical_cores,
+        )
+        return max_parallel
+
+    # If we can't even find the number of logical CPUs on the system, default to 16.
+    log.warning("Could not determine the available logical CPUs. Defaulting to max_parallel=16.")
     return 16
 
 
