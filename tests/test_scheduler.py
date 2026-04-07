@@ -279,31 +279,18 @@ class JobSpecPaths:
 
     output: Path
     log: Path
-    statuses: dict[JobStatus, Path]
 
 
-def make_job_paths(
-    tmp_path: Path, job_name: str = "test", *, ensure_exists: bool = False
-) -> JobSpecPaths:
+def make_job_paths(tmp_path: Path, job_name: str = "test") -> JobSpecPaths:
     """Generate a set of paths to use for testing a job (JobSpec)."""
     root = tmp_path / job_name
     output = root / "out"
     log = root / "log.txt"
-    statuses = {}
-    for status in JobStatus:
-        if status in (JobStatus.SCHEDULED, JobStatus.QUEUED):
-            continue
-        status_dir = output / status.name.lower()
-        statuses[status] = status_dir
-        if ensure_exists:
-            Path(status_dir).mkdir(exist_ok=True, parents=True)
-    return JobSpecPaths(output=output, log=log, statuses=statuses)
+    return JobSpecPaths(output=output, log=log)
 
 
 def job_spec_factory(
-    tmp_path: Path,
-    paths: JobSpecPaths | None = None,
-    **overrides: object,
+    tmp_path: Path, paths: JobSpecPaths | None = None, **overrides: object
 ) -> JobSpec:
     """Create a JobSpec from a set of default values, for use in testing."""
     spec = {
@@ -335,8 +322,6 @@ def job_spec_factory(
         spec["odir"] = paths.output
     if "log_path" not in spec:
         spec["log_path"] = paths.log
-    if "links" not in spec:
-        spec["links"] = paths.statuses
 
     # Define the IP metadata, tool metadata and workspace if they do not exist
     if "block" not in spec:
@@ -351,6 +336,16 @@ def job_spec_factory(
         spec["full_name"] = spec["name"]
     if "qual_name" not in spec:
         spec["qual_name"] = spec["name"]
+
+    # TODO: this will be removed along with `JobSpec.links`
+    if "links" not in spec:
+        scratch_path = spec["workspace_cfg"].scratch_path
+        spec["links"] = {
+            status: scratch_path / status.name.lower()
+            for status in JobStatus
+            if status.is_terminal or status == JobStatus.RUNNING
+        }
+
     return JobSpec(**spec)
 
 
@@ -361,7 +356,6 @@ def make_many_jobs(
     workspace: WorkspaceConfig | None = None,
     per_job: Callable[[int], dict[str, Any]] | None = None,
     interdeps: dict[int, list[int]] | None = None,
-    ensure_paths_exist: bool = False,
     vary_targets: bool = False,
     reverse: bool = False,
     **overrides: object,
@@ -374,7 +368,6 @@ def make_many_jobs(
         workspace: The workspace configuration to use by default for jobs.
         per_job: Given the index of a job, this func returns specific per-job overrides.
         interdeps: A directed edge-list of job dependencies (via their indexes).
-        ensure_paths_exist: Whether to create generated job output paths.
         vary_targets: Whether to automatically generate unique targets per job.
         reverse: Optionally reverse the output jobs.
         overrides: Any additional kwargs to apply to *every* created job.
@@ -390,7 +383,7 @@ def make_many_jobs(
         name = f"job_{i}"
         job = {
             "name": name,
-            "paths": make_job_paths(tmp_path, job_name=name, ensure_exists=ensure_paths_exist),
+            "paths": make_job_paths(tmp_path, job_name=name),
             "target": f"target_{i}" if vary_targets else "mock_target",
             "workspace_cfg": workspace,
         }
@@ -545,7 +538,7 @@ class TestScheduling:
     @pytest.mark.asyncio
     async def test_launcher_error(fxt: Fxt) -> None:
         """Test that the launcher correctly handles an error during job launching."""
-        job = job_spec_factory(fxt.tmp_path, paths=make_job_paths(fxt.tmp_path, ensure_exists=True))
+        job = job_spec_factory(fxt.tmp_path, paths=make_job_paths(fxt.tmp_path))
         fxt.mock_ctx.set_config(
             job,
             MockJob(
@@ -941,7 +934,7 @@ class TestSignals:
         # TODO: use a mocked runtime backend instead of a wrapper around the launcher
         backend = LegacyLauncherAdapter(SignalTestMockLauncher)
 
-        jobs = make_many_jobs(tmp_path, 3, ensure_paths_exist=True)
+        jobs = make_many_jobs(tmp_path, 3)
         # When testing non-graceful exits, we make `kill()` hang and send two signals.
         kill_time = None if not repeat else 100.0
         # Job 0 is permanently "running", it never completes.
