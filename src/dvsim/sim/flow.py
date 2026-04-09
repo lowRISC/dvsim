@@ -22,6 +22,7 @@ from dvsim.job.deploy import (
     CovMerge,
     CovReport,
     CovUnr,
+    CovVPlan,
     RunTest,
 )
 from dvsim.job.status import JobStatus
@@ -155,6 +156,12 @@ class SimCfg(FlowCfg):
         self.book = ""
         self.cov_report_dir = ""
         self.cov_report_page = ""
+
+        # Options for vPlan processing
+        self.cov_vplan_dir = ""
+        self.dut_instance = ""
+        self.cov_vplan_prepare_opts = []
+        self.cov_vplan_process_opts = []
 
         # Options from tools - for building and running tests
         self.build_cmd = ""
@@ -558,6 +565,10 @@ class SimCfg(FlowCfg):
                 self.cov_report_deploy = CovReport(self.cov_merge_deploy, self)
                 self.deploy += [self.cov_merge_deploy, self.cov_report_deploy]
 
+                if hasattr(self, "vplan") and self.vplan:
+                    self.cov_vplan_deploy = CovVPlan(self.cov_report_deploy, self)
+                    self.deploy.append(self.cov_vplan_deploy)
+
         # Create initial set of directories before kicking off the regression.
         self._create_dirs()
 
@@ -837,6 +848,10 @@ class SimCfg(FlowCfg):
             cov_report_dir = self.cov_report_dir or "cov_report"
             cov_report_page = Path(cov_report_dir, self.cov_report_page)
 
+        vplan_report_page = None
+        if getattr(self, "cov_vplan_deploy", None):
+            vplan_report_page = Path(self.cov_vplan_deploy.gen_html)
+
         failures = BucketedFailures.from_job_status(results=run_results)
         if failures.buckets:
             self.errors_seen = True
@@ -851,6 +866,7 @@ class SimCfg(FlowCfg):
             stages=stages,
             coverage=coverage_model,
             cov_report_page=cov_report_page,
+            vplan_report_page=vplan_report_page,
             failed_jobs=failures,
             passed=total_passed,
             total=total_runs,
