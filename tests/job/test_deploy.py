@@ -26,6 +26,8 @@ class FakeCliArgs:
 class FakeSimCfg:
     """Fake sim configuration."""
 
+    flow = "fake"
+
     def __init__(self) -> None:
         """Initialise fake sim configuration."""
         self.name = "flow_name"
