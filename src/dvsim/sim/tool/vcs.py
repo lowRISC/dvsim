@@ -52,7 +52,7 @@ class VCS:
 
         # If we reached here, then we were unable to extract the coverage.
         msg = f"Coverage data not found in {cov_report_path}!"
-        raise SyntaxError(msg)
+        raise RuntimeError(msg)
 
     @staticmethod
     def get_job_runtime(log_text: Sequence[str]) -> tuple[float, str]:
