@@ -65,10 +65,12 @@ class VCS:
 
         Args:
             log_text: is the job's log file contents as a list of lines.
-            tool: is the EDA tool used to run the job.
 
         Returns:
             a tuple of (runtime, units).
+
+        Raises:
+            RuntimeError: exception if the search pattern is not found.
 
         """
         pattern = r"^CPU [tT]ime:\s*(\d+\.?\d*?)\s*(seconds|minutes|hours).*$"
@@ -92,7 +94,7 @@ class VCS:
             log_text: is the job's log file contents as a list of lines.
 
         Returns:
-            the simulated, units as a tuple.
+            a tuple of (simulated time, units).
 
         Raises:
             RuntimeError: exception if the search pattern is not found.
