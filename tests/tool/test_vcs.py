@@ -5,11 +5,13 @@
 """Test the VCS tool plugin."""
 
 from collections.abc import Sequence
+from pathlib import Path
 
 import pytest
 from hamcrest import assert_that, equal_to
 
 from dvsim.tool.utils import get_sim_tool_plugin
+from tests.test_scheduler import job_spec_factory
 
 __all__ = ("TestVCSToolPlugin",)
 
@@ -40,16 +42,18 @@ class TestVCSToolPlugin:
             (5.5134, "PS"),
         ],
     )
-    def test_get_simulated_time(time: int, units: str) -> None:
+    def test_get_simulated_time(tmp_path: Path, time: int, units: str) -> None:
         """Test that sim plugins can be retrieved correctly."""
         plugin = get_sim_tool_plugin("vcs")
+        mock_job_spec = job_spec_factory(tmp_path)
 
         assert_that(
             plugin.get_simulated_time(
+                mock_job_spec,
                 log_text=fake_log(
                     sim_time=time,
                     sim_time_units=units,
-                )
+                ),
             ),
             equal_to((time, units.lower())),
         )

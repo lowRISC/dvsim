@@ -8,6 +8,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from dvsim.job.data import JobSpec
 from dvsim.sim.data import CoverageMetrics
 
 if TYPE_CHECKING:
@@ -34,7 +35,7 @@ class SimTool(Protocol):
         ...
 
     @staticmethod
-    def get_job_runtime(log_text: Sequence[str]) -> tuple[float, str]:
+    def get_job_runtime(job: JobSpec, log_text: Sequence[str]) -> tuple[float, str]:
         """Return the job runtime (wall clock time) along with its units.
 
         EDA tools indicate how long the job ran in terms of CPU time in the log
@@ -43,17 +44,20 @@ class SimTool(Protocol):
         units as a tuple.
 
         Args:
+            job: The job that was run.
             log_text: is the job's log file contents as a list of lines.
-            tool: is the EDA tool used to run the job.
 
         Returns:
             a tuple of (runtime, units).
+
+        Raises:
+            RuntimeError: exception if the search pattern is not found.
 
         """
         ...
 
     @staticmethod
-    def get_simulated_time(log_text: Sequence[str]) -> tuple[float, str]:
+    def get_simulated_time(job: JobSpec, log_text: Sequence[str]) -> tuple[float, str]:
         """Return the simulated time along with its units.
 
         EDA tools indicate how long the design was simulated for in the log file.
@@ -62,10 +66,11 @@ class SimTool(Protocol):
         units (typically, pico|nano|micro|milliseconds) as a tuple.
 
         Args:
+            job: The job that was run
             log_text: is the job's log file contents as a list of lines.
 
         Returns:
-            the simulated, units as a tuple.
+            a tuple of (simulated time, units).
 
         Raises:
             RuntimeError: exception if the search pattern is not found.

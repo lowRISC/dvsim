@@ -355,7 +355,7 @@ class LogResults:
 
         runtime = None
         try:
-            time, unit = plugin.get_job_runtime(log_text=lines)
+            time, unit = plugin.get_job_runtime(self.spec, log_text=lines)
             runtime = JobTime(time, unit)
         except RuntimeError as e:
             log.warning("%s: %s", self.spec.full_name, str(e))
@@ -363,7 +363,7 @@ class LogResults:
         simulated_time = None
         if self.spec.job_type == "RunTest":
             try:
-                time, unit = plugin.get_simulated_time(log_text=lines)
+                time, unit = plugin.get_simulated_time(self.spec, log_text=lines)
                 simulated_time = JobTime(time, unit)
             except RuntimeError as e:
                 log.debug("%s: %s", self.spec.full_name, str(e))
