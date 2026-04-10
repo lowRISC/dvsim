@@ -6,10 +6,16 @@
 
 import asyncio
 import contextlib
+import os
+import pty
+import select
 import shlex
 import signal
 import subprocess
+import sys
+import termios
 import time
+import tty
 from collections.abc import Hashable, Iterable
 from dataclasses import dataclass
 from typing import TextIO
@@ -42,6 +48,8 @@ class LocalRuntimeBackend(RuntimeBackend):
 
     DEFAULT_SIGTERM_TIMEOUT = 2.0  # in seconds
     DEFAULT_SIGKILL_TIMEOUT = 2.0  # in seconds
+
+    INTERACTIVE_TEE_READ_SIZE = 1024  # Read 1024 bytes to balance efficiency with responsiveness
 
     def __init__(
         self,
@@ -143,22 +151,53 @@ class LocalRuntimeBackend(RuntimeBackend):
 
         if log_file is not None:
             try:
-                proc = subprocess.Popen(
-                    shlex.split(job.cmd),
-                    # Transparent stdin/stdout, stdout & stderr muxed and tee'd via the pipe.
-                    stdin=None,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    universal_newlines=True,
-                    env=env,
-                )
-                if proc.stdout is not None:
-                    for line in proc.stdout:
-                        print(line, end="")  # noqa: T201
-                        log_file.write(line)
-                        log_file.flush()
+                # Expose a pseudo-terminal to the subprocess, as libc checks whether stdout is a
+                # TTY when a process writes to stdout to determine line buffering behaviour.
+                ptm, pts = pty.openpty()
 
-                exit_code = proc.wait()
+                # We want the terminal to operate in raw mode to disable default line discipline.
+                # Save the old settings so that we can restore them afterwards.
+                stdin_fd = sys.stdin.fileno()
+                old_settings = termios.tcgetattr(stdin_fd)
+
+                try:
+                    tty.setraw(ptm)
+
+                    # Launch the subprocess - mux stdout and stderr via the PTY and tee it.
+                    # stdin is transparent via sys.stdin
+                    proc = subprocess.Popen(
+                        shlex.split(job.cmd),
+                        stdin=sys.stdin,
+                        stdout=pts,
+                        stderr=pts,
+                        universal_newlines=True,
+                        env=env,
+                    )
+
+                    # Close the backend pts reference so that the ptm reaches EOF properly
+                    os.close(pts)
+
+                    # Read out data from stdout/stderr and tee it to the log file until EOF reached.
+                    while True:
+                        chunk = None
+                        try:
+                            readable, _, _ = select.select([ptm], [], [])
+                            if ptm in readable:
+                                chunk = os.read(ptm, self.INTERACTIVE_TEE_READ_SIZE)
+                                if not chunk:
+                                    break
+                        except OSError:
+                            break
+                        if chunk is not None:
+                            sys.stdout.buffer.write(chunk)
+                            sys.stdout.buffer.flush()
+                            log_file.write(chunk.decode(encoding="utf-8", errors="surrogateescape"))
+                            log_file.flush()
+
+                    exit_code = proc.wait()
+                finally:
+                    # Restore old terminal settings after all pending output is written (TCSADRAIN)
+                    termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_settings)
             except subprocess.SubprocessError as e:
                 log_file.close()
                 log.exception("Error launching job subprocess: %s", job.full_name)
