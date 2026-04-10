@@ -340,7 +340,7 @@ class Launcher(ABC):
             plugin = get_sim_tool_plugin(tool=self.job_spec.tool.name)
 
             try:
-                time, unit = plugin.get_job_runtime(log_text=lines)
+                time, unit = plugin.get_job_runtime(self.job_spec, log_text=lines)
 
             except RuntimeError as e:
                 log.warning(
@@ -353,7 +353,7 @@ class Launcher(ABC):
 
         if self.job_spec.job_type == "RunTest":
             try:
-                time, unit = plugin.get_simulated_time(log_text=lines)
+                time, unit = plugin.get_simulated_time(self.job_spec, log_text=lines)
                 self.simulated_time.set(time, unit)
             except RuntimeError as e:
                 log.debug("%s: %s", self.job_spec.full_name, str(e))

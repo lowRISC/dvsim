@@ -7,6 +7,7 @@
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
+from dvsim.job.data import JobSpec
 from dvsim.sim.tool.vcs import VCS
 
 if TYPE_CHECKING:
@@ -45,7 +46,7 @@ class Z01X(VCS):
         raise RuntimeError(msg)
 
     @staticmethod
-    def get_job_runtime(log_text: Sequence[str]) -> tuple[float, str]:
+    def get_job_runtime(job: JobSpec, log_text: Sequence[str]) -> tuple[float, str]:
         """Return the job runtime (wall clock time) along with its units.
 
         EDA tools indicate how long the job ran in terms of CPU time in the log
@@ -54,6 +55,7 @@ class Z01X(VCS):
         units as a tuple.
 
         Args:
+            job: The job that was run.
             log_text: is the job's log file contents as a list of lines.
 
         Returns:
@@ -63,6 +65,9 @@ class Z01X(VCS):
             RuntimeError: exception if the search pattern is not found.
 
         """
+        if job.target != "run":
+            return VCS.get_job_runtime(job, log_text)
+
         summary_totals = Z01X._get_execution_summary(log_text)
         if len(summary_totals) < Z01X.REQUIRED_COLS:
             msg = f"Summary table contained less columns ({len(summary_totals)}) than expected"
@@ -75,7 +80,7 @@ class Z01X(VCS):
             raise RuntimeError(msg) from e
 
     @staticmethod
-    def get_simulated_time(log_text: Sequence[str]) -> tuple[float, str]:
+    def get_simulated_time(job: JobSpec, log_text: Sequence[str]) -> tuple[float, str]:
         """Return the simulated time along with its units.
 
         EDA tools indicate how long the design was simulated for in the log file.
@@ -84,6 +89,7 @@ class Z01X(VCS):
         units (typically, pico|nano|micro|milliseconds) as a tuple.
 
         Args:
+            job: The job that was run
             log_text: is the job's log file contents as a list of lines.
 
         Returns:
@@ -93,6 +99,9 @@ class Z01X(VCS):
             RuntimeError: exception if the search pattern is not found.
 
         """
+        if job.target != "run":
+            return VCS.get_job_runtime(job, log_text)
+
         summary_totals = Z01X._get_execution_summary(log_text)
         if len(summary_totals) < Z01X.REQUIRED_COLS:
             msg = f"Summary table contained less columns ({len(summary_totals)}) than expected"

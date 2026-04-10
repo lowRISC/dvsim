@@ -9,6 +9,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from dvsim.job.data import JobSpec
 from dvsim.sim.data import CodeCoverageMetrics, CoverageMetrics
 
 if TYPE_CHECKING:
@@ -55,7 +56,7 @@ class VCS:
         raise RuntimeError(msg)
 
     @staticmethod
-    def get_job_runtime(log_text: Sequence[str]) -> tuple[float, str]:
+    def get_job_runtime(_job: JobSpec, log_text: Sequence[str]) -> tuple[float, str]:
         """Return the job runtime (wall clock time) along with its units.
 
         EDA tools indicate how long the job ran in terms of CPU time in the log
@@ -64,6 +65,7 @@ class VCS:
         units as a tuple.
 
         Args:
+            job: The job that was run.
             log_text: is the job's log file contents as a list of lines.
 
         Returns:
@@ -82,7 +84,7 @@ class VCS:
         raise RuntimeError(msg)
 
     @staticmethod
-    def get_simulated_time(log_text: Sequence[str]) -> tuple[float, str]:
+    def get_simulated_time(_job: JobSpec, log_text: Sequence[str]) -> tuple[float, str]:
         """Return the simulated time along with its units.
 
         EDA tools indicate how long the design was simulated for in the log file.
@@ -91,6 +93,7 @@ class VCS:
         units (typically, pico|nano|micro|milliseconds) as a tuple.
 
         Args:
+            job: The job that was run
             log_text: is the job's log file contents as a list of lines.
 
         Returns:
