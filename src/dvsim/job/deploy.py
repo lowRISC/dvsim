@@ -100,7 +100,7 @@ class Deploy:
         self.dry_run = False
         self.flow_makefile = ""
         self.name = ""
-        self.exports: Iterable[Mapping[str, str]] = []
+        self.exports: list[dict[str, str]] = []
 
         # Declare attributes that need to be extracted from the HJSon cfg.
         self._define_attrs()
