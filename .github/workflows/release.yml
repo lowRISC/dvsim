@@ -27,12 +27,9 @@ jobs:
 
     steps:
 
-      - name: Setup | Checkout Repository for local action
-        uses: actions/checkout@v4
-
-      - name: Get an installation access token for the lowrisc-ci app with appropriate permissions
+      - name: Get a lowRISC CA token for creating the release
         id: get-token
-        uses: ./.github/actions/lowrisc_ci_app_get_token
+        uses: lowrisc/ci-actions/ca-token@v1
 
       - name: Setup | Checkout Repository at PR branch
         uses: actions/checkout@v4
