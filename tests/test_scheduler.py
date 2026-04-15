@@ -25,6 +25,7 @@ from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, Launc
 from dvsim.report.data import IPMeta, ToolMeta
 from dvsim.runtime.legacy import LegacyLauncherAdapter
 from dvsim.scheduler.core import Scheduler
+from dvsim.scheduler.resources import ResourceManager, StaticResourceProvider
 
 __all__ = ()
 
@@ -455,6 +456,16 @@ class TestScheduling:
         assert_that(len(names), equal_to(len(set(names))))
 
     @staticmethod
+    async def _parallelism_test_helper(
+        fxt: Fxt, scheduler: Scheduler, num_jobs: int, expected_parallelism: int
+    ) -> None:
+        """Test helper to check that scheduler parallelism reaches the expected level."""
+        assert_that(fxt.mock_ctx.max_concurrent, equal_to(0))
+        result = await scheduler.run()
+        _assert_result_status(result, num_jobs)
+        assert_that(fxt.mock_ctx.max_concurrent, equal_to(expected_parallelism))
+
+    @staticmethod
     @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
     @pytest.mark.parametrize("num_jobs", [2, 3, 5, 10, 20, 100])
@@ -462,10 +473,7 @@ class TestScheduling:
         """Test that many jobs can be dispatched in parallel."""
         jobs = make_many_jobs(fxt.tmp_path, num_jobs)
         scheduler = Scheduler(jobs, fxt.backends, MOCK_BACKEND)
-        assert_that(fxt.mock_ctx.max_concurrent, equal_to(0))
-        result = await scheduler.run()
-        _assert_result_status(result, num_jobs)
-        assert_that(fxt.mock_ctx.max_concurrent, equal_to(num_jobs))
+        await TestScheduling._parallelism_test_helper(fxt, scheduler, num_jobs, num_jobs)
 
     @staticmethod
     @pytest.mark.asyncio
@@ -484,10 +492,46 @@ class TestScheduling:
         else:
             fxt.mock_legacy_backend.max_parallelism = max_parallel
             scheduler = Scheduler(jobs, fxt.backends, MOCK_BACKEND)
-        assert_that(fxt.mock_ctx.max_concurrent, equal_to(0))
-        result = await scheduler.run()
-        _assert_result_status(result, num_jobs)
-        assert_that(fxt.mock_ctx.max_concurrent, equal_to(min(num_jobs, max_parallel)))
+        expected_parallel = min(num_jobs, max_parallel)
+        await TestScheduling._parallelism_test_helper(fxt, scheduler, num_jobs, expected_parallel)
+
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize("num_a_jobs", [5, 10, 20])
+    @pytest.mark.parametrize("num_b_jobs", [7, 13, 26])
+    @pytest.mark.parametrize("limit", [2, 20, 35])
+    async def test_resource_parallelism(
+        fxt: Fxt, num_a_jobs: int, num_b_jobs: int, limit: int
+    ) -> None:
+        """Test that the parallelism limits imposed via scheduler resources are respected."""
+        num_jobs = num_a_jobs + num_b_jobs
+        resource = ["A" if i < num_a_jobs else "B" for i in range(num_jobs)]
+        jobs = make_many_jobs(
+            fxt.tmp_path, num_a_jobs + num_b_jobs, per_job=lambda i: {"resources": {resource[i]: 1}}
+        )
+        # Ensure there are no parallelism limits in the launcher/backend.
+        fxt.mock_legacy_backend.max_parallelism = 0
+        resource_manager = ResourceManager(StaticResourceProvider({"A": limit, "B": limit}))
+        scheduler = Scheduler(jobs, fxt.backends, MOCK_BACKEND, resource_manager=resource_manager)
+        expected_parallel = min(num_a_jobs, limit) + min(num_b_jobs, limit)
+        await TestScheduling._parallelism_test_helper(fxt, scheduler, num_jobs, expected_parallel)
+
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize("num_resources", [1, 2, 5])
+    @pytest.mark.parametrize("limit", [5, 16, 33, None])
+    async def test_resource_usage(fxt: Fxt, num_resources: int, limit: int | None) -> None:
+        """Test that job resource limits allow jobs to use multiples of resources."""
+        num_jobs = limit * 2 if limit else num_resources * 2
+        jobs = make_many_jobs(fxt.tmp_path, num_jobs, resources={"TEST": num_resources})
+        # Ensure there are no parallelism limits in the launcher/backend.
+        fxt.mock_legacy_backend.max_parallelism = 0
+        resource_manager = ResourceManager(StaticResourceProvider({"TEST": limit}))
+        scheduler = Scheduler(jobs, fxt.backends, MOCK_BACKEND, resource_manager=resource_manager)
+        expected_parallel = limit // num_resources if limit else num_jobs
+        await TestScheduling._parallelism_test_helper(fxt, scheduler, num_jobs, expected_parallel)
 
     @staticmethod
     @pytest.mark.asyncio
