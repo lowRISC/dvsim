@@ -32,7 +32,7 @@ class Xcelium:
             tuple of, List of metrics and values, and final coverage total
 
         """
-        with Path(cov_report_path).open() as buf:
+        with cov_report_path.open() as buf:
             for line in buf:
                 if "name" in line:
                     # Strip the line and remove the unwanted "* Covered" string.
