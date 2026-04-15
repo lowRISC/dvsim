@@ -74,6 +74,8 @@ class Xcelium:
                             values.append(value)
                             if metric == "Score":
                                 cov_total = value
+                    if cov_total is None:
+                        break
 
                     return [list(items.keys()), values], cov_total
 
