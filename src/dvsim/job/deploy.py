@@ -149,6 +149,7 @@ class Deploy:
             # TODO: for now we always use the default configured backend, but it might be good
             # to allow different jobs to run on different backends in the future?
             backend=None,
+            resources=self.resources,
             seed=getattr(self, "seed", None),
             full_name=self.full_name,
             qual_name=self.qual_name,
@@ -235,6 +236,12 @@ class Deploy:
         be derived. Those are set by this method.
         """
         self._extract_attrs(self.sim_cfg.__dict__)
+
+        # Use the configured tool to determine the resources (licenses) that are required.
+        # For now, we just assume that the tool itself is the only resource needed.
+        self.resources = None
+        if hasattr(self.sim_cfg, "tool") and self.sim_cfg.tool:
+            self.resources = {self.sim_cfg.tool.upper(): 1}
 
         # Enable GUI mode, also when GUI debug mode has been invoked.
         self.gui = self.sim_cfg.gui

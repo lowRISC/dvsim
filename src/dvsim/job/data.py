@@ -11,6 +11,7 @@ capture the results of the job run.
 
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
+from typing import TypeAlias
 
 from pydantic import BaseModel, ConfigDict
 
@@ -41,6 +42,10 @@ class WorkspaceConfig(BaseModel):
     """Path within the scratch directory to use for this run."""
 
 
+# A mapping of resource names to the max number of that resource available (or None if unbounded).
+ResourceMapping: TypeAlias = dict[str, int | None]
+
+
 class JobSpec(BaseModel):
     """Job specification."""
 
@@ -57,6 +62,12 @@ class JobSpec(BaseModel):
     backend: str | None
     """The runtime backend to execute this job with. If not provided (None), this
     indicates that whatever is configured as the 'default' backend should be used.
+    """
+
+    resources: ResourceMapping | None
+    """Resource requirements of the job. Maps the name of the resource to the amount
+    of that resource that is required to run the job. If the scheduler is instructed
+    to run with enforced resource limits, this limits per-resource parallelism.
     """
 
     seed: int | None
