@@ -18,6 +18,7 @@ from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.runtime.backend import RuntimeBackend
 from dvsim.runtime.data import JobCompletionEvent, JobHandle
+from dvsim.scheduler.resources import ResourceManager
 
 __all__ = (
     "JobPriorityFn",
@@ -95,6 +96,7 @@ class Scheduler:
         default_backend: str,
         *,
         max_parallelism: int | None = None,
+        resource_manager: ResourceManager | None = None,
         priority_fn: JobPriorityFn | None = None,
         coalesce_window: float | None = 0.001,
     ) -> None:
@@ -107,6 +109,8 @@ class Scheduler:
             default_backend: The name of the default backend to use if not specified by a job.
             max_parallelism: The maximum number of jobs that the scheduler is allowed to dispatch
               at once, across all backends. The default value of `None` indicates no upper limit.
+            resource_manager: The scheduler's resource manager, through which per-job resources
+              are allocated to enforce additional limits on scheduler parallelism.
             priority_fn: A function to calculate the priority of a given job. If no function is
               given, this defaults to using the job's weight.
             coalesce_window: If specified, the time in seconds to wait on receiving a job
@@ -128,6 +132,7 @@ class Scheduler:
         self._backends = dict(backends)
         self._default_backend = default_backend
         self._max_parallelism = max_parallelism
+        self._resources = resource_manager
         self._priority_fn = priority_fn or self._default_priority
         self._coalesce_window = coalesce_window
 
@@ -321,6 +326,8 @@ class Scheduler:
         if job.spec.id in self._running:
             self._running.remove(job.spec.id)
             self._running_per_backend[job.backend_key] -= 1
+            if self._resources and job.spec.resources:
+                self._resources.release(job.spec.resources)
 
         # Update dependents (jobs that depend on this job), propagating failures if needed.
         self._update_completed_job_deps(job)
@@ -354,6 +361,13 @@ class Scheduler:
 
     async def run(self) -> list[CompletedJobStatus]:
         """Run all scheduled jobs to completion (unless terminated) and return the results."""
+        # Check if we know about all the resources defined by the given jobs, and whether
+        # initial resource availability can (independently) satisfy all jobs' needs.
+        # This is an error if we know we are using static resources, and a warning otherwise.
+        if self._resources:
+            specs = [job.spec for job in self._jobs.values()]
+            await self._resources.validate_jobs(specs)
+
         self._install_signal_handlers()
 
         for backend in self._backends.values():
@@ -536,17 +550,14 @@ class Scheduler:
         if kill_tasks:
             await asyncio.gather(*kill_tasks, return_exceptions=True)
 
-    async def _schedule_ready_jobs(self) -> None:
-        """Attempt to schedule ready jobs whilst respecting scheduler & backend parallelism."""
-        # Find out how many jobs we can dispatch according to the scheduler's parallelism limit
-        available_slots = (
-            self._max_parallelism - len(self._running)
-            if self._max_parallelism
-            else len(self._ready_heap)
-        )
-        if available_slots <= 0:
-            return
+    async def _get_jobs_to_launch(
+        self, available_slots: int
+    ) -> dict[str, list[tuple[Priority, JobRecord]]]:
+        """Get the sets of jobs to try and launch at this moment.
 
+        Returns a mapping of backend names to the lists of jobs to launch for that backend,
+        where jobs are defined by their priority value and record.
+        """
         # Collect jobs to launch in a dict, grouped per backend, for batched launching.
         to_launch: dict[str, list[tuple[Priority, JobRecord]]] = defaultdict(list)
         blocked: list[tuple[Priority, str]] = []
@@ -565,12 +576,44 @@ class Scheduler:
                 blocked.append((neg_priority, job_id))
                 continue
 
+            # Check we have the resources to run the job, and acquire them if so.
+            if (
+                self._resources
+                and job.spec.resources
+                and not await self._resources.try_allocate(job.spec.resources)
+            ):
+                blocked.append((neg_priority, job_id))
+                continue
+
             to_launch[job.backend_key].append((neg_priority, job))
             slots_used += 1
 
         # Requeue any blocked jobs.
         for entry in blocked:
             heapq.heappush(self._ready_heap, entry)
+
+        # If nothing is running and nothing was scheduled to run, there must not be
+        # enough resources to run any jobs. Warn the user.
+        if blocked and not self._running and slots_used == 0:
+            log.warning(
+                "All queued jobs cannot be scheduled due to resource limits, despite no jobs "
+                "currently being executed."
+            )
+
+        return to_launch
+
+    async def _schedule_ready_jobs(self) -> None:
+        """Attempt to schedule ready jobs whilst respecting scheduler & backend parallelism."""
+        # Find out how many jobs we can dispatch according to the scheduler's parallelism limit
+        available_slots = (
+            self._max_parallelism - len(self._running)
+            if self._max_parallelism
+            else len(self._ready_heap)
+        )
+        if available_slots <= 0:
+            return
+
+        to_launch = await self._get_jobs_to_launch(available_slots)
 
         # Launch the selected jobs in batches per backend
         launch_tasks = []
@@ -593,6 +636,8 @@ class Scheduler:
                 if handle is None:
                     log.verbose("[%s]: Requeuing job '%s'", job.spec.target, job.spec.full_name)
                     heapq.heappush(self._ready_heap, (neg_priority, job.spec.id))
+                    if self._resources and job.spec.resources:
+                        self._resources.release(job.spec.resources)
                     continue
 
                 job.handle = handle
