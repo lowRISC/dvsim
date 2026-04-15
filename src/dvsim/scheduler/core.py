@@ -94,7 +94,7 @@ class Scheduler:
         backends: Mapping[str, RuntimeBackend],
         default_backend: str,
         *,
-        max_parallelism: int = 0,
+        max_parallelism: int | None = None,
         priority_fn: JobPriorityFn | None = None,
         coalesce_window: float | None = 0.001,
     ) -> None:
@@ -106,7 +106,7 @@ class Scheduler:
             backends: The mapping (name -> backend) of backends available to the scheduler.
             default_backend: The name of the default backend to use if not specified by a job.
             max_parallelism: The maximum number of jobs that the scheduler is allowed to dispatch
-              at once, across all backends. The default value of `0` indicates no upper limit.
+              at once, across all backends. The default value of `None` indicates no upper limit.
             priority_fn: A function to calculate the priority of a given job. If no function is
               given, this defaults to using the job's weight.
             coalesce_window: If specified, the time in seconds to wait on receiving a job
@@ -115,8 +115,8 @@ class Scheduler:
               extra cost. Defaults to 1 millisecond, and can be disabled by giving `None`.
 
         """
-        if max_parallelism < 0:
-            err = f"max_parallelism must be some non-negative integer, not {max_parallelism}"
+        if max_parallelism is not None and max_parallelism <= 0:
+            err = f"max_parallelism must be some positive integer or None, not {max_parallelism}"
             raise ValueError(err)
         if default_backend not in backends:
             err = f"Default backend '{default_backend}' is not in the mapping of given backends"
