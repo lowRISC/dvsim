@@ -13,6 +13,12 @@ from dvsim.runtime.fake import FakePolicy, FakeRuntimeBackend
 from dvsim.runtime.registry import backend_registry
 from dvsim.scheduler.core import Scheduler
 from dvsim.scheduler.log_manager import LogManager
+from dvsim.scheduler.resources import (
+    ResourceManager,
+    ResourceMapping,
+    StaticResourceProvider,
+    UnknownResourcePolicy,
+)
 from dvsim.scheduler.status_printer import create_status_printer
 
 __all__ = (
@@ -31,7 +37,7 @@ def build_default_scheduler_backend(
         fake_policy: policy for generating fake data if using the fake backend
 
     Returns:
-        Runtime backend to use with the scehduler.
+        Runtime backend to use with the scheduler.
 
     """
     # Create the runtime backends. TODO: support multiple runtime backends at once
@@ -44,12 +50,32 @@ def build_default_scheduler_backend(
     return default_backend
 
 
+def build_resource_manager(
+    *,
+    resource_limits: ResourceMapping,
+    missing_policy: UnknownResourcePolicy,
+) -> ResourceManager | None:
+    """Build a resource manager for use with the scheduler and validate the given jobs' resources.
+
+    Args:
+        resource_limits: The list of static resource limits to impose on the scheduler.
+        missing_policy: How to handle requested job resources without any defined limits.
+
+    """
+    if not resource_limits and missing_policy == UnknownResourcePolicy.IGNORE:
+        return None
+
+    provider = StaticResourceProvider(resource_limits)
+    return ResourceManager(provider, missing_policy)
+
+
 async def run_scheduler(
     *,
     jobs: Iterable[JobSpec],
     max_parallel: int,
     interactive: bool,
     backend: RuntimeBackend,
+    resource_manager: ResourceManager | None,
 ) -> list[CompletedJobStatus]:
     """Run the scheduler with the given set of job specifications.
 
@@ -58,6 +84,7 @@ async def run_scheduler(
         max_parallel: number of max parallel jobs to run
         interactive: run the tool in interactive mode?
         backend: the scheduler backend to use
+        resource_manager: the scheduler resource manager to use, if any.
 
     Returns:
         List of completed job status objects.
@@ -73,6 +100,7 @@ async def run_scheduler(
         backends={backend.name: backend},
         default_backend=backend.name,
         max_parallelism=max_parallel,
+        resource_manager=resource_manager,
         # The scheduler prioritizes jobs in (lexicographically) decreasing order based on
         # the given `priority_fn`. We hence define a prioritization scheme that prioritizes
         # first by decreasing weight, then by decreasing timeout, and finally by the decreasing

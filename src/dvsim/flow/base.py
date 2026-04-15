@@ -21,7 +21,12 @@ from dvsim.flow.hjson import set_target_attribute
 from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
-from dvsim.scheduler.runner import build_default_scheduler_backend, run_scheduler
+from dvsim.scheduler.resources import UnknownResourcePolicy
+from dvsim.scheduler.runner import (
+    build_default_scheduler_backend,
+    build_resource_manager,
+    run_scheduler,
+)
 from dvsim.utils import (
     find_and_substitute_wildcards,
     rm_path,
@@ -471,12 +476,20 @@ class FlowCfg(ABC):
             fake_policy=self._fake_policy,
         )
 
+        # TODO: For Python 3.11 make this a StrEnum, then this conversion is not needed.
+        missing_policy = UnknownResourcePolicy(self.args.on_missing_resource)
+        resource_manager = build_resource_manager(
+            resource_limits=dict(self.args.resource_limits or ()),
+            missing_policy=missing_policy,
+        )
+
         return asyncio.run(
             run_scheduler(
                 jobs=jobs,
                 max_parallel=self.args.max_parallel,
                 interactive=self.interactive,
                 backend=backend,
+                resource_manager=resource_manager,
             )
         )
 

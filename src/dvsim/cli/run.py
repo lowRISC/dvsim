@@ -42,6 +42,7 @@ from dvsim.launcher.slurm import SlurmLauncher
 from dvsim.logging import LOG_LEVELS, configure_logging, log
 from dvsim.runtime.backend import RuntimeBackend
 from dvsim.runtime.registry import BackendType, backend_registry
+from dvsim.scheduler.resources import UnknownResourcePolicy
 from dvsim.scheduler.status_printer import StatusPrinter, get_status_printer
 from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, rm_path, run_cmd_with_timeout
 
@@ -153,6 +154,24 @@ def resolve_max_parallel(arg):
     # If we can't even find the number of logical CPUs on the system, default to 16.
     log.warning("Could not determine the available logical CPUs. Defaulting to max_parallel=16.")
     return 16
+
+
+def parse_resource(s: str) -> tuple[str, int | None]:
+    """Parse a resource limit string from the argparse CLI."""
+    unbounded_strs = ("all", "any", "inf", "infinite", "many", "max", "none", "null", "unlimited")
+    try:
+        key, val = "=".join(s.split()).split("=")
+        key, val = key.strip().upper(), val.strip()
+        if val.lower() in unbounded_strs:
+            return key, None
+        val = int(val)
+        if val <= 0:
+            msg = f"Resource values should be positive integers or 'INF' / 'NONE', not {val}."
+            raise argparse.ArgumentTypeError(msg)
+        return key, int(val)
+    except (ValueError, KeyError, RuntimeError) as e:
+        msg = f"Invalid resource format: {s}, expected RESOURCE=COUNT"
+        raise argparse.ArgumentTypeError(msg) from e
 
 
 def resolve_branch(branch):
@@ -423,6 +442,31 @@ def parse_args(argv: list[str] | None = None):
             "environment variable is set, in which case that "
             "is used. Only applicable when launching jobs "
             "locally."
+        ),
+    )
+
+    resources = parser.add_argument_group("Resource management")
+
+    resources.add_argument(
+        "-R",
+        "--resource",
+        metavar="RESOURCE=COUNT",
+        type=parse_resource,
+        dest="resource_limits",
+        action="append",
+        help="Set a limit for a resource (repeatable), e.g. --resource A=30 or -R B=unlimited.",
+    )
+
+    resources.add_argument(
+        "--on-missing-resource",
+        # TODO: when using Python 3.11+, make UnknownResourcePolicy a StrEnum instead and then
+        # just use the enum type directly.
+        type=str.lower,
+        choices=[p.value for p in UnknownResourcePolicy],
+        default=UnknownResourcePolicy.IGNORE.value,
+        help=(
+            "Behaviour when a job requests a resource with no defined limit. "
+            "Defaults to %(default)s."
         ),
     )
 
