@@ -5,7 +5,7 @@
 """EDA tool plugin providing Xcelium support to DVSim."""
 
 import re
-from collections import OrderedDict
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -41,9 +41,8 @@ class Xcelium:
                     metrics[0] = "Score"
 
                     # Gather the list of metrics.
-                    items = OrderedDict()
+                    items: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
                     for metric in metrics:
-                        items[metric] = {}
                         items[metric]["covered"] = 0
                         items[metric]["total"] = 0
 
@@ -76,7 +75,7 @@ class Xcelium:
                             if metric == "Score":
                                 cov_total = value
 
-                    return [items.keys(), values], cov_total
+                    return [list(items.keys()), values], cov_total
 
         # If we reached here, then we were unable to extract the coverage.
         msg = f"Coverage data not found in {buf.name}!"
