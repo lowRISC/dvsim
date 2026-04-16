@@ -8,7 +8,6 @@ from typing import ClassVar
 
 from dvsim.instrumentation.base import (
     CompositeInstrumentation,
-    NoOpInstrumentation,
     SchedulerInstrumentation,
 )
 from dvsim.instrumentation.metadata import MetadataInstrumentation
@@ -34,16 +33,15 @@ class InstrumentationFactory:
         return list(cls._registry.keys())
 
     @classmethod
-    def create(cls, names: list[str] | None) -> SchedulerInstrumentation:
+    def create(cls, names: list[str]) -> SchedulerInstrumentation:
         """Create a scheduler instrumentation of the given types.
 
         Arguments:
-            names: A list of registered instrumentation names to compose into a single
-            instrumentation object, or None / an empty list for no instrumentation.
+            names: A list of registered instrumentation names.
 
         """
         if not names:
-            return NoOpInstrumentation()
+            raise ValueError("No instrumentation types given")
 
         instances: list[SchedulerInstrumentation] = [MetadataInstrumentation()]
         instances.extend([cls._registry[name]() for name in names])

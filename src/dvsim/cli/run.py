@@ -985,7 +985,8 @@ def main(argv: list[str] | None = None) -> None:
     set_backend_type(is_local=args.local, fake=args.fake)
 
     # Configure scheduler instrumentation
-    set_instrumentation(InstrumentationFactory.create(args.instrumentation))
+    if args.instrumentation:
+        set_instrumentation(InstrumentationFactory.create(args.instrumentation))
 
     # Build infrastructure from hjson file and create the list of items to
     # be deployed.

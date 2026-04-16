@@ -19,7 +19,6 @@ __all__ = (
     "InstrumentationFragment",
     "InstrumentationFragments",
     "JobFragment",
-    "NoOpInstrumentation",
     "SchedulerFragment",
     "SchedulerInstrumentation",
     "merge_instrumentation_report",
@@ -151,20 +150,6 @@ class SchedulerInstrumentation:
             log.info("JSON instrumentation report dumped to: %s", str(report_path))
         except (OSError, FileNotFoundError) as e:
             log.error("Error writing instrumented metrics to %s: %s", str(report_path), str(e))
-
-
-class NoOpInstrumentation(SchedulerInstrumentation):
-    """Scheduler instrumentation which just does nothing."""
-
-    def start(self) -> None:
-        """Begin instrumentation, doing nothing (not even logging)."""
-
-    def stop(self) -> None:
-        """End instrumentation, doing nothing (not even logging)."""
-
-    def build_report(self) -> dict[str, Any] | None:
-        """Build an instrumentation report, doing nothing (not even logging)."""
-        return None
 
 
 class CompositeInstrumentation(SchedulerInstrumentation):
