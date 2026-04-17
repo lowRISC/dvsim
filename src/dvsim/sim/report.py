@@ -329,10 +329,12 @@ class MarkdownReportRenderer:
             for k, v in results.coverage.flattened().items()
             if v is not None
         }
-        if not cov_results and not results.cov_report_page:
+        if not cov_results and not results.cov_report_page and not results.vplan_report_page:
             return ""
 
         report_md = "## Coverage Results"
+        if results.vplan_report_page:
+            report_md += f"\n### [vPlan Dashboard]({results.vplan_report_page})"
         if results.cov_report_page:
             report_md += f"\n### [Coverage Dashboard]({results.cov_report_page})"
         if cov_results:
