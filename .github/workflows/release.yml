@@ -32,7 +32,7 @@ jobs:
         uses: lowrisc/ci-actions/ca-token@v1
 
       - name: Setup | Checkout Repository at PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ steps.get-token.outputs.token }}
           ref: ${{ github.ref_name }}
@@ -97,7 +97,7 @@ jobs:
     steps:
 
       - name: Setup | Checkout Repository at newly tagged release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Can't checkout at the new tag, we need to match one of the configured
           # semantic_release.branches for the publish-action to proceed.
