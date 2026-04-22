@@ -152,7 +152,7 @@ jobs:
     steps:
 
       - name: Setup | Download dist artifacts from previous job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         id: artifact-download
         with:
           name: distribution-artifacts
@@ -180,7 +180,7 @@ jobs:
     steps:
 
       - name: Setup | Download dist artifacts from previous job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         id: artifact-download
         with:
           name: distribution-artifacts
