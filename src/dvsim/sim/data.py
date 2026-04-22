@@ -194,6 +194,8 @@ class SimFlowResults(BaseModel):
     """Optional path linking to the generated coverage report dashboard page."""
     vplan_report_page: Path | None
     """Optional path linking to the generated verification plan (vPlan) reports."""
+    vplan_coverage: float | None = None
+    """Overall normalised coverage (%) extracted from the back-annotated vPlan."""
 
     failed_jobs: BucketedFailures
     """Bucketed failed job overview."""

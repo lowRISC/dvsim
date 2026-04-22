@@ -335,6 +335,8 @@ class MarkdownReportRenderer:
         report_md = "## Coverage Results"
         if results.vplan_report_page:
             report_md += f"\n### [vPlan Dashboard]({results.vplan_report_page})"
+            if results.vplan_coverage is not None:
+                report_md += f"\n\nVerification Plan Coverage: {results.vplan_coverage:.2f} %\n"
         if results.cov_report_page:
             report_md += f"\n### [Coverage Dashboard]({results.cov_report_page})"
         if cov_results:

@@ -1038,6 +1038,8 @@ class CovVPlan(Deploy):
 
     def __init__(self, cov_report_job, sim_cfg) -> None:
         self.report_job = cov_report_job
+        # Populated by post_finish() once the job completes successfully.
+        self.vplan_coverage: float | None = None
         super().__init__(sim_cfg)
         self.dependencies.append(cov_report_job)
 
@@ -1073,6 +1075,31 @@ class CovVPlan(Deploy):
         self.annotated_hjson = f"{self.odir}/vplan_annotated.hjson"
         self.gen_html = f"{self.odir}/vplan_annotated.html"
         self.output_dirs = [self.odir]
+
+    def post_finish(self) -> Callable[[JobStatus], None]:
+        """Get post finish callback."""
+
+        def callback(status: JobStatus) -> None:
+            """Extract the overall vPlan normalised coverage from the annotated HJSON."""
+            if self.dry_run or status != JobStatus.PASSED:
+                return
+            hjson_path = Path(self.annotated_hjson)
+            if not hjson_path.exists():
+                return
+            try:
+                import hjson  # noqa: PLC0415
+
+                with hjson_path.open() as f:
+                    data = hjson.load(f)
+                # HJSON vPlans are keyed: {dut_name: {fields...}}
+                root_node = next(iter(data.values()), {})
+                raw = root_node.get("Normalized_Coverage")
+                if raw is not None:
+                    self.vplan_coverage = float(str(raw).rstrip(" %"))
+            except Exception:  # noqa: BLE001
+                log.debug("Could not extract vPlan coverage from '%s'.", hjson_path)
+
+        return callback
 
     def _construct_cmd(self) -> str:
         """Construct the pure bash shell command, bypassing the base Makefile assumption."""

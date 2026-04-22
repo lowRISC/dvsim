@@ -834,8 +834,10 @@ class SimCfg(FlowCfg):
             cov_report_page = Path(cov_report_dir, self.cov_report_page)
 
         vplan_report_page = None
+        vplan_coverage = None
         if getattr(self, "cov_vplan_deploy", None):
             vplan_report_page = Path(self.scratch_path) / CovVPlan.target / "vplan_annotated.html"
+            vplan_coverage = self.cov_vplan_deploy.vplan_coverage
 
         failures = BucketedFailures.from_job_status(results=run_results)
         if failures.buckets:
@@ -852,6 +854,7 @@ class SimCfg(FlowCfg):
             coverage=coverage_model,
             cov_report_page=cov_report_page,
             vplan_report_page=vplan_report_page,
+            vplan_coverage=vplan_coverage,
             failed_jobs=failures,
             passed=total_passed,
             total=total_runs,
