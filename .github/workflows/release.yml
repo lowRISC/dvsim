@@ -126,7 +126,7 @@ jobs:
           tag: ${{ needs.release.outputs.tag }}
 
       - name: Upload | Distribution artifacts to blob store for follow-up jobs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: distribution-artifacts
           path: dist
