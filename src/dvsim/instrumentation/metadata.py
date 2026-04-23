@@ -44,13 +44,12 @@ class MetadataInstrumentation(SchedulerInstrumentation):
     def __init__(self) -> None:
         """Construct a `MetadataInstrumentation`."""
         super().__init__()
-        self._jobs: dict[tuple[str, str], tuple[JobSpec, str]] = {}
+        self._jobs: dict[str, tuple[JobSpec, str]] = {}
 
     def on_job_status_change(self, job: JobSpec, status: JobStatus) -> None:
         """Notify instrumentation of a change in status for some scheduled job."""
         status_str = status.name.capitalize()
-        job_id = (job.full_name, job.target)
-        self._jobs[job_id] = (job, status_str)
+        self._jobs[job.id] = (job, status_str)
 
     def build_report_fragments(self) -> InstrumentationFragments | None:
         """Build report fragments from the collected instrumentation information."""

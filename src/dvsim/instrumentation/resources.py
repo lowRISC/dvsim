@@ -8,7 +8,6 @@ import os
 import threading
 import time
 from dataclasses import dataclass
-from typing import TypeAlias
 
 import psutil
 
@@ -104,10 +103,6 @@ class JobResourceAggregate:
         )
 
 
-# Unique identifier to disambiguate a job (full_name, target)
-JobId: TypeAlias = tuple[str, str]
-
-
 class ResourceInstrumentation(SchedulerInstrumentation):
     """Resource instrumentation for the scheduler.
 
@@ -153,8 +148,8 @@ class ResourceInstrumentation(SchedulerInstrumentation):
             self._sys_sum_cpu_per_core = [0] * self._num_cores
 
         # Job aggregate metrics
-        self._running_jobs: dict[JobId, JobResourceAggregate] = {}
-        self._finished_jobs: dict[JobId, JobResourceAggregate] = {}
+        self._running_jobs: dict[str, JobResourceAggregate] = {}
+        self._finished_jobs: dict[str, JobResourceAggregate] = {}
 
     def _scheduler_cpu_time(self) -> float | int:
         """Get the CPU time of the scheduler process.
@@ -222,17 +217,15 @@ class ResourceInstrumentation(SchedulerInstrumentation):
 
     def on_job_status_change(self, job: JobSpec, status: JobStatus) -> None:
         """Notify instrumentation of a change in status for some scheduled job."""
-        job_id = (job.full_name, job.target)
-
         with self._lock:
-            running = job_id in self._running_jobs
-            started = running or job_id in self._finished_jobs
+            running = job.id in self._running_jobs
+            started = running or job.id in self._finished_jobs
             if not started and status not in (JobStatus.SCHEDULED, JobStatus.QUEUED):
-                self._running_jobs[job_id] = JobResourceAggregate(job)
+                self._running_jobs[job.id] = JobResourceAggregate(job)
                 running = True
             if running and status.is_terminal:
-                aggregates = self._running_jobs.pop(job_id)
-                self._finished_jobs[job_id] = aggregates
+                aggregates = self._running_jobs.pop(job.id)
+                self._finished_jobs[job.id] = aggregates
 
     def build_report_fragments(self) -> InstrumentationFragments | None:
         """Build report fragments from the collected instrumentation information."""

@@ -81,7 +81,7 @@ class TimingInstrumentation(SchedulerInstrumentation):
         """Construct a `TimingInstrumentation`."""
         super().__init__()
         self._scheduler = TimingSchedulerFragment()
-        self._jobs: dict[tuple[str, str], TimingJobFragment] = {}
+        self._jobs: dict[str, TimingJobFragment] = {}
 
     def on_scheduler_start(self) -> None:
         """Notify instrumentation that the scheduler has begun."""
@@ -93,11 +93,10 @@ class TimingInstrumentation(SchedulerInstrumentation):
 
     def on_job_status_change(self, job: JobSpec, status: JobStatus) -> None:
         """Notify instrumentation of a change in status for some scheduled job."""
-        job_id = (job.full_name, job.target)
-        job_info = self._jobs.get(job_id)
+        job_info = self._jobs.get(job.id)
         if job_info is None:
             job_info = TimingJobFragment(job)
-            self._jobs[job_id] = job_info
+            self._jobs[job.id] = job_info
 
         if job_info.start_time is None and status not in (JobStatus.SCHEDULED, JobStatus.QUEUED):
             job_info.start_time = time.perf_counter()
