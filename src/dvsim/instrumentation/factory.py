@@ -43,11 +43,10 @@ class InstrumentationFactory:
         if not names:
             raise ValueError("No instrumentation types given")
 
-        instances: list[SchedulerInstrumentation] = [MetadataInstrumentation()]
-        instances.extend([cls._registry[name]() for name in names])
-        return InstrumentationAggregator(instances)
+        return InstrumentationAggregator([cls._registry[name]() for name in names])
 
 
 # Register implemented instrumentation mechanisms
+InstrumentationFactory.register(MetadataInstrumentation)
 InstrumentationFactory.register(TimingInstrumentation)
 InstrumentationFactory.register(ResourceInstrumentation)
