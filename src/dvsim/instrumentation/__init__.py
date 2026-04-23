@@ -5,13 +5,12 @@
 """DVSim Scheduler Instrumentation."""
 
 from dvsim.instrumentation.base import (
-    CompositeInstrumentation,
+    InstrumentationAggregator,
     InstrumentationFragment,
     InstrumentationFragments,
     JobFragment,
     SchedulerFragment,
     SchedulerInstrumentation,
-    merge_instrumentation_report,
 )
 from dvsim.instrumentation.factory import InstrumentationFactory
 from dvsim.instrumentation.metadata import MetadataInstrumentation, MetadataJobFragment
@@ -28,7 +27,7 @@ from dvsim.instrumentation.timing import (
 )
 
 __all__ = (
-    "CompositeInstrumentation",
+    "InstrumentationAggregator",
     "InstrumentationFactory",
     "InstrumentationFragment",
     "InstrumentationFragments",
@@ -45,7 +44,6 @@ __all__ = (
     "TimingSchedulerFragment",
     "flush",
     "get",
-    "merge_instrumentation_report",
     "set_instrumentation",
     "set_report_path",
 )

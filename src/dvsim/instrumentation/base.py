@@ -4,24 +4,22 @@
 
 """DVSim scheduler instrumentation base classes."""
 
-import json
-from collections.abc import Collection, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
-from pathlib import Path
 from typing import Any, TypeAlias
 
 from dvsim.job.data import JobSpec
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
+from dvsim.scheduler.core import Scheduler
 
 __all__ = (
-    "CompositeInstrumentation",
+    "InstrumentationAggregator",
     "InstrumentationFragment",
     "InstrumentationFragments",
     "JobFragment",
     "SchedulerFragment",
     "SchedulerInstrumentation",
-    "merge_instrumentation_report",
 )
 
 
@@ -44,41 +42,6 @@ class JobFragment(InstrumentationFragment):
     """Base class for instrumentation report fragments related to individual jobs."""
 
     job: JobSpec
-
-
-def merge_instrumentation_report(
-    scheduler_fragments: Collection[SchedulerFragment], job_fragments: Collection[JobFragment]
-) -> dict[str, Any]:
-    """Merge multiple instrumentation report fragments into a combined dictionary.
-
-    When using multiple instrumentation mechanisms, this combines relevant per-job and global
-    scheduler information into one common interface, to make the output more readable.
-    """
-    log.info("Merging instrumentation report data...")
-
-    # Merge information related to the scheduler
-    scheduler: dict[str, Any] = {}
-    for i, scheduler_frag in enumerate(scheduler_fragments, start=1):
-        log.debug(
-            "Merging instrumentation report scheduler data (%d/%d)", i, len(scheduler_fragments)
-        )
-        scheduler.update(scheduler_frag.to_dict())
-
-    # Merge information related to specific jobs
-    jobs: dict[tuple[str, str], dict[str, Any]] = {}
-    for i, job_frag in enumerate(job_fragments, start=1):
-        log.debug("Merging instrumentation report job data (%d/%d)", i, len(job_fragments))
-        spec = job_frag.job
-        # We can uniquely identify jobs from the combination of their full name & target
-        job_id = (spec.full_name, spec.target)
-        job = jobs.get(job_id)
-        if job is None:
-            job = {}
-            jobs[job_id] = job
-        job.update({k: v for k, v in job_frag.to_dict().items() if k != "job"})
-
-    log.info("Finished merging instrumentation report data.")
-    return {"scheduler": scheduler, "jobs": list(jobs.values())}
 
 
 # Each instrumentation object can report any number of information fragments about the
@@ -130,72 +93,35 @@ class SchedulerInstrumentation:
         """Build report fragments from the collected instrumentation information."""
         return None
 
-    def build_report(self) -> dict[str, Any] | None:
-        """Build an instrumentation report dict containing collected instrumentation info."""
-        log.info("Building instrumentation report...")
-        fragments = self.build_report_fragments()
-        return None if fragments is None else merge_instrumentation_report(*fragments)
 
-    def dump_json_report(self, report_path: Path) -> None:
-        """Dump a given JSON instrumentation report to a specified file path."""
-        report = self.build_report()
-        if not report:
-            return
-        log.info("Dumping JSON instrumentation report...")
-        if report_path.is_dir():
-            raise ValueError("Metric report path cannot be a directory.")
-        try:
-            report_path.parent.mkdir(parents=True, exist_ok=True)
-            report_path.write_text(json.dumps(report, indent=2))
-            log.info("JSON instrumentation report dumped to: %s", str(report_path))
-        except (OSError, FileNotFoundError) as e:
-            log.error("Error writing instrumented metrics to %s: %s", str(report_path), str(e))
-
-
-class CompositeInstrumentation(SchedulerInstrumentation):
-    """Composite instrumentation for combining several instrumentations to be used at once."""
+class InstrumentationAggregator:
+    """Aggregator for scheduler instrumentation collection, composing multiple instrumentations."""
 
     def __init__(self, instrumentations: Iterable[SchedulerInstrumentation]) -> None:
-        """Construct an instrumentation object composed of many instrumentations.
+        """Construct an InstrumentationAggregator to compose the given instrumentations."""
+        self._instrumentations = list(instrumentations)
 
-        Arguments:
-            instrumentations: The list of instrumentations to compose.
-
-        """
-        super().__init__()
-        self._instrumentations = instrumentations
-
-    @property
-    def name(self) -> str:
-        """The name to use to refer to this composed instrumentation."""
-        composed = ", ".join(inst.name for inst in self._instrumentations)
-        return f"CompositeInstrumentation({composed})"
-
-    def _start(self) -> None:
+    def setup(self, scheduler: Scheduler) -> None:
+        """Set up instrumentation, sending start signals & registering scheduler callbacks."""
         for inst in self._instrumentations:
             inst.start()
 
-    def _stop(self) -> None:
+            # Add instrumentation hooks
+            scheduler.add_run_start_callback(inst.on_scheduler_start)
+            scheduler.add_run_end_callback(inst.on_scheduler_end)
+            scheduler.add_job_status_change_callback(
+                lambda spec, _old, new, inst=inst: inst.on_job_status_change(spec, new)
+            )
+
+    def stop(self) -> None:
+        """Finish instrumentation, closing all relevant resources."""
         for inst in self._instrumentations:
             inst.stop()
 
-    def on_scheduler_start(self) -> None:
-        """Notify instrumentation that the scheduler has begun."""
-        for inst in self._instrumentations:
-            inst.on_scheduler_start()
+    def collect(self) -> dict[str, Any]:
+        """Collect all gathered instrumentation data from the wrapped objects."""
+        log.info("Collecting instrumentation data...")
 
-    def on_scheduler_end(self) -> None:
-        """Notify instrumentation that the scheduler has finished."""
-        for inst in self._instrumentations:
-            inst.on_scheduler_end()
-
-    def on_job_status_change(self, job: JobSpec, status: JobStatus) -> None:
-        """Notify instrumentation of a change in status for some scheduled job."""
-        for inst in self._instrumentations:
-            inst.on_job_status_change(job, status)
-
-    def build_report_fragments(self) -> InstrumentationFragments | None:
-        """Build report fragments from the collected instrumentation information."""
         scheduler_fragments = []
         job_fragments = []
 
@@ -206,4 +132,26 @@ class CompositeInstrumentation(SchedulerInstrumentation):
             scheduler_fragments += fragments[0]
             job_fragments += fragments[1]
 
-        return (scheduler_fragments, job_fragments)
+        log.info("Finished collecting instrumentation data. Merging instrumentation data...")
+
+        scheduler: dict[str, Any] = {}
+        for i, scheduler_frag in enumerate(scheduler_fragments, start=1):
+            log.debug(
+                "Merging instrumentation report scheduler data (%d/%d)", i, len(scheduler_fragments)
+            )
+            scheduler.update(scheduler_frag.to_dict())
+
+        jobs: dict[tuple[str, str], dict[str, Any]] = {}
+        for i, job_frag in enumerate(job_fragments, start=1):
+            log.debug("Merging instrumentation report job data (%d/%d)", i, len(job_fragments))
+            spec = job_frag.job
+            # We can uniquely identify jobs from the combination of their full name & target
+            job_id = (spec.full_name, spec.target)
+            job = jobs.get(job_id)
+            if job is None:
+                job = {}
+                jobs[job_id] = job
+            job.update({k: v for k, v in job_frag.to_dict().items() if k != "job"})
+
+        log.info("Finished merging instrumentation report data.")
+        return {"scheduler": scheduler, "jobs": list(jobs.values())}

@@ -7,7 +7,7 @@
 from typing import ClassVar
 
 from dvsim.instrumentation.base import (
-    CompositeInstrumentation,
+    InstrumentationAggregator,
     SchedulerInstrumentation,
 )
 from dvsim.instrumentation.metadata import MetadataInstrumentation
@@ -33,7 +33,7 @@ class InstrumentationFactory:
         return list(cls._registry.keys())
 
     @classmethod
-    def create(cls, names: list[str]) -> SchedulerInstrumentation:
+    def create(cls, names: list[str]) -> InstrumentationAggregator:
         """Create a scheduler instrumentation of the given types.
 
         Arguments:
@@ -45,7 +45,7 @@ class InstrumentationFactory:
 
         instances: list[SchedulerInstrumentation] = [MetadataInstrumentation()]
         instances.extend([cls._registry[name]() for name in names])
-        return CompositeInstrumentation(instances)
+        return InstrumentationAggregator(instances)
 
 
 # Register implemented instrumentation mechanisms
