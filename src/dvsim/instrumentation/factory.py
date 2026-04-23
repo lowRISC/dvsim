@@ -23,9 +23,9 @@ class InstrumentationFactory:
     _registry: ClassVar[dict[str, type[SchedulerInstrumentation]]] = {}
 
     @classmethod
-    def register(cls, name: str, constructor: type[SchedulerInstrumentation]) -> None:
+    def register(cls, inst_cls: type[SchedulerInstrumentation]) -> None:
         """Register a new scheduler instrumentation type."""
-        cls._registry[name] = constructor
+        cls._registry[inst_cls.name] = inst_cls
 
     @classmethod
     def options(cls) -> list[str]:
@@ -49,5 +49,5 @@ class InstrumentationFactory:
 
 
 # Register implemented instrumentation mechanisms
-InstrumentationFactory.register("timing", TimingInstrumentation)
-InstrumentationFactory.register("resources", ResourceInstrumentation)
+InstrumentationFactory.register(TimingInstrumentation)
+InstrumentationFactory.register(ResourceInstrumentation)
