@@ -229,8 +229,8 @@
                         <td>{{ job.seed }}</td>
                         <td>{{ job.line }}</td>
                         <td>
-                        {% for line in job.log_context %}
-                            <div>{{ line }}</div>
+                        {% for context_line in job.log_context %}
+                            <div>{{ context_line }}</div>
                         {% endfor %}
                         </td>
                     </tr>
