@@ -11,7 +11,6 @@
 {% set timestamp = results.timestamp %}
 {% set stages = results.stages %}
 {% set coverage = results.coverage %}
-{% set failed_jobs = results.failed_jobs %}
 {% block content %}
 <div class="container-md">
     <div class="row">
@@ -204,7 +203,7 @@
     </div>
     {% endif %}
 
-    {% if failed_jobs.buckets %}
+    {% if failed_jobs %}
     <div class="row py-3">
         <div class="col">
             <h3>Error Messages</h3>
@@ -219,7 +218,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                {% for msg, job_list in failed_jobs.buckets.items() %}
+                {% for msg, job_list in failed_jobs.items() %}
                     <tr class="table-primary">
                         <td colspan=5>{{ msg }}</td>
                     </tr>
