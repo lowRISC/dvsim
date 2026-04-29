@@ -220,7 +220,8 @@
                 <tbody>
                 {% for msg, job_list in failed_jobs.items() %}
                     <tr class="table-primary">
-                        <td colspan=5>{{ msg }}</td>
+                        <td colspan=4>{{ msg }}</td>
+                        <td><b>{{ job_list|length }} test run{{ "s" if job_list|length > 1 else "" }}</b></td>
                     </tr>
                     {% for job in job_list %}
                     <tr>
