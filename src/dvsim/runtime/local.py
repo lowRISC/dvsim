@@ -322,7 +322,6 @@ class LocalRuntimeBackend(RuntimeBackend):
             return
 
         if proc.returncode is None:
-            handle.kill_requested = True
             try:
                 self._send_kill_signal(proc, signal.SIGTERM)
             except ProcessLookupError:
@@ -366,6 +365,7 @@ class LocalRuntimeBackend(RuntimeBackend):
                 msg = f"Local backend expected handle of type LocalJobHandle, not `{type(handle)}`."
                 raise TypeError(msg)
             if handle.process and not handle.kill_requested and handle.process.returncode is None:
+                handle.kill_requested = True
                 tasks.append(asyncio.create_task(self._kill_job(handle)))
 
         if tasks:
