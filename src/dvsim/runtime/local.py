@@ -109,19 +109,17 @@ class LocalRuntimeBackend(RuntimeBackend):
         ]
         status = JobStatus.KILLED
         reason = None
+        exit_code = None
 
         try:
             exit_code = await asyncio.wait_for(
                 handle.process.wait(), timeout=handle.spec.timeout_secs
             )
-            runtime = time.monotonic() - handle.start_time
-            status, reason = self._finish_job(handle, exit_code, runtime)
         except asyncio.TimeoutError:
             await self._kill_job(handle)
-            status = JobStatus.KILLED
-            timeout_message = f"Job timed out after {handle.spec.timeout_mins} minutes"
-            reason = JobStatusInfo(message=timeout_message)
         finally:
+            runtime = time.monotonic() - handle.start_time
+
             # Explicitly cancel reader tasks and wait for them to finish before closing the log
             # file. We first give them a second to finish naturally to reduce log loss.
             with contextlib.suppress(asyncio.TimeoutError):
@@ -130,6 +128,8 @@ class LocalRuntimeBackend(RuntimeBackend):
                 if not task.done():
                     task.cancel()
             await asyncio.gather(*reader_tasks, return_exceptions=True)
+
+            status, reason = self._finish_job(handle, exit_code, runtime)
 
             if handle.log_file:
                 handle.log_file.close()

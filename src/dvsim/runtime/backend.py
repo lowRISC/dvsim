@@ -218,11 +218,21 @@ class RuntimeBackend(ABC):
         self._make_job_output_directory(job)
 
     def _finish_job(
-        self, handle: JobHandle, exit_code: int, runtime: float | None
+        self, handle: JobHandle, exit_code: int | None, runtime: float | None
     ) -> tuple[JobStatus, JobStatusInfo | None]:
         """Determine the outcome of a job that ran to completion, and parse extra log info.
 
         Updates the handle with any extracted job runtime & simulation time info.
+
+        Args:
+            handle: The handle to the job that finished.
+            exit_code: The exit code if the job finished gracefully, or None if it was terminated.
+            runtime: The amount of time taken to complete the job, if known.
+
+        Returns:
+            A tuple containing the final job status and optionally an additional context/reason
+            object describing the job completion.
+
         """
         if handle.spec.dry_run:
             return JobStatus.PASSED, None
@@ -241,6 +251,11 @@ class RuntimeBackend(ABC):
             handle.simulated_time.set(*simulated_time.get())
 
         # Determine the final status from the logs and exit code.
+        if exit_code is None:
+            return JobStatus.KILLED, JobStatusInfo(
+                message=f"Job timed out after {handle.spec.timeout_mins} minutes"
+            )
+
         status, reason = log_results.get_status_from_logs()
         if status is not None:
             return status, reason
