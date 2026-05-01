@@ -111,9 +111,16 @@ class HtmlReportRenderer:
             file_name = results.block.variant_name()
             log.debug("Generating HTML report for '%s'", file_name)
             block_file = f"{file_name}.html"
+            sorted_buckets = dict(
+                sorted(results.failed_jobs.buckets.items(), key=lambda kv: len(kv[1]), reverse=True)
+            )
             artifacts[block_file] = render_template(
                 path="reports/block_report.html",
-                data={"results": results, "version": summary.version},
+                data={
+                    "results": results,
+                    "failed_jobs": sorted_buckets,
+                    "version": summary.version,
+                },
             )
             if outdir is not None:
                 (outdir / block_file).write_text(artifacts[block_file])
