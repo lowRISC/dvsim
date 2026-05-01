@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.33.1 (2026-05-01)
+
+### Bug Fixes
+
+- Local job timeout reported as job being killed
+  ([`f734f22`](https://github.com/lowRISC/dvsim/commit/f734f22e78d215f5711c643570b718a7107f4061))
+
+- Timed out jobs now go through RuntimeBackend._finish_job
+  ([`3058428`](https://github.com/lowRISC/dvsim/commit/3058428315ff2bd231660ec381ddac61c5d5d62c))
+
+
 ## v1.33.0 (2026-04-29)
 
 ### Continuous Integration
