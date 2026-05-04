@@ -10,8 +10,8 @@ from dvsim.instrumentation.base import (
     InstrumentationAggregator,
     SchedulerInstrumentation,
 )
+from dvsim.instrumentation.compute import ComputeInstrumentation
 from dvsim.instrumentation.metadata import MetadataInstrumentation
-from dvsim.instrumentation.resources import ResourceInstrumentation
 from dvsim.instrumentation.timing import TimingInstrumentation
 
 __all__ = ("InstrumentationFactory",)
@@ -49,4 +49,4 @@ class InstrumentationFactory:
 # Register implemented instrumentation mechanisms
 InstrumentationFactory.register(MetadataInstrumentation)
 InstrumentationFactory.register(TimingInstrumentation)
-InstrumentationFactory.register(ResourceInstrumentation)
+InstrumentationFactory.register(ComputeInstrumentation)

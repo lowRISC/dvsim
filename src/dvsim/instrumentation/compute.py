@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 
-"""DVSim scheduler instrumentation for system resource usage."""
+"""DVSim scheduler instrumentation for system compute resource usage."""
 
 import os
 import threading
@@ -12,11 +12,11 @@ from collections.abc import Mapping
 import psutil
 
 from dvsim.instrumentation.base import SchedulerInstrumentation
-from dvsim.instrumentation.records import JobResourceMetrics, SchedulerResourceMetrics
+from dvsim.instrumentation.records import JobComputeMetrics, SchedulerComputeMetrics
 from dvsim.job.data import JobSpec
 from dvsim.job.status import JobStatus
 
-__all__ = ("ResourceInstrumentation",)
+__all__ = ("ComputeInstrumentation",)
 
 
 class JobResourceAggregate:
@@ -44,21 +44,21 @@ class JobResourceAggregate:
         self.max_rss = max(self.max_rss, rss)
         self.sum_cpu += cpu
 
-    def finalize(self) -> JobResourceMetrics:
+    def finalize(self) -> JobComputeMetrics:
         """Finalize the aggregated information for a job, generating a report fragment."""
         if self.sample_count == 0:
-            return JobResourceMetrics()
+            return JobComputeMetrics()
 
-        return JobResourceMetrics(
+        return JobComputeMetrics(
             max_rss_bytes=self.max_rss,
             avg_rss_bytes=self.sum_rss / self.sample_count,
             avg_cpu_percent=self.sum_cpu / self.sample_count,
-            num_resource_samples=self.sample_count,
+            num_samples=self.sample_count,
         )
 
 
-class ResourceInstrumentation(SchedulerInstrumentation):
-    """Resource instrumentation for the scheduler.
+class ComputeInstrumentation(SchedulerInstrumentation):
+    """Compute resource instrumentation for the scheduler.
 
     Collects information about the compute resources used throughout the entire duration of
     the scheduler, as well as during the window within which each job is dispatched. This
@@ -69,10 +69,10 @@ class ResourceInstrumentation(SchedulerInstrumentation):
     of the samples that fall within that job's execution window.
     """
 
-    name = "resources"
+    name = "compute"
 
     def __init__(self, sample_interval: float = 0.5) -> None:
-        """Construct a resource instrumentation.
+        """Construct a compute resource instrumentation.
 
         Arguments:
             sample_interval: The period (in seconds) per poll / sample produced.
@@ -183,13 +183,13 @@ class ResourceInstrumentation(SchedulerInstrumentation):
                 aggregates = self._running_jobs.pop(job.id)
                 self._finished_jobs[job.id] = aggregates
 
-    def get_scheduler_data(self) -> SchedulerResourceMetrics:
+    def get_scheduler_data(self) -> SchedulerComputeMetrics:
         """Retrieve scheduler metrics measured by this instrumentation."""
         if self._running:
             raise RuntimeError("Cannot build instrumentation report whilst still running!")
 
         if self._sample_count <= 0:
-            return SchedulerResourceMetrics()
+            return SchedulerComputeMetrics()
 
         scheduler_cpu_time = self._scheduler_cpu_time_end - self._scheduler_cpu_time_start
         if self._num_cores is not None:
@@ -202,7 +202,7 @@ class ResourceInstrumentation(SchedulerInstrumentation):
             # Suppress unknown types in VMS measurements
             vms_bytes = None
 
-        return SchedulerResourceMetrics(
+        return SchedulerComputeMetrics(
             scheduler_avg_rss_bytes=round(self._scheduler_sum_rss / self._sample_count),
             scheduler_max_rss_bytes=self._scheduler_max_rss,
             scheduler_vms_bytes=vms_bytes,
@@ -213,10 +213,10 @@ class ResourceInstrumentation(SchedulerInstrumentation):
             sys_cpu_percent=self._sys_sum_cpu / self._sample_count,
             sys_cpu_per_core=sys_cpu_per_core,
             sys_swap_used_bytes=self._sys_max_swap,
-            num_resource_samples=self._sample_count,
+            num_samples=self._sample_count,
         )
 
-    def get_job_data(self) -> Mapping[str, JobResourceMetrics]:
+    def get_job_data(self) -> Mapping[str, JobComputeMetrics]:
         """Retrieve per-job metrics measured by this instrumentation."""
         if self._running:
             raise RuntimeError("Cannot build instrumentation report whilst still running!")

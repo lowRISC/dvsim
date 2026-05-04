@@ -17,14 +17,14 @@ from pydantic import (
 __all__ = (
     "InstrumentationMetrics",
     "InstrumentationResults",
+    "JobComputeMetrics",
     "JobInstrumentationMetadata",
     "JobInstrumentationResults",
     "JobMetrics",
-    "JobResourceMetrics",
     "JobTimingMetrics",
+    "SchedulerComputeMetrics",
     "SchedulerInstrumentationResults",
     "SchedulerMetrics",
-    "SchedulerResourceMetrics",
     "SchedulerTimingMetrics",
 )
 
@@ -112,11 +112,11 @@ class JobTimingMetrics(JobMetrics):
         return data
 
 
-# Resource Metrics
+# Compute Resource Metrics
 
 
-class SchedulerResourceMetrics(SchedulerMetrics):
-    """Instrumented resource metrics measured for the scheduler as a whole."""
+class SchedulerComputeMetrics(SchedulerMetrics):
+    """Instrumented compute resource metrics measured for the scheduler as a whole."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -134,11 +134,11 @@ class SchedulerResourceMetrics(SchedulerMetrics):
     sys_cpu_percent: float | None = None
     sys_cpu_per_core: list[float] | None = None
 
-    num_resource_samples: int = 0
+    num_samples: int = 0
 
 
-class JobResourceMetrics(JobMetrics):
-    """Instrumented resource metrics measured for a single scheduled job."""
+class JobComputeMetrics(JobMetrics):
+    """Instrumented compute resource metrics measured for a single scheduled job."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -146,7 +146,7 @@ class JobResourceMetrics(JobMetrics):
     avg_rss_bytes: float | None = None
     avg_cpu_percent: float | None = None
 
-    num_resource_samples: int = 0
+    num_samples: int = 0
 
 
 # Combined output reports
@@ -158,7 +158,7 @@ class SchedulerInstrumentationResults(BaseModel):
     model_config = ConfigDict(frozen=True, extra="allow")
 
     timing: SchedulerTimingMetrics | None = None
-    resources: SchedulerResourceMetrics | None = None
+    compute: SchedulerComputeMetrics | None = None
 
 
 class JobInstrumentationResults(BaseModel):
@@ -168,7 +168,7 @@ class JobInstrumentationResults(BaseModel):
 
     meta: JobInstrumentationMetadata | None = None
     timing: JobTimingMetrics | None = None
-    resources: JobResourceMetrics | None = None
+    compute: JobComputeMetrics | None = None
 
 
 class InstrumentationResults(BaseModel):
