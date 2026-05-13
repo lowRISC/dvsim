@@ -10,6 +10,8 @@ from pathlib import Path
 
 import click
 
+from dvsim.instrumentation.report.profile import RenderProfile
+
 
 @click.group()
 @click.version_option(version("dvsim"))
@@ -89,6 +91,29 @@ def report_gen(json_path: Path, output_dir: Path) -> None:
         flow_results=flow_results,
         path=output_dir,
     )
+
+
+@report.command(
+    "instrumentation", short_help="Generate an instrumentation report from existing metrics."
+)
+@click.argument(
+    "json_path",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+)
+@click.argument("output_dir", type=click.Path(file_okay=False, dir_okay=True, path_type=Path))
+@click.option(
+    "--profile",
+    type=click.Choice([e.value for e in RenderProfile], case_sensitive=False),
+    help="Set the rendering profile to control the detail vs. report optimization",
+)
+def instrumentation_report_gen(json_path: Path, output_dir: Path, profile: str | None) -> None:
+    """Generate an instrumentation report from an existing metrics JSON."""
+    from dvsim.instrumentation.records import InstrumentationResults  # noqa: PLC0415
+    from dvsim.instrumentation.runtime import gen_html_report  # noqa: PLC0415
+
+    render_profile = None if profile is None else RenderProfile(profile)
+    results = InstrumentationResults.model_validate_json(json_path.read_text(encoding="utf-8"))
+    gen_html_report(results, profile=render_profile, outdir=output_dir)
 
 
 if __name__ == "__main__":
