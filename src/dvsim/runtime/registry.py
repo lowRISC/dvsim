@@ -151,7 +151,6 @@ register_backend(BackendType("local"), "dvsim.runtime.local.LocalRuntimeBackend"
 register_backend(BackendType("fake"), "dvsim.runtime.fake.FakeRuntimeBackend")
 register_legacy_launcher_backend(BackendType("lsf"), "dvsim.launcher.lsf.LsfLauncher")
 register_legacy_launcher_backend(BackendType("nc"), "dvsim.launcher.nc.NcLauncher")
-register_legacy_launcher_backend(BackendType("sge"), "dvsim.launcher.sge.SgeLauncher")
 register_legacy_launcher_backend(BackendType("slurm"), "dvsim.launcher.slurm.SlurmLauncher")
 
 # TODO: Hack to support site-specific closed source custom launchers. These should be migrated to
