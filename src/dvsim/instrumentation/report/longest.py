@@ -597,3 +597,93 @@ class LongestTestsByToolChart(LongestByToolChart):
             )
             return cls(max_bars=None, max_jobs_per_bar=None)
         return cls()
+
+
+class LongestByBlockChart(LongestBarChart):
+    """Renders plotly bar charts that rank the longest jobs or tests, partitioned by block."""
+
+    title = "Longest Jobs by Block"
+
+    DEFAULT_MAX_BARS: int = 50
+
+    def __init__(
+        self,
+        *,
+        group_tests: bool = False,
+        max_bars: int | None = DEFAULT_MAX_BARS,
+        max_jobs_per_bar: int | None = None,
+    ) -> None:
+        """Construct a LongestByBlockChart.
+
+        Args:
+            group_tests: Flag to group jobs of the same test by name. This allows timing results
+              for the same tests to be combined in a stacked bar view.
+            max_bars: The maximum number of bars to show for each block (and overall).
+            max_jobs_per_bar: If group_tests=True, the maximum number of stacked bars to
+              render per bar. If there are too many bars to display, the bottom
+              (N - max_jobs_per_bar + 1) jobs will be combined into a single bar.
+
+        """
+        super().__init__(
+            max_bars=max_bars,
+            max_jobs_per_bar=max_jobs_per_bar,
+            category_fn=self._get_job_block_variant,
+            group_tests=group_tests,
+        )
+
+    def _get_job_block_variant(self, job: JobInstrumentationResults) -> str:
+        """Get the block (variant) from a job's metadata, or 'Unknown' if it does not exist."""
+        if job.meta is None:
+            return "Unknown"
+
+        return job.meta.block + (f"_{job.meta.block_variant}" if job.meta.block_variant else "")
+
+
+class LongestTestsByBlockChart(LongestByBlockChart):
+    """Renders plotly bar charts that rank the longest tests, partitioned by block."""
+
+    title = "Longest Tests by Block"
+
+    DEFAULT_MAX_BARS: int = 20
+
+    def __init__(
+        self,
+        *,
+        max_bars: int | None = DEFAULT_MAX_BARS,
+        max_jobs_per_bar: int | None = LongestByBlockChart.DEFAULT_MAX_JOBS_PER_BAR,
+    ) -> None:
+        """Construct a LongestTestsByBlockChart.
+
+        Args:
+            max_bars: The maximum number of bars to show for each block (and overall).
+            max_jobs_per_bar: The maximum number of stacked bars to render per bar. If there are
+              too many bars to display, the bottom (N - max_jobs_per_bar + 1) jobs will be combined
+              into a single bar.
+
+        """
+        super().__init__(group_tests=True, max_bars=max_bars, max_jobs_per_bar=max_jobs_per_bar)
+
+    @classmethod
+    def for_profile(cls, profile: RenderProfile) -> Self:
+        """Create a visualizer instance configured for a given rendering profile."""
+        if profile == RenderProfile.HIGH:
+            max_bars = cls.DEFAULT_MAX_BARS * 5
+            max_jobs_per_bar = (cls.DEFAULT_MAX_JOBS_PER_BAR - 1) * 5 + 1
+            log.debug(
+                "Using render profile '%s' for '%s' visualization. Setting max bars to %d "
+                "and max jobs per bar to %d.",
+                profile.name,
+                cls.title,
+                max_bars,
+                max_jobs_per_bar,
+            )
+            return cls(max_bars=max_bars, max_jobs_per_bar=max_jobs_per_bar)
+        if profile == RenderProfile.FULL:
+            log.debug(
+                "Using render profile '%s' for '%s' visualization. Disabling max bars and "
+                "max jobs per bar.",
+                profile.name,
+                cls.title,
+            )
+            return cls(max_bars=None, max_jobs_per_bar=None)
+        return cls()
