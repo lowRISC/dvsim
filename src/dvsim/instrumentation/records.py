@@ -9,16 +9,20 @@ from typing import Any
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     computed_field,
     model_validator,
 )
 
 __all__ = (
     "InstrumentationMetrics",
+    "InstrumentationResults",
     "JobInstrumentationMetadata",
+    "JobInstrumentationResults",
     "JobMetrics",
     "JobResourceMetrics",
     "JobTimingMetrics",
+    "SchedulerInstrumentationResults",
     "SchedulerMetrics",
     "SchedulerResourceMetrics",
     "SchedulerTimingMetrics",
@@ -143,3 +147,34 @@ class JobResourceMetrics(JobMetrics):
     avg_cpu_percent: float | None = None
 
     num_resource_samples: int = 0
+
+
+# Combined output reports
+
+
+class SchedulerInstrumentationResults(BaseModel):
+    """Aggregated instrumentation report data about the scheduler as a whole."""
+
+    model_config = ConfigDict(frozen=True, extra="allow")
+
+    timing: SchedulerTimingMetrics | None = None
+    resources: SchedulerResourceMetrics | None = None
+
+
+class JobInstrumentationResults(BaseModel):
+    """Aggregated instrumentation report data about a single scheduled job."""
+
+    model_config = ConfigDict(frozen=True, extra="allow")
+
+    meta: JobInstrumentationMetadata | None = None
+    timing: JobTimingMetrics | None = None
+    resources: JobResourceMetrics | None = None
+
+
+class InstrumentationResults(BaseModel):
+    """A complete aggregated instrumentation report with data about the scheduler and all jobs."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    scheduler: SchedulerInstrumentationResults
+    jobs: dict[str, JobInstrumentationResults] = Field(default_factory=dict)

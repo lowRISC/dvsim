@@ -4,10 +4,16 @@
 
 """DVSim scheduler instrumentation base classes."""
 
+from collections import defaultdict
 from collections.abc import Iterable, Mapping
-from typing import Any
 
-from dvsim.instrumentation.records import JobMetrics, SchedulerMetrics
+from dvsim.instrumentation.records import (
+    InstrumentationResults,
+    JobInstrumentationResults,
+    JobMetrics,
+    SchedulerInstrumentationResults,
+    SchedulerMetrics,
+)
 from dvsim.job.data import JobSpec
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
@@ -89,36 +95,28 @@ class InstrumentationAggregator:
         for inst in self._instrumentations:
             inst.stop()
 
-    def collect(self) -> dict[str, Any]:
+    def collect(self) -> InstrumentationResults:
         """Collect all gathered instrumentation data from the wrapped objects."""
-        log.info("Collecting instrumentation data...")
+        log.info("Collecting instrumentation report data...")
 
-        scheduler_fragments = []
-        job_fragments = []
+        scheduler_metrics: dict[str, SchedulerMetrics] = {}
+        job_metrics: dict[str, dict[str, JobMetrics]] = defaultdict(dict)
 
-        for inst in self._instrumentations:
-            scheduler_data = inst.get_scheduler_data()
-            if scheduler_data is not None:
-                scheduler_fragments.append(scheduler_data)
-            job_fragments += inst.get_job_data().items()
-
-        log.info("Finished collecting instrumentation data. Merging instrumentation data...")
-
-        scheduler: dict[str, Any] = {}
-        for i, scheduler_frag in enumerate(scheduler_fragments, start=1):
+        for i, inst in enumerate(self._instrumentations, start=1):
             log.debug(
-                "Merging instrumentation report scheduler data (%d/%d)", i, len(scheduler_fragments)
+                "Collecting instrumentation report data (%d/%d)", i, len(self._instrumentations)
             )
-            scheduler.update(scheduler_frag.model_dump())
+            scheduler_record = inst.get_scheduler_data()
+            if scheduler_record is not None:
+                scheduler_metrics[inst.name] = scheduler_record
+            for job_id, job_record in inst.get_job_data().items():
+                job_metrics[job_id][inst.name] = job_record
 
-        jobs: dict[tuple[str, str], dict[str, Any]] = {}
-        for i, (job_id, job_frag) in enumerate(job_fragments, start=1):
-            log.debug("Merging instrumentation report job data (%d/%d)", i, len(job_fragments))
-            job = jobs.get(job_id)
-            if job is None:
-                job = {}
-                jobs[job_id] = job
-            job.update({k: v for k, v in job_frag.model_dump().items() if k != "job"})
-
-        log.info("Finished merging instrumentation report data.")
-        return {"scheduler": scheduler, "jobs": list(jobs.values())}
+        log.info("Finished collecting instrumentation report data.")
+        return InstrumentationResults(
+            scheduler=SchedulerInstrumentationResults(**scheduler_metrics),  # type: ignore[reportArgumentType]
+            jobs={
+                job_id: JobInstrumentationResults(**job_data)  # type: ignore[reportArgumentType]
+                for job_id, job_data in job_metrics.items()
+            },
+        )

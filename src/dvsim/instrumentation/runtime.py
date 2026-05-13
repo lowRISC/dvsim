@@ -4,11 +4,9 @@
 
 """DVSim scheduler instrumentation for timing-related information."""
 
-import json
 from pathlib import Path
-from typing import Any
 
-from dvsim.instrumentation.base import InstrumentationAggregator
+from dvsim.instrumentation.base import InstrumentationAggregator, InstrumentationResults
 from dvsim.logging import log
 
 __all__ = (
@@ -24,7 +22,7 @@ class _Runtime:
     def __init__(self) -> None:
         self.instrumentation: InstrumentationAggregator | None = None
         self.report_path: Path | None = None
-        self.report: dict[str, Any] | None = None
+        self.report: InstrumentationResults | None = None
 
 
 _runtime = _Runtime()
@@ -45,7 +43,7 @@ def get() -> InstrumentationAggregator | None:
     return _runtime.instrumentation
 
 
-def flush() -> dict[str, Any] | None:
+def flush() -> InstrumentationResults | None:
     """Dump the instrumentation report as JSON to the configured report path."""
     if _runtime.instrumentation is None:
         return None
@@ -58,7 +56,9 @@ def flush() -> dict[str, Any] | None:
             raise ValueError("Metric report path cannot be a directory.")
         try:
             _runtime.report_path.parent.mkdir(parents=True, exist_ok=True)
-            _runtime.report_path.write_text(json.dumps(_runtime.report, indent=2))
+            _runtime.report_path.write_text(
+                _runtime.report.model_dump_json(indent=2, exclude_none=True)
+            )
             log.info("JSON instrumentation report dumped to: %s", str(_runtime.report_path))
         except (OSError, FileNotFoundError) as e:
             log.error(
@@ -68,6 +68,6 @@ def flush() -> dict[str, Any] | None:
     return _runtime.report
 
 
-def get_report() -> dict[str, Any] | None:
+def get_report() -> InstrumentationResults | None:
     """Get the latest flushed instrumentation report contents, if any exist."""
     return _runtime.report
