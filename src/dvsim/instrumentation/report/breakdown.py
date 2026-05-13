@@ -6,9 +6,7 @@
 
 from collections import defaultdict
 from collections.abc import Callable
-from typing import Any
 
-import plotly.colors as pc
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -18,7 +16,7 @@ from dvsim.instrumentation.report.base import (
     DEFAULT_VISUALIZATION_HEIGHT_PX,
     PLOTLY_TIMING_AXIS_CONFIG,
     InstrumentationVisualizer,
-    make_repeating_color_map,
+    get_default_color_map,
     render_plotly_figure,
 )
 from dvsim.utils import format_time_as_hms as format_time
@@ -55,24 +53,6 @@ class BreakdownVisualization(InstrumentationVisualizer):
         # Default margin layout information
         self.margins = {"t": 80, "b": 40, "l": 50, "r": 20}
 
-    def _get_color_map(self, categories: dict[str, list[str]]) -> dict[str, Any]:
-        """Build a colour map for the chart, using large palettes for more variety as is needed."""
-        palette = pc.qualitative.Plotly
-        if len(categories) > len(palette):
-            extra_colors = [
-                pc.qualitative.Bold,
-                pc.qualitative.Safe,
-                pc.qualitative.Vivid,
-                pc.qualitative.D3,
-                pc.qualitative.Set1,
-                pc.qualitative.Set2,
-            ]
-            extra_index = 0
-            while len(categories) > len(palette) and extra_index < len(extra_colors):
-                palette += extra_colors[extra_index]
-                extra_index += 1
-        return make_repeating_color_map(categories, palette)
-
     def render(self, results: InstrumentationResults) -> str | None:
         """Render a breakdown (pie/bar chart) from the instrumentation results as a HTML fragment.
 
@@ -96,7 +76,7 @@ class BreakdownVisualization(InstrumentationVisualizer):
             return None
 
         categories = dict(sorted(categories.items()))
-        color_map = self._get_color_map(categories)
+        color_map = get_default_color_map(list(categories.keys()))
 
         # Determine the chart dimensions for the different subplots
         pie_chart_height = min(self.MIN_PIE_HEIGHT_PX, DEFAULT_VISUALIZATION_HEIGHT_PX)

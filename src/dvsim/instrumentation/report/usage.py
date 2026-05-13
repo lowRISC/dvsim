@@ -7,7 +7,6 @@
 from collections import defaultdict
 from collections.abc import Callable
 
-import plotly.colors as pc
 import plotly.graph_objects as go
 from plotly.graph_objs import Figure
 
@@ -17,7 +16,7 @@ from dvsim.instrumentation.report.base import (
     DEFAULT_VISUALIZATION_HEIGHT_PX,
     PLOTLY_TIMING_AXIS_CONFIG,
     InstrumentationVisualizer,
-    make_repeating_color_map,
+    get_default_color_map,
     render_plotly_figure,
 )
 
@@ -85,7 +84,7 @@ class ConcurrencyLineGraph(InstrumentationVisualizer):
             else:
                 categories["Concurrent Jobs"].append(job_id)
         categories = dict(sorted(categories.items()))
-        color_map = make_repeating_color_map(categories, pc.qualitative.Plotly)
+        color_map = get_default_color_map(list(categories.keys()))
 
         # For each group, get concurrency events and plot them as a trace.
         fig = go.Figure()
