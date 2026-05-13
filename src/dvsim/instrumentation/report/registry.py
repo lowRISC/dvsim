@@ -8,6 +8,7 @@ from typing import ClassVar
 
 from dvsim.instrumentation.report.base import InstrumentationVisualizer, RenderProfile
 from dvsim.instrumentation.report.timelines import ParallelismChart, TimelineBarChart
+from dvsim.instrumentation.report.usage import ToolUsageLineGraph
 
 __all__ = ("ReportVisualizationRegistry",)
 
@@ -49,5 +50,6 @@ class ReportVisualizationRegistry:
 
 
 # Register implemented / built-in instrumentation report visualizations
+ReportVisualizationRegistry.register(ToolUsageLineGraph)
 ReportVisualizationRegistry.register(TimelineBarChart)
 ReportVisualizationRegistry.register(ParallelismChart)
