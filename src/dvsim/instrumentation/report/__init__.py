@@ -4,11 +4,16 @@
 
 """DVSim Scheduler Instrumentation report."""
 
-from dvsim.instrumentation.report.base import InstrumentationVisualizer, RenderProfile
+from dvsim.instrumentation.report.base import (
+    InstrumentationVisualizer,
+    RenderProfile,
+    render_html_report,
+)
 from dvsim.instrumentation.report.registry import ReportVisualizationRegistry
 
 __all__ = (
     "InstrumentationVisualizer",
     "RenderProfile",
     "ReportVisualizationRegistry",
+    "render_html_report",
 )
