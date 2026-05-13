@@ -1,0 +1,73 @@
+<!--
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+-->
+{% extends "reports/wrapper.html" %}
+{% block head_content %}
+{% if renders %}
+<script src="js/plotly.min.js"></script>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="container-md">
+    <div class="row py-3 justify-content-between">
+        <div class="col">
+            <h2>Instrumentation report</h2>
+        </div>
+        {% if metrics_json %}
+        <div class="col-auto">
+            <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
+                style="font-size: 15px;" href="{{ metrics_json }}">JSON</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="row py-3">
+        <div class="col">
+            {% if not renders %}
+            <p padding="2 rem">No instrumentation visualizations matched the available report data.</p>
+            {% else %}
+            <ul class="nav nav-underline" style="flex-wrap: nowrap; white-space: nowrap; overflow-x: auto;
+                                                 overflow-y: hidden;">
+                {% for vis, _ in renders %}
+                {% set class = "nav-link" + (" active" if loop.index0 == 0 else "") %}
+                {% set slug = vis.title.lower() | replace("_", "-") | replace (" ", "-") %}
+                <li class="nav-item" role="presentation">
+                    <button class="{{ class }}" data-bs-toggle="tab" data-bs-target="#{{ slug }}-pane" 
+                            type="button" role="tab">
+                        {{ vis.title }}
+                    </button>
+                </li>
+                {% endfor %}
+            </ul>
+            <div class="tab-content border rounded-bottom">
+                {% for vis, fragment in renders %}
+                {% set class = "tab-pane fade" + (" show active" if loop.index0 == 0 else "") %}
+                {% set slug = vis.title.lower() | replace("_", "-") | replace (" ", "-") %}
+                <div class="{{ class }}" id="{{ slug }}-pane" role="tabpanel">
+                    <div class="p-3">
+                        {{ fragment | safe }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    /* Plotly renders charts inside hidden tab panes before they are visible, causing
+    Plotly to measure the container width as zero/partial, setting the size accordingly.
+    We must call Plotly.relayout on each chart when its tab is shown to fix this. */
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', () => {
+            document.querySelectorAll('.tab-pane .plotly-graph-div').forEach(elem => {
+                Plotly.relayout(elem, { autosize: true });
+            });
+        });
+    });
+</script>
+{% endblock %}
