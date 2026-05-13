@@ -9,7 +9,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-import plotly.colors as pc
 import plotly.graph_objects as go
 from typing_extensions import Self
 
@@ -24,8 +23,8 @@ from dvsim.instrumentation.report.base import (
     PLOTLY_TIMING_AXIS_CONFIG,
     InstrumentationVisualizer,
     RenderProfile,
+    get_default_color_map,
     make_job_metadata_hover,
-    make_repeating_color_map,
     render_plotly_figure,
 )
 from dvsim.job.status import JobStatus
@@ -381,7 +380,7 @@ class LongestBarChart(InstrumentationVisualizer):
         if self.color_fn is not None:
             color_map = {key: self.color_fn(key) for key in categories}
         else:
-            color_map = make_repeating_color_map(categories, pc.qualitative.Plotly)
+            color_map = get_default_color_map(categories)
 
         # For each category, create a bar trace & menu (visibility) toggle button.
         traces: list[go.Bar] = []
