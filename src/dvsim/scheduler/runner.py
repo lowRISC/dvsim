@@ -141,6 +141,6 @@ async def run_scheduler(
     # Finalize instrumentation
     if inst is not None:
         inst.stop()
-        instrumentation.flush()
+        instrumentation.gen_html_report(instrumentation.flush())
 
     return results
