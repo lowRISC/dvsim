@@ -69,6 +69,8 @@ class ResourceInstrumentation(SchedulerInstrumentation):
     of the samples that fall within that job's execution window.
     """
 
+    name = "resources"
+
     def __init__(self, sample_interval: float = 0.5) -> None:
         """Construct a resource instrumentation.
 

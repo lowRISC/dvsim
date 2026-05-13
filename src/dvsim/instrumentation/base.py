@@ -26,10 +26,7 @@ class SchedulerInstrumentation:
     behavioural metrics for analysis.
     """
 
-    @property
-    def name(self) -> str:
-        """The name to use to refer to this instrumentation mechanism."""
-        return self.__class__.__name__
+    name: str = ""
 
     def start(self) -> None:
         """Begin instrumentation, starting whatever is needed before the scheduler is run."""

@@ -21,6 +21,8 @@ class MetadataInstrumentation(SchedulerInstrumentation):
     part of the instrumentation report for analysis, regardless of other instrumentations.
     """
 
+    name = "meta"
+
     def __init__(self) -> None:
         """Construct a `MetadataInstrumentation`."""
         super().__init__()

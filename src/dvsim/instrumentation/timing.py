@@ -22,6 +22,8 @@ class TimingInstrumentation(SchedulerInstrumentation):
     all of the jobs that it dispatches.
     """
 
+    name = "timing"
+
     def __init__(self) -> None:
         """Construct a `TimingInstrumentation`."""
         super().__init__()
