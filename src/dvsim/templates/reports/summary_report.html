@@ -37,9 +37,9 @@
         </div>
     </div>
 
-    <div class="row">
+    <div class="row justify-content-between">
+        <div class="text-center mb-2">&nbsp;</div>
         <div class="col-4 col-md-3">
-            <div class="text-center mb-2">&nbsp;</div>
             <span class="badge text-bg-secondary">
                 {{ timestamp.strftime("%d/%m/%Y %H:%M:%S") }}
             </span>
@@ -54,7 +54,7 @@
                 sha: {{ meta_info.commit_short }}
             </a>
             <a class="badge text-bg-secondary link-underline link-underline-opacity-0"
-                href="index.json">json</a>
+                href="index.json">JSON</a>
             <span class="badge text-bg-secondary">
                 Branch: {{ meta_info.branch }}
             </span>
@@ -64,6 +64,14 @@
             </span>
             {% endif %}
         </div>
+        {% if instrumentation_report %}
+        <div class="col-4 col-md-3">
+            <a class="badge text-bg-secondary link-underline link-underline-opacity-0 fs-6"
+                href="{{ instrumentation_report }}">
+                Instrumentation Report
+            </a>
+        </div>
+        {% endif %}
     </div>
 
     {% macro coverage_cell(cov, kind) %}
