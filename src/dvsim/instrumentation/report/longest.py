@@ -379,6 +379,9 @@ class LongestBarChart(InstrumentationVisualizer):
 
         if self.color_fn is not None:
             color_map = {key: self.color_fn(key) for key in categories}
+        elif self.category_fn is not None:
+            # We don't need a colour for `self.ALL_KEY`, so exclude it.
+            color_map = get_default_color_map(categories[1:])
         else:
             color_map = get_default_color_map(categories)
 
