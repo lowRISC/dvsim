@@ -35,3 +35,15 @@ def print_msg_list(msg_list_title: str, msg_list: list[str], max_msg_count: int 
         md_results += "```\n"
 
     return md_results
+
+
+def ordinal_suffix(n: int) -> str:
+    """Get the suffix for some ordinal int, e.g. 'st' for 1st, 'th' for 11th, 'rd' for 33rd."""
+    if n < 0:
+        raise ValueError("Expected a positive integer to get the ordinal suffix of")
+
+    if n in (11, 12, 13):
+        return "th"
+
+    suffixes = ("st", "nd", "rd")
+    return suffixes[n % 10 - 1] if n % 10 in (1, 2, 3) else "th"
