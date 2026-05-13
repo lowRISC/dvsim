@@ -17,6 +17,7 @@ from pydantic import (
 from dvsim.job.status import JobStatus
 
 __all__ = (
+    "ConcreteJobTimingMetrics",
     "InstrumentationMetrics",
     "InstrumentationResults",
     "JobComputeMetrics",
@@ -116,6 +117,16 @@ class JobTimingMetrics(JobMetrics):
         return data
 
 
+class ConcreteJobTimingMetrics(JobMetrics):
+    """Concrete job timing information with all known fields populated."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    start_time: float
+    end_time: float
+    duration: float
+
+
 # Compute Resource Metrics
 
 
@@ -182,3 +193,27 @@ class InstrumentationResults(BaseModel):
 
     scheduler: SchedulerInstrumentationResults
     jobs: dict[str, JobInstrumentationResults] = Field(default_factory=dict)
+
+    def job_timings(self) -> dict[str, ConcreteJobTimingMetrics]:
+        """Get any complete job timing information that exists in this instrumentation report."""
+        return {
+            job_id: ConcreteJobTimingMetrics(
+                start_time=results.timing.start_time,
+                end_time=results.timing.end_time,
+                duration=(results.timing.end_time - results.timing.start_time),
+            )
+            for job_id, results in self.jobs.items()
+            if results.timing is not None
+            and results.timing.start_time is not None
+            and results.timing.end_time is not None
+        }
+
+    def get_run_time_info(self) -> tuple[float, float]:
+        """Get the run start & end time, falling back to job info if scheduler info is missing."""
+        timing = self.scheduler.timing
+        if timing is None or timing.start_time is None or timing.end_time is None:
+            job_timings = self.job_timings()
+            start_time = min((time.start_time for time in job_timings.values()), default=0.0)
+            end_time = max((time.end_time for time in job_timings.values()), default=0.0)
+            return start_time, end_time
+        return timing.start_time, timing.end_time
