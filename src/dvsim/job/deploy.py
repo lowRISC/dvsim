@@ -82,7 +82,7 @@ class Deploy:
         if not (isinstance(self._variant, str) or self._variant is None):
             raise TypeError("Unexpected type for variant")
 
-        self._variant_suffix = f"_{self._variant}" if self._variant is not None else ""
+        self._variant_suffix = f"_{self._variant}" if self._variant else ""
 
         # A list of jobs on which this job depends.
         self.dependencies = []
