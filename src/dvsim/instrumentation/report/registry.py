@@ -7,6 +7,7 @@
 from typing import ClassVar
 
 from dvsim.instrumentation.report.base import InstrumentationVisualizer, RenderProfile
+from dvsim.instrumentation.report.timelines import TimelineBarChart
 
 __all__ = ("ReportVisualizationRegistry",)
 
@@ -45,3 +46,7 @@ class ReportVisualizationRegistry:
         if profile is None:
             return [vis_cls() for vis_cls in cls._registry.values()]
         return [vis_cls.for_profile(profile) for vis_cls in cls._registry.values()]
+
+
+# Register implemented / built-in instrumentation report visualizations
+ReportVisualizationRegistry.register(TimelineBarChart)
