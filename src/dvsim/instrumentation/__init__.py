@@ -12,7 +12,14 @@ from dvsim.instrumentation.records import (
     JobMetrics,
     SchedulerMetrics,
 )
-from dvsim.instrumentation.runtime import flush, get, set_instrumentation, set_report_path
+from dvsim.instrumentation.runtime import (
+    flush,
+    gen_html_report,
+    get,
+    get_report,
+    set_instrumentation,
+    set_report_path,
+)
 
 __all__ = (
     "InstrumentationAggregator",
@@ -23,7 +30,9 @@ __all__ = (
     "SchedulerInstrumentation",
     "SchedulerMetrics",
     "flush",
+    "gen_html_report",
     "get",
+    "get_report",
     "set_instrumentation",
     "set_report_path",
 )
