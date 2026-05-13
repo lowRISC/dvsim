@@ -5,69 +5,14 @@
 """DVSim scheduler instrumentation for timing-related information."""
 
 import time
-from dataclasses import asdict, dataclass
-from typing import Any
+from collections.abc import Mapping
 
-from dvsim.instrumentation.base import (
-    InstrumentationFragments,
-    JobFragment,
-    SchedulerFragment,
-    SchedulerInstrumentation,
-)
+from dvsim.instrumentation.base import SchedulerInstrumentation
+from dvsim.instrumentation.records import JobTimingMetrics, SchedulerTimingMetrics
 from dvsim.job.data import JobSpec
 from dvsim.job.status import JobStatus
 
-__all__ = (
-    "TimingInstrumentation",
-    "TimingJobFragment",
-    "TimingSchedulerFragment",
-)
-
-
-@dataclass
-class TimingSchedulerFragment(SchedulerFragment):
-    """Instrumented metrics about the scheduler reported by the `TimingInstrumentation`."""
-
-    start_time: float | None = None
-    end_time: float | None = None
-
-    @property
-    def duration(self) -> float | None:
-        """The duration of the entire scheduler run."""
-        if self.start_time is None or self.end_time is None:
-            return None
-        return self.end_time - self.start_time
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the scheduler metrics to a dictionary, including the `duration` property."""
-        data = asdict(self)
-        duration = self.duration
-        if duration:
-            data["duration"] = duration
-        return data
-
-
-@dataclass
-class TimingJobFragment(JobFragment):
-    """Instrumented metrics about the scheduler reported by the `TimingInstrumentation`."""
-
-    start_time: float | None = None
-    end_time: float | None = None
-
-    @property
-    def duration(self) -> float | None:
-        """The duration of the job."""
-        if self.start_time is None or self.end_time is None:
-            return None
-        return self.end_time - self.start_time
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the job metrics to a dictionary, including the `duration` property."""
-        data = asdict(self)
-        duration = self.duration
-        if duration:
-            data["duration"] = duration
-        return data
+__all__ = ("TimingInstrumentation",)
 
 
 class TimingInstrumentation(SchedulerInstrumentation):
@@ -80,29 +25,38 @@ class TimingInstrumentation(SchedulerInstrumentation):
     def __init__(self) -> None:
         """Construct a `TimingInstrumentation`."""
         super().__init__()
-        self._scheduler = TimingSchedulerFragment()
-        self._jobs: dict[str, TimingJobFragment] = {}
+        self._start_time: float | None = None
+        self._end_time: float | None = None
+        self._jobs: dict[str, tuple[float | None, float | None]] = {}
 
     def on_scheduler_start(self) -> None:
         """Notify instrumentation that the scheduler has begun."""
-        self._scheduler.start_time = time.perf_counter()
+        self._start_time = time.perf_counter()
 
     def on_scheduler_end(self) -> None:
         """Notify instrumentation that the scheduler has finished."""
-        self._scheduler.end_time = time.perf_counter()
+        self._end_time = time.perf_counter()
 
     def on_job_status_change(self, job: JobSpec, status: JobStatus) -> None:
         """Notify instrumentation of a change in status for some scheduled job."""
         job_info = self._jobs.get(job.id)
         if job_info is None:
-            job_info = TimingJobFragment(job)
+            job_info = (None, None)
             self._jobs[job.id] = job_info
+        start_time, end_time = job_info
 
-        if job_info.start_time is None and status not in (JobStatus.SCHEDULED, JobStatus.QUEUED):
-            job_info.start_time = time.perf_counter()
+        if start_time is None and status not in (JobStatus.SCHEDULED, JobStatus.QUEUED):
+            self._jobs[job.id] = (time.perf_counter(), end_time)
         if status.is_terminal:
-            job_info.end_time = time.perf_counter()
+            self._jobs[job.id] = (start_time, time.perf_counter())
 
-    def build_report_fragments(self) -> InstrumentationFragments | None:
-        """Build report fragments from the collected instrumentation information."""
-        return ([self._scheduler], list(self._jobs.values()))
+    def get_scheduler_data(self) -> SchedulerTimingMetrics:
+        """Retrieve scheduler metrics measured by this instrumentation."""
+        return SchedulerTimingMetrics(start_time=self._start_time, end_time=self._end_time)
+
+    def get_job_data(self) -> Mapping[str, JobTimingMetrics]:
+        """Retrieve per-job metrics measured by this instrumentation."""
+        return {
+            job_id: JobTimingMetrics(start_time=start, end_time=end)
+            for job_id, (start, end) in self._jobs.items()
+        }

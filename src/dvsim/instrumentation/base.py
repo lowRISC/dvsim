@@ -4,10 +4,10 @@
 
 """DVSim scheduler instrumentation base classes."""
 
-from collections.abc import Iterable, Sequence
-from dataclasses import asdict, dataclass
-from typing import Any, TypeAlias
+from collections.abc import Iterable, Mapping
+from typing import Any
 
+from dvsim.instrumentation.records import JobMetrics, SchedulerMetrics
 from dvsim.job.data import JobSpec
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
@@ -15,38 +15,8 @@ from dvsim.scheduler.core import Scheduler
 
 __all__ = (
     "InstrumentationAggregator",
-    "InstrumentationFragment",
-    "InstrumentationFragments",
-    "JobFragment",
-    "SchedulerFragment",
     "SchedulerInstrumentation",
 )
-
-
-@dataclass
-class InstrumentationFragment:
-    """Base class for instrumentation reports / report fragments."""
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the report fragment to a dictionary."""
-        return asdict(self)
-
-
-@dataclass
-class SchedulerFragment(InstrumentationFragment):
-    """Base class for instrumentation report fragments related to the scheduler."""
-
-
-@dataclass
-class JobFragment(InstrumentationFragment):
-    """Base class for instrumentation report fragments related to individual jobs."""
-
-    job: JobSpec
-
-
-# Each instrumentation object can report any number of information fragments about the
-# scheduler and about its jobs.
-InstrumentationFragments: TypeAlias = tuple[Sequence[SchedulerFragment], Sequence[JobFragment]]
 
 
 class SchedulerInstrumentation:
@@ -89,9 +59,13 @@ class SchedulerInstrumentation:
         """Notify instrumentation of a change in status for some scheduled job."""
         return
 
-    def build_report_fragments(self) -> InstrumentationFragments | None:
-        """Build report fragments from the collected instrumentation information."""
+    def get_scheduler_data(self) -> SchedulerMetrics | None:
+        """Retrieve scheduler metrics measured by this instrumentation."""
         return None
+
+    def get_job_data(self) -> Mapping[str, JobMetrics]:
+        """Retrieve per-job metrics measured by this instrumentation."""
+        return {}
 
 
 class InstrumentationAggregator:
@@ -126,11 +100,10 @@ class InstrumentationAggregator:
         job_fragments = []
 
         for inst in self._instrumentations:
-            fragments = inst.build_report_fragments()
-            if fragments is None:
-                continue
-            scheduler_fragments += fragments[0]
-            job_fragments += fragments[1]
+            scheduler_data = inst.get_scheduler_data()
+            if scheduler_data is not None:
+                scheduler_fragments.append(scheduler_data)
+            job_fragments += inst.get_job_data().items()
 
         log.info("Finished collecting instrumentation data. Merging instrumentation data...")
 
@@ -139,19 +112,16 @@ class InstrumentationAggregator:
             log.debug(
                 "Merging instrumentation report scheduler data (%d/%d)", i, len(scheduler_fragments)
             )
-            scheduler.update(scheduler_frag.to_dict())
+            scheduler.update(scheduler_frag.model_dump())
 
         jobs: dict[tuple[str, str], dict[str, Any]] = {}
-        for i, job_frag in enumerate(job_fragments, start=1):
+        for i, (job_id, job_frag) in enumerate(job_fragments, start=1):
             log.debug("Merging instrumentation report job data (%d/%d)", i, len(job_fragments))
-            spec = job_frag.job
-            # We can uniquely identify jobs from the combination of their full name & target
-            job_id = (spec.full_name, spec.target)
             job = jobs.get(job_id)
             if job is None:
                 job = {}
                 jobs[job_id] = job
-            job.update({k: v for k, v in job_frag.to_dict().items() if k != "job"})
+            job.update({k: v for k, v in job_frag.model_dump().items() if k != "job"})
 
         log.info("Finished merging instrumentation report data.")
         return {"scheduler": scheduler, "jobs": list(jobs.values())}

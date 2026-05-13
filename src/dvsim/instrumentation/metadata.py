@@ -4,34 +4,14 @@
 
 """DVSim scheduler instrumentation metadata (to be included in the generated report)."""
 
-from dataclasses import dataclass
+from collections.abc import Mapping
 
-from dvsim.instrumentation.base import (
-    InstrumentationFragments,
-    JobFragment,
-    SchedulerInstrumentation,
-)
+from dvsim.instrumentation.base import SchedulerInstrumentation
+from dvsim.instrumentation.records import JobInstrumentationMetadata
 from dvsim.job.data import JobSpec
 from dvsim.job.status import JobStatus
 
-__all__ = (
-    "MetadataInstrumentation",
-    "MetadataJobFragment",
-)
-
-
-@dataclass
-class MetadataJobFragment(JobFragment):
-    """Instrumentation metadata for scheduled jobs, reporting the final status of the job."""
-
-    name: str
-    full_name: str
-    job_type: str
-    target: str
-    tool: str
-    backend: str | None
-    dependencies: list[str]
-    status: str
+__all__ = ("MetadataInstrumentation",)
 
 
 class MetadataInstrumentation(SchedulerInstrumentation):
@@ -51,20 +31,17 @@ class MetadataInstrumentation(SchedulerInstrumentation):
         status_str = status.name.capitalize()
         self._jobs[job.id] = (job, status_str)
 
-    def build_report_fragments(self) -> InstrumentationFragments | None:
-        """Build report fragments from the collected instrumentation information."""
-        jobs = [
-            MetadataJobFragment(
-                spec,
-                spec.name,
-                spec.full_name,
-                spec.job_type,
-                spec.target,
-                spec.tool.name,
-                spec.backend,
-                spec.dependencies,
-                status_str,
+    def get_job_data(self) -> Mapping[str, JobInstrumentationMetadata]:
+        """Retrieve per-job metrics measured by this instrumentation."""
+        return {
+            spec.id: JobInstrumentationMetadata(
+                name=spec.name,
+                job_type=spec.job_type,
+                target=spec.target,
+                tool=spec.tool.name,
+                backend=spec.backend,
+                dependencies=list(spec.dependencies),
+                status=status_str,
             )
             for spec, status_str in self._jobs.values()
-        ]
-        return ([], jobs)
+        }

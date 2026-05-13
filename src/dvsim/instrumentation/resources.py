@@ -7,60 +7,16 @@
 import os
 import threading
 import time
-from dataclasses import dataclass
+from collections.abc import Mapping
 
 import psutil
 
-from dvsim.instrumentation.base import (
-    InstrumentationFragments,
-    JobFragment,
-    SchedulerFragment,
-    SchedulerInstrumentation,
-)
+from dvsim.instrumentation.base import SchedulerInstrumentation
+from dvsim.instrumentation.records import JobResourceMetrics, SchedulerResourceMetrics
 from dvsim.job.data import JobSpec
 from dvsim.job.status import JobStatus
 
-__all__ = (
-    "ResourceInstrumentation",
-    "ResourceJobFragment",
-    "ResourceSchedulerFragment",
-)
-
-
-@dataclass
-class ResourceSchedulerFragment(SchedulerFragment):
-    """Instrumented metrics about the scheduler reported by the `ResourceInstrumentation`."""
-
-    # Scheduler / DVSim process overhead
-    scheduler_max_rss_bytes: int | None = None
-    scheduler_avg_rss_bytes: int | None = None
-    scheduler_vms_bytes: int | None = None
-    scheduler_cpu_percent: float | None = None
-    scheduler_cpu_time: float | None = None
-
-    # System-wide metrics
-    sys_max_rss_bytes: int | None = None
-    sys_avg_rss_bytes: int | None = None
-    sys_swap_used_bytes: int | None = None
-    sys_cpu_percent: float | None = None
-    sys_cpu_per_core: list[float] | None = None
-
-    num_resource_samples: int = 0
-
-
-@dataclass
-class ResourceJobFragment(JobFragment):
-    """Instrumented metrics about jobs reported by the `ResourceInstrumentation`.
-
-    Since we can't directly measure each deployed job, these are instead averages and system
-    information over the course of the job's runtime.
-    """
-
-    max_rss_bytes: int | None = None
-    avg_rss_bytes: float | None = None
-    avg_cpu_percent: float | None = None
-
-    num_resource_samples: int = 0
+__all__ = ("ResourceInstrumentation",)
 
 
 class JobResourceAggregate:
@@ -69,14 +25,13 @@ class JobResourceAggregate:
     Tracks aggregate information over a number of samples whilst minimizing memory usage.
     """
 
-    def __init__(self, job: JobSpec) -> None:
+    def __init__(self) -> None:
         """Construct an aggregate for storing sampling info for a given job specification.
 
         Arguments:
             job: The specification of the job which is having its information aggregated.
 
         """
-        self.job_spec = job
         self.sample_count = 0
         self.sum_rss = 0.0
         self.max_rss = 0
@@ -89,13 +44,12 @@ class JobResourceAggregate:
         self.max_rss = max(self.max_rss, rss)
         self.sum_cpu += cpu
 
-    def finalize(self) -> ResourceJobFragment:
+    def finalize(self) -> JobResourceMetrics:
         """Finalize the aggregated information for a job, generating a report fragment."""
         if self.sample_count == 0:
-            return ResourceJobFragment(self.job_spec)
+            return JobResourceMetrics()
 
-        return ResourceJobFragment(
-            self.job_spec,
+        return JobResourceMetrics(
             max_rss_bytes=self.max_rss,
             avg_rss_bytes=self.sum_rss / self.sample_count,
             avg_cpu_percent=self.sum_cpu / self.sample_count,
@@ -221,45 +175,49 @@ class ResourceInstrumentation(SchedulerInstrumentation):
             running = job.id in self._running_jobs
             started = running or job.id in self._finished_jobs
             if not started and status not in (JobStatus.SCHEDULED, JobStatus.QUEUED):
-                self._running_jobs[job.id] = JobResourceAggregate(job)
+                self._running_jobs[job.id] = JobResourceAggregate()
                 running = True
             if running and status.is_terminal:
                 aggregates = self._running_jobs.pop(job.id)
                 self._finished_jobs[job.id] = aggregates
 
-    def build_report_fragments(self) -> InstrumentationFragments | None:
-        """Build report fragments from the collected instrumentation information."""
+    def get_scheduler_data(self) -> SchedulerResourceMetrics:
+        """Retrieve scheduler metrics measured by this instrumentation."""
         if self._running:
             raise RuntimeError("Cannot build instrumentation report whilst still running!")
 
         if self._sample_count <= 0:
-            scheduler_frag = ResourceSchedulerFragment()
+            return SchedulerResourceMetrics()
+
+        scheduler_cpu_time = self._scheduler_cpu_time_end - self._scheduler_cpu_time_start
+        if self._num_cores is not None:
+            sys_cpu_per_core = [s / self._sample_count for s in self._sys_sum_cpu_per_core]
         else:
-            scheduler_cpu_time = self._scheduler_cpu_time_end - self._scheduler_cpu_time_start
-            if self._num_cores is not None:
-                sys_cpu_per_core = [s / self._sample_count for s in self._sys_sum_cpu_per_core]
-            else:
-                sys_cpu_per_core = None
-            try:
-                vms_bytes = round(self._scheduler_sum_vms / self._sample_count)
-            except (ValueError, TypeError):
-                # Suppress unknown types in VMS measurements
-                vms_bytes = None
+            sys_cpu_per_core = None
+        try:
+            vms_bytes = round(self._scheduler_sum_vms / self._sample_count)
+        except (ValueError, TypeError):
+            # Suppress unknown types in VMS measurements
+            vms_bytes = None
 
-            scheduler_frag = ResourceSchedulerFragment(
-                scheduler_avg_rss_bytes=round(self._scheduler_sum_rss / self._sample_count),
-                scheduler_max_rss_bytes=self._scheduler_max_rss,
-                scheduler_vms_bytes=vms_bytes,
-                scheduler_cpu_percent=self._scheduler_sum_cpu / self._sample_count,
-                scheduler_cpu_time=scheduler_cpu_time,
-                sys_max_rss_bytes=self._sys_max_rss,
-                sys_avg_rss_bytes=round(self._sys_sum_rss / self._sample_count),
-                sys_cpu_percent=self._sys_sum_cpu / self._sample_count,
-                sys_cpu_per_core=sys_cpu_per_core,
-                sys_swap_used_bytes=self._sys_max_swap,
-                num_resource_samples=self._sample_count,
-            )
+        return SchedulerResourceMetrics(
+            scheduler_avg_rss_bytes=round(self._scheduler_sum_rss / self._sample_count),
+            scheduler_max_rss_bytes=self._scheduler_max_rss,
+            scheduler_vms_bytes=vms_bytes,
+            scheduler_cpu_percent=self._scheduler_sum_cpu / self._sample_count,
+            scheduler_cpu_time=scheduler_cpu_time,
+            sys_max_rss_bytes=self._sys_max_rss,
+            sys_avg_rss_bytes=round(self._sys_sum_rss / self._sample_count),
+            sys_cpu_percent=self._sys_sum_cpu / self._sample_count,
+            sys_cpu_per_core=sys_cpu_per_core,
+            sys_swap_used_bytes=self._sys_max_swap,
+            num_resource_samples=self._sample_count,
+        )
 
-        aggregates = list(self._finished_jobs.values()) + list(self._running_jobs.values())
-        job_frags = [aggregate.finalize() for aggregate in aggregates]
-        return ([scheduler_frag], job_frags)
+    def get_job_data(self) -> Mapping[str, JobResourceMetrics]:
+        """Retrieve per-job metrics measured by this instrumentation."""
+        if self._running:
+            raise RuntimeError("Cannot build instrumentation report whilst still running!")
+
+        aggregates = self._finished_jobs | self._running_jobs
+        return {job_id: aggregate.finalize() for job_id, aggregate in aggregates.items()}
