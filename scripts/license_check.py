@@ -24,6 +24,7 @@ IGNORE_NAMES = [
     "NOTICE",
     ".python-version",
     "CHANGELOG.md",
+    "pull_request_template.md",
 ]
 
 IGNORE_SUFFIXES = [
