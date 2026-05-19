@@ -16,14 +16,37 @@ from tabulate import tabulate
 
 
 class Result:
-    """The results for a single test."""
+    """The results for a job."""
 
-    def __init__(self, name, passing=0, total=0, job_runtime=None, simulated_time=None) -> None:
+    def __init__(
+        self,
+        name: str,
+        *,
+        passing: int = 0,
+        total: int = 0,
+        job_runtime_s: float | None = None,
+        simulated_time_us: float | None = None,
+    ) -> None:
+        """Construct a Result with the given parameters.
+
+        Args:
+          name: The name of the test.
+
+          passing: The number of runs that passed (possibly different seeds).
+
+          total: The number of runs that happened (will be at least as large as
+          passing).
+
+          job_runtime_s: If not None, the number of seconds taken by the job.
+
+          simulated_time_us: If not None, the simulated time in microseconds.
+
+        """
         self.name = name
         self.passing = passing
         self.total = total
-        self.job_runtime = job_runtime
-        self.simulated_time = simulated_time
+        self.job_runtime = job_runtime_s
+        self.simulated_time = simulated_time_us
         self.mapped = False
 
 
@@ -716,7 +739,7 @@ class Testplan:
         test_results = []
         for item in test_results_:
             try:
-                tr = Result(item["name"], item["passing"], item["total"])
+                tr = Result(item["name"], passing=item["passing"], total=item["total"])
                 test_results.append(tr)
             except KeyError:
                 sys.exit(1)
