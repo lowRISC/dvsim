@@ -56,50 +56,90 @@ class Element:
     This is either a testpoint or a covergroup.
     """
 
-    # Type of the testplan element. Must be set by the extended class.
-    kind = "none"
+    @staticmethod
+    def get_str(src: dict[str, Any], field_name: str, elt_name: str | None) -> str:
+        """Get the named field from src, whose value should be a string.
 
-    # Mandatory fields in a testplan element.
-    fields = ["name", "desc"]
+        If the field is missing or its value is not a string, raise a ValueError.
 
-    def __init__(self, raw_dict) -> None:
+        Args:
+          src: The dictionary being read.
+
+          field_name: The key whose value should be returned.
+
+          elt_name: The name of the Element being parsed (if known).
+
+        """
+        raw = src.get(field_name)
+        if raw is None:
+            name_comment = f" with name {elt_name}" if elt_name is not None else ""
+            msg = f"Testplan element{name_comment} does not have a {field_name} field."
+            raise ValueError(msg)
+
+        if not isinstance(raw, str):
+            name_comment = f" with name {elt_name}" if elt_name is not None else ""
+            msg = (
+                f"Testplan element{name_comment} has a {field_name} field but this is not a string."
+            )
+            raise TypeError(msg)
+
+        return raw
+
+    def __init__(self, raw_dict: dict[str, Any]) -> None:
         """Initialize the testplan element.
 
         raw_dict is the dictionary parsed from the Hjson file.
         """
-        # 'tags' is an optional field in addition to the mandatory self.fields.
-        self.tags = []
+        self.name = Element.get_str(raw_dict, "name", None)
+        self.desc = Element.get_str(raw_dict, "desc", self.name)
 
-        for field in self.fields:
-            try:
-                setattr(self, field, raw_dict.pop(field))
-            except KeyError as e:
-                msg = (
-                    f"Error: {self.kind} does not contain all of "
-                    f"the required fields:\n{raw_dict}\nRequired:\n"
-                    f"{self.fields}\n{e}"
-                )
-                raise KeyError(
-                    msg,
-                )
-
-        # Set the remaining k-v pairs in raw_dict as instance attributes.
-        for k, v in raw_dict.items():
-            setattr(self, k, v)
-
-        # Verify things are in order.
-        self._validate()
-
-    def _validate(self) -> None:
-        """Runs some basic consistency checks."""
+        # Check that the name field is not empty
         if not self.name:
-            msg = f"Error: {self.kind.capitalize()} name cannot be empty:\n{self}"
-            raise ValueError(msg)
+            raise ValueError("Cannot have a testplan element with empty name.")
 
-        # "tags", if updated key must be list.
+        # Set a default value for self.tags as an empty list. We'll check we
+        # haven't changed type at the end.
+        self.tags: list[str] = []
+
+        # Convert all the k/v pairs in raw_dict into instance attributes for
+        # this object. These should all either be strings or lists of strings.
+        for k, v in raw_dict.items():
+            # We have extracted the element name and description already
+            if k in ["name", "desc"]:
+                continue
+
+            if isinstance(v, str):
+                setattr(self, k, v)
+            elif isinstance(v, list):
+                # This is a list, but we should check slightly more: it should
+                # be a list of strings.
+                strings: list[str] = []
+                for idx, item in enumerate(v):
+                    if isinstance(item, str):
+                        strings.append(item)
+                    else:
+                        msg = (
+                            f"Item {idx} of the {k} field in the testplan "
+                            f"element with name {self.name} is not a string."
+                        )
+                        raise TypeError(msg)
+                setattr(self, k, strings)
+            else:
+                msg = (
+                    f"The {k} field in the testplan element with name "
+                    f"{self.name} is neither a string nor a list of strings."
+                )
+                raise TypeError(msg)
+
+        # Check that self.tags is still a list (and wasn't overwritten with a
+        # string when parsing the raw dict)
         if not isinstance(self.tags, list):
-            msg = f"'tags' key in {self} is not a list."
-            raise ValueError(msg)
+            msg = (
+                "The tags field in the testplan element with name "
+                f"{self.name} is a string but should be a list of strings "
+                "(if supplied)."
+            )
+            raise TypeError(msg)
 
     def has_tags(self, tags: set[str]) -> bool:
         """Return true if the element matches the provided tags.
@@ -133,21 +173,19 @@ class Covergroup(Element):
     include individual coverpoints and crosses in the description.
     """
 
-    kind = "covergroup"
+    def __init__(self, raw_dict: dict[str, Any]) -> None:
+        """Create a Covergroup based on the given parsed hjson dictionary."""
+        super().__init__(raw_dict)
 
-    def _validate(self) -> None:
-        super()._validate()
         if not self.name.endswith("_cg"):
             msg = f'Error: Covergroup name {self.name} needs to end with suffix "_cg".'
-            raise ValueError(
-                msg,
-            )
+            raise ValueError(msg)
 
 
 class Testpoint(Element):
-    """An testcase entry in the testplan.
+    """A testcase entry in the testplan.
 
-    A testpoint maps to a unique design feature that is planned to be verified.
+    A testpoint maps to a unique design feature that should be verified.
     It captures following information:
     - name of the planned test
     - a brief description indicating intent, stimulus and checking procedure
@@ -155,38 +193,69 @@ class Testpoint(Element):
     - the list of actual developed tests that verify it
     """
 
-    kind = "testpoint"
-    fields = [*Element.fields, "stage", "tests"]
-
     # Verification stages.
     stages = ("N.A.", "V1", "V2", "V2S", "V3")
 
-    def __init__(self, raw_dict) -> None:
+    def __init__(self, raw_dict: dict[str, Any]) -> None:
+        """Construct a Testpoint from the given dictionary."""
+        # These will get overridden from the dictionary, but allow the tooling
+        # to see that the fields exist and know their expected types.
+        self.tests: list[str] = []
+        self.stage: str = ""
+
         super().__init__(raw_dict)
+
+        # The dictionary should have specified a list of tests (possibly empty)
+        # for the testpoint.
+        if "tests" not in raw_dict:
+            msg = f"The testpoint named {self.name} has no list of tests."
+            raise ValueError(msg)
+        if not isinstance(self.tests, list):
+            msg = (
+                f"The testpoint named {self.name} should have a list of "
+                "tests, not a single test name."
+            )
+            raise TypeError(msg)
+
+        # The dictionary should have specified a stage for the testpoint, which
+        # should have been a string.
+        if "stage" not in raw_dict:
+            msg = f"The testpoint named {self.name} has no stage."
+            raise ValueError(msg)
+        if not isinstance(self.stage, str):
+            msg = f"The stage of the testpoint named {self.name} should be a string, not a list."
+            raise TypeError(msg)
+        if self.stage not in Testpoint.stages:
+            msg = (
+                f"The stage of the testpoint named {self.name} is "
+                f"{self.stage} but this is not a known testpoint stage. "
+                f"Legal values: {Testpoint.stages}."
+            )
+            raise ValueError(msg)
+
+        # There are some special fields that we use for a Testpoint object.
+        # Because the Element constructor allows the hjson file to set
+        # arbitrary fields, we need to make sure that they haven't already been
+        # set.
+        self._check_field_unset("test_results")
+        self._check_field_unset("not_mapped")
 
         # List of Result objects indicating test results mapped to this
         # testpoint.
-        self.test_results = []
+        self.test_results: list[Result] = []
 
         # If tests key is set to ["N/A"], then don't map this testpoint to the
         # simulation results.
-        self.not_mapped = False
-        if self.tests == ["N/A"]:
-            self.not_mapped = True
+        self.not_mapped: bool = self.tests == ["N/A"]
 
-    def _validate(self) -> None:
-        super()._validate()
-        if self.stage not in Testpoint.stages:
+    def _check_field_unset(self, field_name: str) -> None:
+        """Check that the field with the given name has not been set in the class."""
+        if hasattr(self, field_name):
             msg = (
-                f"Testpoint stage {self.stage} is invalid:\n{self}\nLegal values: Testpoint.stages"
+                f"The dictionary defining the testpoint named {self.name} "
+                f"defined a field called {field_name}, but this name is "
+                "reserved for the tooling."
             )
-            raise ValueError(
-                msg,
-            )
-
-        # "tests" key must be list.
-        if not isinstance(self.tests, list):
-            msg = f"'tests' key in {self} is not a list."
             raise ValueError(msg)
 
     @staticmethod
