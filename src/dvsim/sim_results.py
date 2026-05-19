@@ -195,8 +195,8 @@ class SimResults:
         if row is None:
             row = Result(
                 job_status.name,
-                job_runtime=job_status.job_runtime,
-                simulated_time=job_status.simulated_time,
+                job_runtime_s=job_status.job_runtime,
+                simulated_time_us=job_status.simulated_time,
             )
             self.table.append(row)
             self._name_to_row[job_status.name] = row
