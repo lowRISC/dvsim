@@ -255,24 +255,31 @@ class Testplan:
         sys.exit(1)
 
     @staticmethod
-    def _create_testplan_elements(kind: str, raw_dicts_list: list, tags: set):
-        """Creates testplan elements from the list of raw dicts.
+    def _create_testplan_elements(kind: str, raw_dicts_list: list, tags: set) -> list[Element]:
+        """Create testplan elements from the list of raw dicts.
 
         kind is either 'testpoint' or 'covergroup'.
         raw_dicts_list is a list of dictionaries extracted from the HJson file.
         """
         items = []
         item_names = set()
+
+        try:
+            elem_cls = Testplan.element_cls[kind]
+        except KeyError:
+            err_msg = f"No known class for kind={kind}"
+            raise RuntimeError(err_msg) from None
+
         for dict_entry in raw_dicts_list:
             try:
-                item = Testplan.element_cls[kind](dict_entry)
-            except KeyError:
-                sys.exit(1)
-            except ValueError:
-                sys.exit(1)
+                item = elem_cls(dict_entry)
+            except (KeyError, ValueError) as e:
+                err_msg = f"Failed to create {kind} from dictionary."
+                raise RuntimeError(err_msg) from e
 
             if item.name in item_names:
-                sys.exit(1)
+                err_msg = f"Duplicate items with name {item.name}."
+                raise ValueError(err_msg)
 
             # Filter out the item by tags if provided.
             if item.has_tags(tags):
