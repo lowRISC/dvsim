@@ -7,7 +7,7 @@
 from typing import ClassVar
 
 from dvsim.instrumentation.report.base import InstrumentationVisualizer, RenderProfile
-from dvsim.instrumentation.report.breakdown import ToolBreakdown
+from dvsim.instrumentation.report.breakdown import BlockVariantBreakdown, ToolBreakdown
 from dvsim.instrumentation.report.timelines import ParallelismChart, TimelineBarChart
 from dvsim.instrumentation.report.usage import ToolUsageLineGraph
 
@@ -51,6 +51,7 @@ class ReportVisualizationRegistry:
 
 
 # Register implemented / built-in instrumentation report visualizations
+ReportVisualizationRegistry.register(BlockVariantBreakdown)
 ReportVisualizationRegistry.register(ToolBreakdown)
 ReportVisualizationRegistry.register(ToolUsageLineGraph)
 ReportVisualizationRegistry.register(TimelineBarChart)

@@ -225,3 +225,32 @@ class ToolBreakdown(BreakdownVisualization):
             return None
 
         return super().render(results)
+
+
+class BlockVariantBreakdown(BreakdownVisualization):
+    """Breakdown pie/bar chart showing aggregated job duration per block (variant) tested."""
+
+    title = "Runtime per Block"
+
+    def __init__(self) -> None:
+        """Construct a BlockVariantBreakdown."""
+        super().__init__(group_type="block", group_fn=self._get_job_block_variant)
+
+    def _get_job_block_variant(self, job: JobInstrumentationResults) -> str:
+        """Get the block (variant) from a job's metadata, or 'Unknown' if it does not exist."""
+        if job.meta is None:
+            return "Unknown"
+
+        return job.meta.block + (f"_{job.meta.block_variant}" if job.meta.block_variant else "")
+
+    def render(self, results: InstrumentationResults) -> str | None:
+        """Render a per-block breakdown graph from the instrumentation results as a HTML fragment.
+
+        If the required job timing or metadata information is not available (or there are no
+        jobs), just returns `None` instead.
+
+        """
+        if all(job.meta is None for job in results.jobs.values()):
+            return None
+
+        return super().render(results)
