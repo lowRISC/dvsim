@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.39.0 (2026-05-20)
+
+### Features
+
+- Add base instrumentation report utilities & constants
+  ([`c555215`](https://github.com/lowRISC/dvsim/commit/c555215247256fc9d5b0594389d165a982423f21))
+
+- Add instrumentation report timing helper methods
+  ([`ea62d22`](https://github.com/lowRISC/dvsim/commit/ea62d22d2c14f387f50dffa61399ab704a8513df))
+
+- Add time formatting functions for metric display
+  ([`3ea3a73`](https://github.com/lowRISC/dvsim/commit/3ea3a73b9b65fedbbbf94528be04943f892b0c4c))
+
+### Testing
+
+- Add unit tests for time formatting utilities
+  ([`dc1d85b`](https://github.com/lowRISC/dvsim/commit/dc1d85b844d64f2cd3d473b2a930e5b1b72dc56f))
+
+
 ## v1.38.1 (2026-05-20)
 
 ### Bug Fixes
