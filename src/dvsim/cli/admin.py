@@ -62,7 +62,7 @@ def dashboard_gen(json_path: Path, output_dir: Path, base_url: str | None) -> No
 
 @cli.group()
 def report() -> None:
-    """Reporting helper commands."""
+    """Reporting helper commands."""  # noqa: D401
 
 
 @report.command("gen")
