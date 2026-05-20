@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.41.0 (2026-05-20)
+
+### Features
+
+- Add job parallelism timeline chart to the instrumentation report
+  ([`3a47390`](https://github.com/lowRISC/dvsim/commit/3a47390a9d4b47aa1ea88e9adcdd9c6628131067))
+
+
 ## v1.40.0 (2026-05-20)
 
 ### Build System
