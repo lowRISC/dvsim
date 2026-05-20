@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.38.1 (2026-05-20)
+
+### Bug Fixes
+
+- Add missing default values for optional instrumentation fields
+  ([`baf5dba`](https://github.com/lowRISC/dvsim/commit/baf5dba4193f044edf5955bcb9d94393656bb067))
+
+### Refactoring
+
+- Use the JobStatus enum in metadata instrumentation record
+  ([`237ffea`](https://github.com/lowRISC/dvsim/commit/237ffeaba70e345d29e3fd5854000e24ec540dac))
+
+
 ## v1.38.0 (2026-05-19)
 
 ### Build System
