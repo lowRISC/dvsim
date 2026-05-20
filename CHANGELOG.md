@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.40.0 (2026-05-20)
+
+### Build System
+
+- Add matplotlib dependency for rendering PNGs of graphs
+  ([`9ce2753`](https://github.com/lowRISC/dvsim/commit/9ce275379427a2117f8680810ab303d9747a3d0d))
+
+### Features
+
+- Add job gantt chart timeline to the instrumentation report
+  ([`5141041`](https://github.com/lowRISC/dvsim/commit/514104109dba30ab5aec9ae7d0d17469c5498499))
+
+- Matplotlib PNG export for large timeline instrumentation graphs
+  ([`e7f302b`](https://github.com/lowRISC/dvsim/commit/e7f302ba6ee09b66c18fc69daeb81ab7ac86f0d7))
+
+
 ## v1.39.0 (2026-05-20)
 
 ### Features
