@@ -14,6 +14,8 @@ from pydantic import (
     model_validator,
 )
 
+from dvsim.job.status import JobStatus
+
 __all__ = (
     "InstrumentationMetrics",
     "InstrumentationResults",
@@ -56,7 +58,7 @@ class JobInstrumentationMetadata(JobMetrics):
     block_variant: str | None = None
     backend: str | None = None
     dependencies: list[str]
-    status: str
+    status: JobStatus
 
 
 # Timing metrics
