@@ -53,8 +53,8 @@ class JobInstrumentationMetadata(JobMetrics):
     target: str
     tool: str
     block: str
-    block_variant: str | None
-    backend: str | None
+    block_variant: str | None = None
+    backend: str | None = None
     dependencies: list[str]
     status: str
 
