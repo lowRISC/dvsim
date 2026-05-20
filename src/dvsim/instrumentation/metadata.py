@@ -26,12 +26,11 @@ class MetadataInstrumentation(SchedulerInstrumentation):
     def __init__(self) -> None:
         """Construct a `MetadataInstrumentation`."""
         super().__init__()
-        self._jobs: dict[str, tuple[JobSpec, str]] = {}
+        self._jobs: dict[str, tuple[JobSpec, JobStatus]] = {}
 
     def on_job_status_change(self, job: JobSpec, status: JobStatus) -> None:
         """Notify instrumentation of a change in status for some scheduled job."""
-        status_str = status.name.capitalize()
-        self._jobs[job.id] = (job, status_str)
+        self._jobs[job.id] = (job, status)
 
     def get_job_data(self) -> Mapping[str, JobInstrumentationMetadata]:
         """Retrieve per-job metrics measured by this instrumentation."""
@@ -45,7 +44,7 @@ class MetadataInstrumentation(SchedulerInstrumentation):
                 block_variant=spec.block.variant,
                 backend=spec.backend,
                 dependencies=list(spec.dependencies),
-                status=status_str,
+                status=status,
             )
-            for spec, status_str in self._jobs.values()
+            for spec, status in self._jobs.values()
         }

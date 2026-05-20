@@ -4,7 +4,7 @@
 
 """An enum definition for the various job statuses."""
 
-from enum import Enum, auto
+from enum import Enum
 
 __all__ = ("JobStatus",)
 
@@ -12,12 +12,12 @@ __all__ = ("JobStatus",)
 class JobStatus(Enum):
     """Status of a Job."""
 
-    SCHEDULED = auto()  # Waiting for dependencies
-    QUEUED = auto()  # Dependencies satisfied, waiting to be dispatched
-    RUNNING = auto()  # Dispatched to a backend and actively executing
-    PASSED = auto()  # Completed successfully
-    FAILED = auto()  # Completed with failure
-    KILLED = auto()  # Forcibly terminated or never executed
+    SCHEDULED = "Scheduled"  # Waiting for dependencies
+    QUEUED = "Queued"  # Dependencies satisfied, waiting to be dispatched
+    RUNNING = "Running"  # Dispatched to a backend and actively executing
+    PASSED = "Passed"  # Completed successfully
+    FAILED = "Failed"  # Completed with failure
+    KILLED = "Killed"  # Forcibly terminated or never executed
 
     @property
     def shorthand(self) -> str:
