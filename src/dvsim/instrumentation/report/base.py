@@ -5,7 +5,6 @@
 """DVSim scheduler instrumentation reporting & visualizations."""
 
 from collections.abc import Iterable, Mapping, Sequence
-from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol, TypeVar
 
@@ -15,6 +14,7 @@ import plotly.offline
 from typing_extensions import Self
 
 from dvsim.instrumentation.records import InstrumentationResults, JobInstrumentationMetadata
+from dvsim.instrumentation.report.profile import RenderProfile
 from dvsim.logging import log
 from dvsim.report.artifacts import ReportArtifacts, render_static_content
 from dvsim.templates.render import render_template
@@ -43,14 +43,6 @@ PLOTLY_TIMING_AXIS_CONFIG: dict[str, Any] = {
     "ticklen": 4,
     "tickcolor": "black",
 }
-
-
-class RenderProfile(Enum):
-    """Levels of visualization rendering detail, which impact report size & responsiveness."""
-
-    NORMAL = "normal"
-    HIGH = "high"
-    FULL = "full"
 
 
 class InstrumentationVisualizer(Protocol):

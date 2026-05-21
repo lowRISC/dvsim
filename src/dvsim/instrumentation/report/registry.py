@@ -6,7 +6,7 @@
 
 from typing import ClassVar
 
-from dvsim.instrumentation.report.base import InstrumentationVisualizer, RenderProfile
+from dvsim.instrumentation.report.base import InstrumentationVisualizer
 from dvsim.instrumentation.report.breakdown import BlockVariantBreakdown, ToolBreakdown
 from dvsim.instrumentation.report.longest import (
     LongestByBlockChart,
@@ -15,6 +15,7 @@ from dvsim.instrumentation.report.longest import (
     LongestTestsByBlockChart,
     LongestTestsByToolChart,
 )
+from dvsim.instrumentation.report.profile import RenderProfile
 from dvsim.instrumentation.report.timelines import ParallelismChart, TimelineBarChart
 from dvsim.instrumentation.report.usage import ToolUsageLineGraph
 
