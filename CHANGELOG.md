@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.42.0 (2026-05-21)
+
+### Features
+
+- Add tool usage line graph to the instrumentation report
+  ([`5bf5c6b`](https://github.com/lowRISC/dvsim/commit/5bf5c6ba5198c0f90ae8fcc2d4a4edab2e225606))
+
+
 ## v1.41.1 (2026-05-21)
 
 ### Bug Fixes
