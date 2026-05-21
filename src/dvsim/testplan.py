@@ -4,12 +4,11 @@
 
 """Testpoint and Testplan classes for maintaining the testplan."""
 
-import os
 import re
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
 
 import hjson
 from tabulate import tabulate
@@ -260,15 +259,9 @@ class Testplan:
     element_cls = {"testpoint": Testpoint, "covergroup": Covergroup}
 
     @staticmethod
-    def _parse_hjson(filename):
-        """Parses an input file with Hjson and returns a dict."""
-        try:
-            return hjson.load(Path(filename).open())
-        except OSError:
-            pass
-        except hjson.scanner.HjsonDecodeError:
-            pass
-        sys.exit(1)
+    def _parse_hjson(filename: Path) -> dict[str, Any]:
+        """Parse an Hjson file at the given path and return it as a dict."""
+        return hjson.loads(Path(filename).read_text(encoding="utf-8"))
 
     @staticmethod
     def _create_testplan_elements(kind: str, raw_dicts_list: list, tags: set) -> list[Element]:
@@ -311,35 +304,36 @@ class Testplan:
         perc = value / total * 100 * 1.0
         return f"{round(perc, 2):.2f} %"
 
-    def __init__(self, filename, repo_top=None, name=None) -> None:
+    def __init__(self, tagged_filename: str, repo_top: Path, name: str) -> None:
         """Initialize the testplan.
 
-        filename is the Hjson file that captures the testplan. It may be
-        suffixed with tags separated with a colon delimiter to filter the
-        testpoints. For example: path/too/foo_testplan.hjson:bar:baz
-        repo_top is an optional argument indicating the path to top level repo
-        / project directory. It is used with filename arg.
-        name is an optional argument indicating the name of the testplan / DUT.
-        It overrides the name set in the testplan Hjson.
+        Args:
+          tagged_filename: Describes the Hjson file that captures the testplan.
+                           This is a string, rather than a Path object, because
+                           it may be suffixed with tags separated with a colon
+                           delimiter to filter the testpoints.
+
+                           For example: "path/to/foo_testplan.hjson:bar:baz"
+
+          repo_top:        The path to the top level repo / project directory.
+                           This is combined with the filename argument.
+
+          name:            The name of the testplan / DUT. It overrides any
+                           name set in the testplan Hjson.
+
         """
-        self.name = None
+        self.name = name
         self.testpoints = []
         self.covergroups = []
         self.test_results_mapped = False
 
         # Split the filename into filename and tags, if provided.
-        split = str(filename).split(":")
+        split = tagged_filename.split(":")
         filename = Path(split[0])
         tags = set(split[1:])
 
         if filename.exists():
             self._parse_testplan(filename, tags, repo_top)
-
-        if name:
-            self.name = name
-
-        if not self.name:
-            sys.exit(1)
 
         # Represents current progress towards each stage. Stage = N.A.
         # is used to indicate the unmapped tests.
@@ -402,7 +396,7 @@ class Testplan:
 
         return result
 
-    def _parse_testplan(self, filename: Path, tags: set, repo_top=None) -> None:
+    def _parse_testplan(self, filename: Path, tags: set[str], repo_top: Path) -> None:
         """Parse testplan Hjson file and create the testplan elements.
 
         It creates the list of testpoints and covergroups extracted from the
@@ -411,10 +405,6 @@ class Testplan:
         filename is the path to the testplan file written in Hjson format.
         repo_top is an optional argument indicating the path to repo top.
         """
-        if repo_top is None:
-            # Assume dvsim's original location: $REPO_TOP/util/dvsim.
-            repo_top = Path(__file__).parent.parent.parent.resolve()
-
         obj = Testplan._parse_hjson(filename)
 
         parsed = set()
@@ -430,7 +420,7 @@ class Testplan:
             if testplan in parsed:
                 sys.exit(1)
             parsed.add(testplan)
-            data = self._parse_hjson(os.path.join(repo_top, testplan))
+            data = self._parse_hjson(repo_top / testplan)
             imported_testplans.extend(
                 self._get_imported_testplan_paths(
                     testplan,
@@ -725,16 +715,16 @@ class Testplan:
         result["Pass Rate"] = self._get_percentage(tr.passing, tr.total)
         return result
 
-    def get_sim_results(self, sim_results_file, fmt="md"):
+    def get_sim_results(self, sim_results_file: str, fmt="md"):
         """Returns the mapped sim result tables in HTML formatted text.
 
-        The data extracted from the sim_results table HJson file is mapped into
+        The data extracted from the sim_results table Hjson file is mapped into
         a test results, test progress, covergroup progress and coverage tables.
 
         fmt is either 'md' (markdown) or 'html'.
         """
         assert fmt in ["md", "html"]
-        sim_results = Testplan._parse_hjson(sim_results_file)
+        sim_results = Testplan._parse_hjson(Path(sim_results_file))
         test_results_ = sim_results.get("test_results", None)
 
         test_results = []

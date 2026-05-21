@@ -330,7 +330,9 @@ class SimCfg(FlowCfg):
             self.regressions.extend(self.testplan.get_stage_regressions())
         else:
             # Create a dummy testplan with no entries.
-            self.testplan = Testplan(None, name=self.name)
+            self.testplan = Testplan(
+                "<dummy testplan>", repo_top=Path(self.proj_root), name=self.name
+            )
 
         # Create regressions
         self.regressions = Regression.create_regressions(self.regressions, self, self.tests)
