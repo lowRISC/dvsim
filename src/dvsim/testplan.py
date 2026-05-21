@@ -7,6 +7,7 @@
 import re
 import sys
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -256,7 +257,6 @@ class Testplan:
     """
 
     rsvd_keywords = ["import_testplans", "testpoints", "covergroups"]
-    element_cls = {"testpoint": Testpoint, "covergroup": Covergroup}
 
     @staticmethod
     def _parse_hjson(filename: Path) -> dict[str, Any]:
@@ -264,37 +264,21 @@ class Testplan:
         return hjson.loads(Path(filename).read_text(encoding="utf-8"))
 
     @staticmethod
-    def _create_testplan_elements(kind: str, raw_dicts_list: list, tags: set) -> list[Element]:
-        """Create testplan elements from the list of raw dicts.
+    def _check_duplicates(kind: str, elements: Sequence[Element]) -> None:
+        """Check that there aren't multiple elements in the list that share a name.
 
-        kind is either 'testpoint' or 'covergroup'.
-        raw_dicts_list is a list of dictionaries extracted from the Hjson file.
+        Args:
+          kind: A string describing the type of object (for use in error messages)
+
+          elements: The list of elements to check for duplicates
+
         """
-        items = []
-        item_names = set()
-
-        try:
-            elem_cls = Testplan.element_cls[kind]
-        except KeyError:
-            err_msg = f"No known class for kind={kind}"
-            raise RuntimeError(err_msg) from None
-
-        for dict_entry in raw_dicts_list:
-            try:
-                item = elem_cls(dict_entry)
-            except (KeyError, ValueError) as e:
-                err_msg = f"Failed to create {kind} from dictionary."
-                raise RuntimeError(err_msg) from e
-
-            if item.name in item_names:
-                err_msg = f"Duplicate items with name {item.name}."
-                raise ValueError(err_msg)
-
-            # Filter out the item by tags if provided.
-            if item.has_tags(tags):
-                items.append(item)
-                item_names.add(item.name)
-        return items
+        known_names: set[str] = set()
+        for elem in elements:
+            if elem.name in known_names:
+                msg = f"Duplicate {kind} items with name {elem.name}"
+                raise ValueError(msg)
+            known_names.add(elem.name)
 
     @staticmethod
     def _get_percentage(value, total) -> str:
@@ -322,9 +306,9 @@ class Testplan:
                            name set in the testplan Hjson.
 
         """
-        self.name = name
-        self.testpoints = []
-        self.covergroups = []
+        self.name = None
+        self.testpoints: list[Testpoint] = []
+        self.covergroups: list[Covergroup] = []
         self.test_results_mapped = False
 
         # Split the filename into filename and tags, if provided.
@@ -432,14 +416,17 @@ class Testplan:
 
         self.name = obj.get("name")
 
-        testpoints = obj.get("testpoints", [])
-        self.testpoints = self._create_testplan_elements("testpoint", testpoints, tags)
+        all_tps = [Testpoint(t) for t in obj.get("testpoints", [])]
+        all_cgs = [Covergroup(cg) for cg in obj.get("covergroups", [])]
 
-        covergroups = obj.get("covergroups", [])
-        self.covergroups = self._create_testplan_elements("covergroup", covergroups, set())
+        if not (all_tps or all_cgs):
+            raise ValueError("Merged testplan doesn't contain any testpoints or covergroups")
 
-        if not testpoints and not covergroups:
-            sys.exit(1)
+        Testplan._check_duplicates("testpoint", all_tps)
+        Testplan._check_duplicates("covergroup", all_cgs)
+
+        self.testpoints = [t for t in all_tps if t.has_tags(tags)]
+        self.covergroups = [cg for cg in all_cgs if cg.has_tags(tags)]
 
         # Any variable in the testplan that is not a recognized Hjson field can
         # be used as a substitution variable.
