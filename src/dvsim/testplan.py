@@ -67,11 +67,6 @@ class Element:
         # Verify things are in order.
         self._validate()
 
-    def __str__(self) -> str:
-        # Reindent the multiline desc with 4 spaces.
-        desc = "\n".join(["    " + line.lstrip() for line in self.desc.split("\n")])
-        return f"  {self.kind.capitalize()}: {self.name}\n  Description:\n{desc}\n"
-
     def _validate(self) -> None:
         """Runs some basic consistency checks."""
         if not self.name:
@@ -154,9 +149,6 @@ class Testpoint(Element):
         self.not_mapped = False
         if self.tests == ["N/A"]:
             self.not_mapped = True
-
-    def __str__(self) -> str:
-        return super().__str__() + (f"  Stage: {self.stage}\n  Tests: {self.tests}\n")
 
     def _validate(self) -> None:
         super()._validate()
@@ -294,34 +286,6 @@ class Testplan:
             return "-- %"
         perc = value / total * 100 * 1.0
         return f"{round(perc, 2):.2f} %"
-
-    @staticmethod
-    def get_dv_style_css() -> str:
-        """Returns text with HTML CSS style for a table."""
-        return (
-            "<style>\n"
-            "table.dv {\n"
-            "    border: 1px solid black;\n"
-            "    border-collapse: collapse;\n"
-            "    width: 100%;\n"
-            "    text-align: left;\n"
-            "    vertical-align: middle;\n"
-            "    display: table;\n"
-            "    font-size: smaller;\n"
-            "}\n"
-            "table.dv th, td {\n"
-            "    border: 1px solid black;\n"
-            "}\n"
-            "</style>\n"
-        )
-
-    def __str__(self) -> str:
-        lines = [f"Name: {self.name}\n"]
-        lines += ["Testpoints:"]
-        lines += [f"{t}" for t in self.testpoints]
-        lines += ["Covergroups:"]
-        lines += [f"{c}" for c in self.covergroups]
-        return "\n".join(lines)
 
     def __init__(self, filename, repo_top=None, name=None) -> None:
         """Initialize the testplan.
