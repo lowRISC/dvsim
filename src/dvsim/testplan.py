@@ -201,7 +201,7 @@ class Testpoint(Element):
 
         self.tests = resolved_tests
 
-    def map_test_results(self, test_results) -> None:
+    def map_test_results(self, test_results: list[Result]) -> None:
         """Map test results to tests against this testpoint.
 
         Given a list of test results find the ones that match the tests listed
@@ -221,7 +221,6 @@ class Testpoint(Element):
             return
 
         for tr in test_results:
-            assert isinstance(tr, Result)
             if tr.name in self.tests:
                 tr.mapped = True
                 self.test_results.append(tr)
