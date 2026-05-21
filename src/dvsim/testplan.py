@@ -189,31 +189,89 @@ class Testpoint(Element):
             msg = f"'tests' key in {self} is not a list."
             raise ValueError(msg)
 
-    def do_substitutions(self, substitutions) -> None:
+    @staticmethod
+    def _expand_str(pattern: str, new_vals: Sequence[str], txt: str) -> list[str]:
+        """Return a list of copies of txt with each expansion of pattern.
+
+        Note that if txt has multiple copies of the pattern then they are
+        replaced "diagonally". If pattern is "x", new_vals is ["0", "1"] and
+        txt is "x x" then the result is ["0 0", "1 1"].
+
+        Args:
+          pattern: A string for which we should search.
+
+          new_vals: A list of values to use as replacements.
+
+          txt: The string in which to replace the given pattern.
+
+        """
+        return [txt.replace(pattern, v) for v in new_vals]
+
+    @staticmethod
+    def _expand_str_list(pattern: str, new_vals: Sequence[str], txt_list: list[str]) -> list[str]:
+        """Return a each expansion of pattern across elements of txt_list.
+
+        This works by calling _expand_str to expand pattern for each element of
+        txt_list, collecting the list of results.
+
+        Args:
+          pattern: A string for which we should search.
+
+          new_vals: A list of values to use as replacements.
+
+          txt_list: List of strings to expand
+
+        """
+        ret: list[str] = []
+        for txt in txt_list:
+            ret.extend(Testpoint._expand_str(pattern, new_vals, txt))
+        return ret
+
+    def do_substitutions(
+        self, substitutions: dict[str, Any], reserved_names: Sequence[str]
+    ) -> None:
         """Substitute {wildcards} in tests.
 
-        If tests have {wildcards}, they are substituted with the 'correct'
-        values using the key=value pairs provided by the substitutions arg.
-        Wildcards with no substitution arg are replaced by an empty string.
+        If tests have wildcards, they are substituted using key=value pairs
+        from the substitutions argument.
 
-        substitutions is a dictionary of wildcard-replacement pairs.
+        If a value in the substitutions argument is a list, the substitution
+        will make multiple testpoints from a templated value. For example, if
+        substitutions is {'a': ['x', 'y']} and self.tests is ['test-{a}'] then
+        self.tests will become ['test-x', 'test-y'].
+
+        A wildcard use with no match in substitutions will be replaced by an
+        empty string (in a single item). For example, if substitutions is {}
+        and self.tests is ['test-{a}'] then self.tests will become ['test-'].
+
         """
         resolved_tests = []
         for test in self.tests:
-            match = re.findall(r"{([A-Za-z0-9\_]+)}", test)
-            if not match:
-                resolved_tests.append(test)
-                continue
+            # Iterate over all the wildcards found in the test name, creating a
+            # map from wildcard string ("{my_wildcard}") to a list of strings.
+            wildcard_expansions: dict[str, list[str]] = {}
+            for key in re.findall(r"{([A-Za-z0-9\_]+)}", test):
+                if key in reserved_names:
+                    msg = f"Wildcard using reserved name, {key}."
+                    raise ValueError(msg)
 
-            # 'match' is a list of wildcards used in the test. Get their
-            # corresponding values.
-            subst = {item: substitutions.get(item, "") for item in match}
+                raw_value = substitutions.get(key, [""])
+                if isinstance(raw_value, list):
+                    value = raw_value
+                elif isinstance(raw_value, str):
+                    value = [raw_value]
+                else:
+                    msg = f"Unknown type to replace wildcard {key}. Value was {raw_value}."
+                    raise TypeError(msg)
 
-            resolved = [test]
-            for item, value in subst.items():
-                values = value if isinstance(value, list) else [value]
-                resolved = [t.replace(f"{{{item}}}", v) for t in resolved for v in values]
-            resolved_tests.extend(resolved)
+                wildcard_expansions[f"{{{key}}}"] = value
+
+            # Iterate over the expansions, applying each in turn.
+            expanded = [test]
+            for pattern, values in wildcard_expansions.items():
+                expanded = Testpoint._expand_str_list(pattern, values, expanded)
+
+            resolved_tests.extend(expanded)
 
         self.tests = resolved_tests
 
@@ -254,8 +312,6 @@ class Testplan:
 
     The list of Testpoints and Covergroups make up the testplan.
     """
-
-    rsvd_keywords = ["import_testplans", "testpoints", "covergroups"]
 
     @staticmethod
     def _parse_hjson(filename: Path) -> dict[str, Any]:
@@ -316,7 +372,11 @@ class Testplan:
         tags = set(split[1:])
 
         if filename.exists():
-            self._parse_testplan(filename, tags, repo_top)
+            try:
+                self._parse_testplan(filename, tags, repo_top)
+            except Exception as e:
+                msg = f"Error when parsing testplan at {filename}."
+                raise RuntimeError(msg) from e
 
         # Represents current progress towards each stage. Stage = N.A.
         # is used to indicate the unmapped tests.
@@ -424,14 +484,14 @@ class Testplan:
         Testplan._check_duplicates("testpoint", all_tps)
         Testplan._check_duplicates("covergroup", all_cgs)
 
-        self.testpoints = [t for t in all_tps if t.has_tags(tags)]
-        self.covergroups = [cg for cg in all_cgs if cg.has_tags(tags)]
+        # Wildcards in testpoints can mostly point to any value from the
+        # object. The following names are *not* allowed (because they wouldn't
+        # really make much sense).
+        reserved_names = ("import_testplans", "testpoints", "covergroups")
 
-        # Any variable in the testplan that is not a recognized Hjson field can
-        # be used as a substitution variable.
-        substitutions = {k: v for k, v in obj.items() if k not in self.rsvd_keywords}
+        # Apply wildcards in each testpoint
         for tp in self.testpoints:
-            tp.do_substitutions(substitutions)
+            tp.do_substitutions(obj, reserved_names)
 
         self._sort()
 
