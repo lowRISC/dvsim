@@ -14,8 +14,7 @@ import plotly.graph_objects as go
 import plotly.offline
 from typing_extensions import Self
 
-from dvsim.instrumentation import InstrumentationResults
-from dvsim.instrumentation.records import JobInstrumentationMetadata
+from dvsim.instrumentation.records import InstrumentationResults, JobInstrumentationMetadata
 from dvsim.logging import log
 from dvsim.report.artifacts import ReportArtifacts, render_static_content
 from dvsim.templates.render import render_template

@@ -32,7 +32,8 @@ from importlib.metadata import version
 from pathlib import Path
 
 from dvsim.flow.factory import make_cfg
-from dvsim.instrumentation import InstrumentationFactory, set_instrumentation
+from dvsim.instrumentation.factory import InstrumentationFactory
+from dvsim.instrumentation.runtime import set_instrumentation
 from dvsim.job.deploy import RunTest
 from dvsim.launcher.base import Launcher
 from dvsim.launcher.lsf import LsfLauncher

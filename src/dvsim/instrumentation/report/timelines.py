@@ -24,8 +24,7 @@ from matplotlib.figure import Figure as MplFigure
 from matplotlib.ticker import MaxNLocator
 from typing_extensions import Self, override
 
-from dvsim.instrumentation import InstrumentationResults
-from dvsim.instrumentation.records import ConcreteJobTimingMetrics
+from dvsim.instrumentation.records import ConcreteJobTimingMetrics, InstrumentationResults
 from dvsim.instrumentation.report.base import (
     DEFAULT_VISUALIZATION_HEIGHT_PX,
     PLOTLY_TIMING_AXIS_CONFIG,

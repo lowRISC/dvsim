@@ -12,9 +12,9 @@ from typing import Any
 import plotly.graph_objects as go
 from typing_extensions import Self
 
-from dvsim.instrumentation import InstrumentationResults
 from dvsim.instrumentation.records import (
     ConcreteJobTimingMetrics,
+    InstrumentationResults,
     JobInstrumentationMetadata,
     JobInstrumentationResults,
 )

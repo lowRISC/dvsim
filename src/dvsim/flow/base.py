@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 import hjson
 
-from dvsim import instrumentation
+import dvsim.instrumentation.runtime as instrumentation
 from dvsim.flow.hjson import set_target_attribute
 from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus

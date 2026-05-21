@@ -10,8 +10,7 @@ from collections.abc import Callable
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from dvsim.instrumentation import InstrumentationResults
-from dvsim.instrumentation.records import JobInstrumentationResults
+from dvsim.instrumentation.records import InstrumentationResults, JobInstrumentationResults
 from dvsim.instrumentation.report.base import (
     DEFAULT_VISUALIZATION_HEIGHT_PX,
     PLOTLY_TIMING_AXIS_CONFIG,
