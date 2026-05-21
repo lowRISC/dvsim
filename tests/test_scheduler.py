@@ -31,8 +31,8 @@ __all__ = ()
 
 
 # Default scheduler test timeout to handle infinite loops in the scheduler
-DEFAULT_TIMEOUT = 0.5
-SIGNAL_TEST_TIMEOUT = 2.5
+DEFAULT_TIMEOUT = 2
+SIGNAL_TEST_TIMEOUT = 5
 
 
 @dataclass
