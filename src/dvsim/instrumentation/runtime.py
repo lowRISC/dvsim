@@ -7,11 +7,8 @@
 from pathlib import Path
 
 from dvsim.instrumentation.base import InstrumentationAggregator, InstrumentationResults
-from dvsim.instrumentation.report import (
-    RenderProfile,
-    ReportVisualizationRegistry,
-    render_html_report,
-)
+from dvsim.instrumentation.report.base import RenderProfile, render_html_report
+from dvsim.instrumentation.report.registry import ReportVisualizationRegistry
 from dvsim.logging import log
 
 __all__ = (

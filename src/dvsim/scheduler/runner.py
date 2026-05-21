@@ -6,7 +6,7 @@
 
 from collections.abc import Iterable
 
-from dvsim import instrumentation
+import dvsim.instrumentation.runtime as instrumentation
 from dvsim.job.data import CompletedJobStatus, JobSpec
 from dvsim.runtime.backend import RuntimeBackend
 from dvsim.runtime.fake import FakePolicy, FakeRuntimeBackend
