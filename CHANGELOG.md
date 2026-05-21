@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v1.48.0 (2026-05-21)
+
+### Bug Fixes
+
+- Ruff error on click dvsim-admin CLI docstring
+  ([`7b15f99`](https://github.com/lowRISC/dvsim/commit/7b15f99b392a219aa9eac60dd5cb8397fc7e89d9))
+
+### Features
+
+- Add instrumentation report generation to the dvsim-admin CLI
+  ([`9454708`](https://github.com/lowRISC/dvsim/commit/94547081c6b7b27b54b7114c4fc790110ad880e4))
+
+### Refactoring
+
+- Move instrumentation RenderProfile enum to its own module
+  ([`43b75ff`](https://github.com/lowRISC/dvsim/commit/43b75ff051a0e2f78e3590b08b9ee5cb5bca162c))
+
+- Remove re-exports of instrumentation imports
+  ([`7975d4f`](https://github.com/lowRISC/dvsim/commit/7975d4fa3a25bab6019f469c2ed35e6c4e3f0a24))
+
+
 ## v1.47.1 (2026-05-21)
 
 ### Bug Fixes
