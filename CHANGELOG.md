@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.46.0 (2026-05-21)
+
+### Features
+
+- Add instrumentation graphs of the longest jobs & tests per tool
+  ([`0942e75`](https://github.com/lowRISC/dvsim/commit/0942e7525f55f710670d8d724268a2762d3df065))
+
+
 ## v1.45.0 (2026-05-21)
 
 ### Features
