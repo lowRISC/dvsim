@@ -22,11 +22,11 @@ from dvsim.instrumentation.report.base import (
     DEFAULT_VISUALIZATION_HEIGHT_PX,
     PLOTLY_TIMING_AXIS_CONFIG,
     InstrumentationVisualizer,
-    RenderProfile,
     get_default_color_map,
     make_job_metadata_hover,
     render_plotly_figure,
 )
+from dvsim.instrumentation.report.profile import RenderProfile
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.utils import format_time_metric, ordinal_suffix
