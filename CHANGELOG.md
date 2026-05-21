@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.43.0 (2026-05-21)
+
+### Features
+
+- Remove support for the Sun Grid Engine launcher
+  ([`ef68c80`](https://github.com/lowRISC/dvsim/commit/ef68c80b7f8d934f4d45c975db1e0377464d4ddc))
+
+
 ## v1.42.0 (2026-05-21)
 
 ### Features
