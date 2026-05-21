@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.45.0 (2026-05-21)
+
+### Features
+
+- Add graph of longest jobs by status to the instrumentation report
+  ([`08bd3d6`](https://github.com/lowRISC/dvsim/commit/08bd3d6236376b05f0022d9808cced8b106404eb))
+
+- Add utility function for getting the suffix of an ordinal
+  ([`06ac478`](https://github.com/lowRISC/dvsim/commit/06ac478f539837053109c20e3b773b9204b5fbe9))
+
+### Testing
+
+- Add unit tests for ordinal_suffix print utility
+  ([`660c5cf`](https://github.com/lowRISC/dvsim/commit/660c5cf4edd0cbc7603988ee0e25e2b8e0687461))
+
+
 ## v1.44.0 (2026-05-21)
 
 ### Features
