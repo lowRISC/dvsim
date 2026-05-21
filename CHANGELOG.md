@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.0 (2026-05-21)
+
+### Features
+
+- Link to the instrumentation report from the summary HTML report
+  ([`aa4e68f`](https://github.com/lowRISC/dvsim/commit/aa4e68f27f6f784c6b6b6c0c1d83be63dc06ad8f))
+
+
 ## v1.48.0 (2026-05-21)
 
 ### Bug Fixes
