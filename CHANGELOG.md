@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.41.1 (2026-05-21)
+
+### Bug Fixes
+
+- Raise a helpful error on a bogus testplan
+  ([`0a7cd7a`](https://github.com/lowRISC/dvsim/commit/0a7cd7a589d6aab69c0e52ba04ddb6806a738bf5))
+
+
 ## v1.41.0 (2026-05-20)
 
 ### Features
