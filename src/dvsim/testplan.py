@@ -336,12 +336,19 @@ class Testplan:
             known_names.add(elem.name)
 
     @staticmethod
-    def _get_percentage(value, total) -> str:
-        """Returns a string representing percentage upto 2 decimal places."""
-        if total == 0:
-            return "-- %"
-        perc = value / total * 100 * 1.0
-        return f"{round(perc, 2):.2f} %"
+    def _get_percentage(value: int, total: int) -> str:
+        """Format a fraction (value / total) as a float with up to 2 decimal places.
+
+        Both arguments should be non-negative and value should be at most equal
+        to total. If total is zero, this is reported as "-- %".
+
+        """
+        if value > total:
+            raise ValueError("Cannot represent fraction over 100%")
+        if value < 0:
+            raise ValueError("Cannot represent negative fraction")
+
+        return "-- %" if total == 0 else f"{100 * value / total:.2f} %"
 
     def __init__(self, tagged_filename: str, repo_top: Path, name: str) -> None:
         """Initialize the testplan.
