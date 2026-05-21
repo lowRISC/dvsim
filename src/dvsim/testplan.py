@@ -101,18 +101,19 @@ class Element:
             msg = f"'tags' key in {self} is not a list."
             raise ValueError(msg)
 
-    def has_tags(self, tags: set) -> bool:
-        """Checks if the provided tags match the tags originally set.
+    def has_tags(self, tags: set[str]) -> bool:
+        """Return true if the element matches the provided tags.
 
-        tags is a list of tags that are we are filtering this testpoints with.
-        Tags may be preceded with `-` to exclude the testpoints that contain
-        that tag.
+        The element should match every item in the set of tags. If one of these
+        items is preceded with "-", the meaning is negated (so the element
+        should not match the tag name).
 
-        Vacuously returns true if tags is an empty list.
+        If tags is empty, this will vacuously return true.
+
+        Args:
+          tags: The set of named tags against which to match.
+
         """
-        if not tags:
-            return True
-
         for tag in tags:
             if tag.startswith("-"):
                 if tag[1:] in self.tags:
