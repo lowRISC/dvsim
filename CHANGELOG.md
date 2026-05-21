@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.47.1 (2026-05-21)
+
+### Bug Fixes
+
+- Colour assignment in longest job / test instrumentation charts
+  ([`e153aeb`](https://github.com/lowRISC/dvsim/commit/e153aebea788ea4c462a5c69a8b812df2bbd35fe))
+
+### Refactoring
+
+- Move instrumentation report color map logic to a common util
+  ([`71ff698`](https://github.com/lowRISC/dvsim/commit/71ff698897914e7908915405a47401a2e416f594))
+
+
 ## v1.47.0 (2026-05-21)
 
 ### Features
