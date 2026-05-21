@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.44.0 (2026-05-21)
+
+### Features
+
+- Add block variant breakdown charts to the instrumentation report
+  ([`88f2abc`](https://github.com/lowRISC/dvsim/commit/88f2abcd1374c5d0af6e52eb1713df281197947e))
+
+- Add tool breakdown charts to the instrumentation report
+  ([`f9d4b96`](https://github.com/lowRISC/dvsim/commit/f9d4b96c0d7a5e2e584f901623537d24a3365843))
+
+### Testing
+
+- Increase scheduler test timeouts
+  ([`6071b40`](https://github.com/lowRISC/dvsim/commit/6071b40bb7a7e1f044fc7632b095e8786881caea))
+
+
 ## v1.43.0 (2026-05-21)
 
 ### Features
