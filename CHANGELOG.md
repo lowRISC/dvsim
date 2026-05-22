@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.1 (2026-05-22)
+
+### Refactoring
+
+- Remove unused argument from Deploy._subst_vars
+  ([`d89d646`](https://github.com/lowRISC/dvsim/commit/d89d6468a805d23a124cc08fab8b8a1f7114641b))
+
+
 ## v1.49.0 (2026-05-21)
 
 ### Features
