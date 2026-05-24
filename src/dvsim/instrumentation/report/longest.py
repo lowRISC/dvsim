@@ -261,7 +261,7 @@ class LongestBarChart(InstrumentationVisualizer):
             f"Mean duration: {format_time_metric(avg_duration)}",
             f"Minimum duration: {format_time_metric(min_duration)}",
         ]
-        hover = make_job_metadata_hover(test.name, extra_timing_info, meta)
+        hover = make_job_metadata_hover(test.name, extra_timing_info, meta, omit_status=True)
 
         return total_duration, hover
 
