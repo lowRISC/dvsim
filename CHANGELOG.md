@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.4 (2026-05-26)
+
+### Refactoring
+
+- Collect tps/cgs with tighter types in testplan.py
+  ([`f328cbc`](https://github.com/lowRISC/dvsim/commit/f328cbcccaa3407dd0f2a300c2b2aa5066494589))
+
+
 ## v1.49.3 (2026-05-26)
 
 ### Documentation
