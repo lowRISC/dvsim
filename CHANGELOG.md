@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.49.3 (2026-05-26)
+
+### Documentation
+
+- Add documentation to the Result class in testplan.py
+  ([`09521c6`](https://github.com/lowRISC/dvsim/commit/09521c6e82660183382332f0b67a0f0af770918a))
+
+- Improve documentation comment for testplan.Element.has_tags
+  ([`be17a76`](https://github.com/lowRISC/dvsim/commit/be17a767355bd3b8e6cfc937dd2fd785b352ddb6))
+
+- Standardise capitalisation of "Hjson" in testplan.py
+  ([`578cadf`](https://github.com/lowRISC/dvsim/commit/578cadfd312a6cb8ccfbfbc3b0c7a0ce5706faa9))
+
+### Refactoring
+
+- Remove outdated (and unused) default repo_top argument
+  ([`3049a5a`](https://github.com/lowRISC/dvsim/commit/3049a5a9f774e384f537c6ba94259346b8e82eec))
+
+
 ## v1.49.2 (2026-05-26)
 
 ### Refactoring
