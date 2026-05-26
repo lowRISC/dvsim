@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.6 (2026-05-26)
+
+### Refactoring
+
+- Tidy up how wildcards get expanded in testpoints
+  ([`78c0fab`](https://github.com/lowRISC/dvsim/commit/78c0fab77ad0078672ba42f6c5e42c9011737def))
+
+
 ## v1.49.5 (2026-05-26)
 
 ### Refactoring
