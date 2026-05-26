@@ -361,7 +361,7 @@ class Testplan:
                            name set in the testplan Hjson.
 
         """
-        self.name = None
+        self.name = name
         self.testpoints: list[Testpoint] = []
         self.covergroups: list[Covergroup] = []
         self.test_results_mapped = False
