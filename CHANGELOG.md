@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.2 (2026-05-26)
+
+### Refactoring
+
+- Remove some formatting methods in dvsim.testplan
+  ([`dc661da`](https://github.com/lowRISC/dvsim/commit/dc661da89d4df516e72885e24ffd97eb7dc61f01))
+
+
 ## v1.49.1 (2026-05-22)
 
 ### Refactoring
