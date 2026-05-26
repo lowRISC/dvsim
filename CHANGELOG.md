@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.5 (2026-05-26)
+
+### Refactoring
+
+- Give proper types to Testpoint.map_test_results
+  ([`8c48657`](https://github.com/lowRISC/dvsim/commit/8c48657d138cad212a3a27deefb866915e4ea294))
+
+
 ## v1.49.4 (2026-05-26)
 
 ### Refactoring
