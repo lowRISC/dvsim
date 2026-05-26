@@ -65,7 +65,7 @@ class Element:
     def __init__(self, raw_dict) -> None:
         """Initialize the testplan element.
 
-        raw_dict is the dictionary parsed from the HJSon file.
+        raw_dict is the dictionary parsed from the Hjson file.
         """
         # 'tags' is an optional field in addition to the mandatory self.fields.
         self.tags = []
@@ -261,7 +261,7 @@ class Testplan:
 
     @staticmethod
     def _parse_hjson(filename):
-        """Parses an input file with HJson and returns a dict."""
+        """Parses an input file with Hjson and returns a dict."""
         try:
             return hjson.load(Path(filename).open())
         except OSError:
@@ -275,7 +275,7 @@ class Testplan:
         """Create testplan elements from the list of raw dicts.
 
         kind is either 'testpoint' or 'covergroup'.
-        raw_dicts_list is a list of dictionaries extracted from the HJson file.
+        raw_dicts_list is a list of dictionaries extracted from the Hjson file.
         """
         items = []
         item_names = set()
@@ -314,13 +314,13 @@ class Testplan:
     def __init__(self, filename, repo_top=None, name=None) -> None:
         """Initialize the testplan.
 
-        filename is the HJson file that captures the testplan. It may be
+        filename is the Hjson file that captures the testplan. It may be
         suffixed with tags separated with a colon delimiter to filter the
         testpoints. For example: path/too/foo_testplan.hjson:bar:baz
         repo_top is an optional argument indicating the path to top level repo
         / project directory. It is used with filename arg.
         name is an optional argument indicating the name of the testplan / DUT.
-        It overrides the name set in the testplan HJson.
+        It overrides the name set in the testplan Hjson.
         """
         self.name = None
         self.testpoints = []
@@ -408,7 +408,7 @@ class Testplan:
         It creates the list of testpoints and covergroups extracted from the
         file.
 
-        filename is the path to the testplan file written in HJson format.
+        filename is the path to the testplan file written in Hjson format.
         repo_top is an optional argument indicating the path to repo top.
         """
         if repo_top is None:
@@ -451,7 +451,7 @@ class Testplan:
         if not testpoints and not covergroups:
             sys.exit(1)
 
-        # Any variable in the testplan that is not a recognized HJson field can
+        # Any variable in the testplan that is not a recognized Hjson field can
         # be used as a substitution variable.
         substitutions = {k: v for k, v in obj.items() if k not in self.rsvd_keywords}
         for tp in self.testpoints:
@@ -472,11 +472,11 @@ class Testplan:
             if tp.stage in tp.stages[1:]:
                 regressions[tp.stage].update({t for t in tp.tests if t})
 
-        # Build regressions dict into a hjson like data structure
+        # Build regressions dict into a Hjson-like data structure
         return [{"name": ms, "tests": list(regressions[ms])} for ms in regressions]
 
     def write_testplan_doc(self, output: TextIO) -> None:
-        """Write testplan documentation in markdown from the hjson testplan."""
+        """Write testplan documentation in markdown from the Hjson testplan."""
         stages = {}
         for tp in self.testpoints:
             stages.setdefault(tp.stage, []).append(tp)
