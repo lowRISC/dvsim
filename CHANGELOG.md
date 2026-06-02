@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.49.7 (2026-06-02)
+
+### Bug Fixes
+
+- Fix name in Testplan constructor
+  ([`0f13466`](https://github.com/lowRISC/dvsim/commit/0f1346640562da32bc399530b309487e9e1df832))
+
+- Status shown for combined instrumentation jobs
+  ([`59d9c2f`](https://github.com/lowRISC/dvsim/commit/59d9c2f5a3b708dc4e6120ea0613fb0afa20e340))
+
+### Documentation
+
+- Improve documentation of Testplan.get_percentage
+  ([`d7e7814`](https://github.com/lowRISC/dvsim/commit/d7e78147386bfbd2266fbc9937d088506b68fe54))
+
+
 ## v1.49.6 (2026-05-26)
 
 ### Refactoring
