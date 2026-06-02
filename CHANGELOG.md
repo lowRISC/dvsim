@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.49.8 (2026-06-02)
+
+### Chores
+
+- Migrate flake to nixos 26.05 + nix flake update
+  ([`8740d42`](https://github.com/lowRISC/dvsim/commit/8740d42ddeab506d7b382e710da739e7dc1307a3))
+
+- Uv sync --upgrade
+  ([`ea59667`](https://github.com/lowRISC/dvsim/commit/ea5966734af009e885fefa7a685f8d9dfedf2770))
+
+### Refactoring
+
+- Improve constructors for testplan elements
+  ([`15cc201`](https://github.com/lowRISC/dvsim/commit/15cc20139d9dc9ca37eb00fda7dff77ebc611573))
+
+
 ## v1.49.7 (2026-06-02)
 
 ### Bug Fixes
