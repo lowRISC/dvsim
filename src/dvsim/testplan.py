@@ -6,7 +6,6 @@
 
 import re
 import sys
-from collections import defaultdict
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, TextIO
@@ -590,16 +589,25 @@ class Testplan:
         self.testpoints.sort(key=lambda x: x.stage)
         self.covergroups.sort(key=lambda x: x.name)
 
-    def get_stage_regressions(self):
-        regressions = defaultdict(set)
-        for tp in self.testpoints:
-            if tp.not_mapped:
-                continue
-            if tp.stage in tp.stages[1:]:
-                regressions[tp.stage].update({t for t in tp.tests if t})
+    def get_stage_regressions(self) -> list[dict[str, str | list[str]]]:
+        """Return the testpoints, grouped by verification stage.
 
-        # Build regressions dict into a Hjson-like data structure
-        return [{"name": ms, "tests": list(regressions[ms])} for ms in regressions]
+        The returned value has a dict for each verification stage with
+        testpoints. This dict has two keys: name and tests. The name field
+        gives the name of the verification stage. The tests field is a list of
+        the names of tests associated with testpoints in the stage.
+
+        """
+        stage_to_tests: dict[str, set[str]] = {}
+
+        for tp in self.testpoints:
+            if tp.not_mapped or tp.stage not in Testpoint.stages[1:]:
+                continue
+
+            stage_to_tests.setdefault(tp.stage, set()).update(tp.tests)
+
+        # Build stage_to_tests dict into a Hjson-like data structure
+        return [{"name": stage, "tests": sorted(tps)} for stage, tps in stage_to_tests.items()]
 
     def write_testplan_doc(self, output: TextIO) -> None:
         """Write testplan documentation in markdown from the Hjson testplan."""
