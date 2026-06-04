@@ -452,7 +452,7 @@ class Testplan:
             try:
                 self._parse_testplan(filename, tags, repo_top)
             except Exception as e:
-                msg = f"Error when parsing testplan at {filename}."
+                msg = f"Error when parsing testplan at {filename}: {e}"
                 raise RuntimeError(msg) from e
 
         # Represents current progress towards each stage. Stage = N.A.
