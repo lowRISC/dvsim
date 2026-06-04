@@ -102,13 +102,14 @@ class Element:
         self.tags: list[str] = []
 
         # Convert all the k/v pairs in raw_dict into instance attributes for
-        # this object. These should all either be strings or lists of strings.
+        # this object. These should all either be bools, strings or lists of
+        # strings.
         for k, v in raw_dict.items():
             # We have extracted the element name and description already
             if k in ["name", "desc"]:
                 continue
 
-            if isinstance(v, str):
+            if isinstance(v, (str, bool)):
                 setattr(self, k, v)
             elif isinstance(v, list):
                 # This is a list, but we should check slightly more: it should
@@ -127,16 +128,16 @@ class Element:
             else:
                 msg = (
                     f"The {k} field in the testplan element with name "
-                    f"{self.name} is neither a string nor a list of strings."
+                    f"{self.name} is not a bool, string or list."
                 )
                 raise TypeError(msg)
 
         # Check that self.tags is still a list (and wasn't overwritten with a
-        # string when parsing the raw dict)
+        # bool or string when parsing the raw dict)
         if not isinstance(self.tags, list):
             msg = (
                 "The tags field in the testplan element with name "
-                f"{self.name} is a string but should be a list of strings "
+                f"{self.name} was supplied with a single element, not a list of strings "
                 "(if supplied)."
             )
             raise TypeError(msg)
@@ -223,7 +224,7 @@ class Testpoint(Element):
             msg = f"The testpoint named {self.name} has no stage."
             raise ValueError(msg)
         if not isinstance(self.stage, str):
-            msg = f"The stage of the testpoint named {self.name} should be a string, not a list."
+            msg = f"The stage of the testpoint named {self.name} should be a string."
             raise TypeError(msg)
         if self.stage not in Testpoint.stages:
             msg = (
