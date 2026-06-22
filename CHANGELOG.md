@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v1.49.10 (2026-06-22)
+
+### Bug Fixes
+
+- **dvsim**: Fix lint issues
+  ([`2f5870a`](https://github.com/lowRISC/dvsim/commit/2f5870ab6d9679317422c1912542d8ac3c79d1c5))
+
+- **dvsim**: Fix PR note
+  ([`2f5870a`](https://github.com/lowRISC/dvsim/commit/2f5870ab6d9679317422c1912542d8ac3c79d1c5))
+
+- **dvsim**: Slurm launcher quoting and process handling
+  ([`2f5870a`](https://github.com/lowRISC/dvsim/commit/2f5870ab6d9679317422c1912542d8ac3c79d1c5))
+
+
 ## v1.49.9 (2026-06-04)
 
 ### Bug Fixes
