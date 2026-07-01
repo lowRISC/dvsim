@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.49.12 (2026-07-01)
+
+### Bug Fixes
+
+- Resolve the numpy nixos error
+  ([`410b9bd`](https://github.com/lowRISC/dvsim/commit/410b9bd88bd63d383bada5af30409fe667cecadf))
+
+
 ## v1.49.11 (2026-06-22)
 
 ### Refactoring
