@@ -144,6 +144,11 @@
           };
           shellHook = ''
             unset PYTHONPATH
+            # The uv-managed .venv installs prebuilt PyPI wheels (numpy,
+            # matplotlib, ...) whose C-extensions link against system libraries
+            # that are not on NixOS's default loader path. Expose them so the
+            # wheels can be imported.
+            export LD_LIBRARY_PATH="${lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib pkgs.zlib]}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           '';
         };
       };
