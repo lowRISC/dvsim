@@ -25,6 +25,8 @@
       inputs.uv2nix.follows = "uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    lowrisc-nix.url = "github:lowRISC/lowrisc-nix";
   };
 
   outputs = {
@@ -35,6 +37,7 @@
     uv2nix,
     pyproject-nix,
     pyproject-build-systems,
+    lowrisc-nix,
     ...
   }:
     flake-utils.lib.eachDefaultSystem (system: let
@@ -126,6 +129,11 @@
       };
 
       devShells = {
+        # Lightweight Python dev shell. This is the direnv-loaded default
+        # (`use flake` in .envrc): direnv sources a shell's environment into the
+        # current shell, so it must be a plain mkShell — the FHS EDA shell below
+        # cannot be sourced (it execs into a bubblewrap mount namespace), which
+        # is why it is a *separate* shell entered explicitly with `nix develop`.
         default = pkgs.mkShell {
           packages = [
             python
@@ -150,6 +158,21 @@
             # wheels can be imported.
             export LD_LIBRARY_PATH="${lib.makeLibraryPath [pkgs.stdenv.cc.cc.lib pkgs.zlib]}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           '';
+        };
+
+        # EDA tool shell driven by lowrisc-nix's generic mkEdaShell. Enter with
+        # `nix develop .#eda` (it execs into a hermetic FHS sandbox, so it is not
+        # direnv-loadable). Tool paths/licenses come at runtime from the JSON
+        # file named by $LOWRISC_EDA_CONFIG; without it the shell still works and
+        # just warns. Bundles the dvsim virtualenv so dvsim can drive the tools.
+        eda = lowrisc-nix.lib.mkEdaShell {
+          inherit pkgs;
+          name = "dvsim-eda";
+          tools = {
+            cadence.xcelium = "23.09.002";
+            synopsys.vcs = "X-2025.06-SP2-1";
+          };
+          extraDeps = [self.packages.${system}.default];
         };
       };
 
