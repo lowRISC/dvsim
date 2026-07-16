@@ -44,8 +44,8 @@ def git_commit_hash(path: Path | None = None, *, short: bool = False) -> str:
     return r.head.commit.hexsha
 
 
-def git_origin_url(path: Path | None = None) -> str:
-    """Get the git remote origin url."""
+def git_origin_url(path: Path | None = None) -> str | None:
+    """Get the git remote origin url, or None if no ``origin`` remote is configured."""
     root = repo_root(path=path or Path.cwd())
 
     if root is None:
@@ -54,20 +54,31 @@ def git_origin_url(path: Path | None = None) -> str:
 
     r = Repo(root)
 
-    return r.remote().url
+    if "origin" not in [remote.name for remote in r.remotes]:
+        return None
+
+    return r.remote("origin").url
 
 
-def git_https_url_with_commit(path: Path | None = None) -> str:
+def git_https_url_with_commit(path: Path | None = None) -> str | None:
     """Get an https url that references the current commit.
+
+    The link is derived from the ``origin`` remote, which in CI/regression
+    workflows points at the canonical upstream repository. In developer
+    checkouts where ``origin`` is absent or points elsewhere, return ``None``
+    rather than guessing — a wrong link is worse than none.
 
     Args:
         path: the path to the git repo
 
     Returns:
-        str containing the https url
+        str containing the https url, or None if no ``origin`` remote exists.
 
     """
     url = git_origin_url(path=path)
+    if url is None:
+        return None
+
     commit = git_commit_hash(path=path)
 
     url = url.removesuffix(".git")

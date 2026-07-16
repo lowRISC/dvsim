@@ -28,8 +28,9 @@ class IPMeta(BaseModel):
     """Shortened Git commit sha of the IP the tests are run against."""
     branch: str
     """Git branch"""
-    url: str
-    """URL to where the IP can be found in git (e.g. github)."""
+    url: str | None
+    """URL to where the IP can be found in git (e.g. github). None if the local
+    checkout has no ``origin`` remote (typical for developer clones)."""
     revision_info: str | None
     """Optional revision info string to use for custom info instead of the above fields."""
 
