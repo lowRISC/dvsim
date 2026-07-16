@@ -88,11 +88,12 @@ class TestGit:
         r.index.add([file])
         r.index.commit("initial commit")
 
-        # Value error if called outside a git repo
-        assert_that(
-            calling(git_origin_url).with_args(tmp_path),
-            raises(ValueError),
-        )
+        # None if the repo has no 'origin' remote configured
+        assert_that(git_origin_url(tmp_path), equal_to(None))
+
+        # Still None if there are remotes but none named 'origin'
+        r.create_remote("upstream", "git@github.com:lowRISC/other.git")
+        assert_that(git_origin_url(tmp_path), equal_to(None))
 
         url = "git@github.com:lowRISC/test.git"
         r.create_remote("origin", url)
@@ -121,6 +122,9 @@ class TestGit:
         file.write_text("file to commit")
         r.index.add([file])
         r.index.commit("initial commit")
+
+        # Returns None when no 'origin' remote is configured.
+        assert_that(git_https_url_with_commit(tmp_path), equal_to(None))
 
         r.create_remote("origin", url)
 
