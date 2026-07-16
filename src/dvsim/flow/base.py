@@ -32,7 +32,7 @@ from dvsim.utils import (
     rm_path,
     subst_wildcards,
 )
-from dvsim.utils.git import git_commit_hash
+from dvsim.utils.git import git_commit_hash, git_is_dirty
 
 if TYPE_CHECKING:
     from dvsim.job.deploy import Deploy
@@ -173,6 +173,7 @@ class FlowCfg(ABC):
         proj_root = Path(self.proj_root)
         self.commit = git_commit_hash(path=proj_root, short=False)
         self.commit_short = git_commit_hash(path=proj_root, short=True)
+        self.dirty = git_is_dirty(path=proj_root)
 
         # Construct the path variables after variable expansion.
         reports_dir = Path(self.scratch_base_path) / "reports"
