@@ -26,6 +26,8 @@ class IPMeta(BaseModel):
     """Git commit sha of the IP the tests are run against."""
     commit_short: str
     """Shortened Git commit sha of the IP the tests are run against."""
+    dirty: bool = False
+    """Whether the working tree had uncommitted changes at run time."""
     branch: str
     """Git branch"""
     url: str | None

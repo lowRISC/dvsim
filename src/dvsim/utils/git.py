@@ -44,6 +44,17 @@ def git_commit_hash(path: Path | None = None, *, short: bool = False) -> str:
     return r.head.commit.hexsha
 
 
+def git_is_dirty(path: Path | None = None) -> bool:
+    """Return True if the working tree has uncommitted changes to tracked files."""
+    root = repo_root(path=path or Path.cwd())
+
+    if root is None:
+        log.error("no git repo found at %s", path)
+        raise ValueError
+
+    return Repo(root).is_dirty()
+
+
 def git_origin_url(path: Path | None = None) -> str | None:
     """Get the git remote origin url, or None if no ``origin`` remote is configured."""
     root = repo_root(path=path or Path.cwd())

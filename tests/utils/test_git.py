@@ -10,7 +10,13 @@ import pytest
 from git import Repo
 from hamcrest import assert_that, calling, equal_to, raises
 
-from dvsim.utils.git import git_commit_hash, git_https_url_with_commit, git_origin_url, repo_root
+from dvsim.utils.git import (
+    git_commit_hash,
+    git_https_url_with_commit,
+    git_is_dirty,
+    git_origin_url,
+    repo_root,
+)
 
 __all__ = ()
 
@@ -71,6 +77,29 @@ class TestGit:
         assert_that(
             git_commit_hash(tmp_path, short=True), equal_to(r.git.rev_parse(r.head, short=True))
         )
+
+    @staticmethod
+    def test_git_is_dirty(tmp_path: Path) -> None:
+        """Test that git_is_dirty reflects the working tree state."""
+        # Value error if called outside a git repo
+        assert_that(
+            calling(git_is_dirty).with_args(tmp_path),
+            raises(ValueError),
+        )
+
+        r = Repo.init(path=tmp_path)
+
+        file = tmp_path / "a"
+        file.write_text("file to commit")
+        r.index.add([file])
+        r.index.commit("initial commit")
+
+        # Clean tree
+        assert_that(git_is_dirty(tmp_path), equal_to(False))
+
+        # Modify a tracked file — now dirty
+        file.write_text("changed")
+        assert_that(git_is_dirty(tmp_path), equal_to(True))
 
     @staticmethod
     def test_git_origin_url(tmp_path: Path) -> None:

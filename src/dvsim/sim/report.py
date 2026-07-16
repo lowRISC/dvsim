@@ -247,6 +247,8 @@ class MarkdownReportRenderer:
                 revision = f"Github Revision: [`{scope.commit_short}`]({scope.url})"
             else:
                 revision = f"Revision: `{scope.commit_short}`"
+        if scope.dirty and "(dirty)" not in revision:
+            revision += " (dirty)"
         report_md += f"\n### {revision}"
         report_md += f"\n### Branch: {scope.branch}"
 
