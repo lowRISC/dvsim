@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.50.0 (2026-07-22)
+
+### Bug Fixes
+
+- Handle repos without an 'origin' remote when generating reports
+  ([`71015c2`](https://github.com/lowRISC/dvsim/commit/71015c26712298d9477f5554f7e915414ca014f2))
+
+### Features
+
+- Mark reports (dirty) when the worktree has uncommitted changes
+  ([`8cad555`](https://github.com/lowRISC/dvsim/commit/8cad55535b4d60109e0aa06cfbe2fa64b72f4202))
+
+
 ## v1.49.12 (2026-07-01)
 
 ### Bug Fixes
