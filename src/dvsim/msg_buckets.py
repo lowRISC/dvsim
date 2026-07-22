@@ -193,4 +193,6 @@ class MsgBuckets:
             if not isinstance(signatures, list):
                 msg = f"Signatures in {k} must be a list of strings"
                 raise RuntimeError(msg)
-            self.buckets[k].signatures.extend(signatures)
+            # check the key is in the bucket list to avoid an exception
+            if k in self.buckets:
+                self.buckets[k].signatures.extend(signatures)
