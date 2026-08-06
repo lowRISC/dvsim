@@ -5,6 +5,7 @@
 """Legacy launcher adapter interface for the new async scheduler design."""
 
 import asyncio
+import codecs
 import contextlib
 import os
 import pty
@@ -51,6 +52,15 @@ class LocalRuntimeBackend(RuntimeBackend):
 
     INTERACTIVE_TEE_READ_SIZE = 1024  # Read 1024 bytes to balance efficiency with responsiveness
 
+    # StreamReader buffer limit for subprocess pipes, matching the asyncio default of 64 KiB.
+    # Only relevant to line-oriented reads (readline/readuntil)
+    SUBPROCESS_STREAM_LIMIT = 64 * 2**10  # 64 KiB
+
+    # Size of each fixed-size read from a subprocess pipe in `_log_from_pipe`. Independent of the
+    # StreamReader limit above: `StreamReader.read(n)` returns up to n bytes and never raises on a
+    # long line, so this only trades off syscall frequency against per-read memory.
+    SUBPROCESS_READ_CHUNK_SIZE = 64 * 2**10  # 64 KiB
+
     def __init__(
         self,
         *,
@@ -86,13 +96,29 @@ class LocalRuntimeBackend(RuntimeBackend):
         """Write piped asyncio subprocess stream contents to a job's log file."""
         if stream is None or not handle.log_file:
             return
+        # Read fixed-size chunks - iterating lines can cause unexpected errors if the
+        # subprocess emits very long lines which overflows the StreamReader buffer.
+        # Uses an incremental decoder to handle multibyte characters that straddle
+        # a chunk boundary.
+        decoder = codecs.getincrementaldecoder("utf-8")(errors="surrogateescape")
         try:
-            async for line in stream:
-                decoded = line.decode("utf-8", errors="surrogateescape")
-                handle.log_file.write(decoded)
+            while True:
+                chunk = await stream.read(self.SUBPROCESS_READ_CHUNK_SIZE)
+                if not chunk:
+                    break
+                handle.log_file.write(decoder.decode(chunk))
+                handle.log_file.flush()
+            tail = decoder.decode(b"", final=True)
+            if tail:
+                handle.log_file.write(tail)
                 handle.log_file.flush()
         except asyncio.CancelledError:
             pass
+        except Exception:  # noqa: BLE001
+            log.exception(
+                "Error while streaming subprocess output to log file for job '%s'.",
+                handle.spec.full_name,
+            )
 
     async def _monitor_job(self, handle: LocalJobHandle) -> None:
         """Wait for subprocess completion and emit a completion event."""
@@ -238,6 +264,7 @@ class LocalRuntimeBackend(RuntimeBackend):
                     # useful to make this behaviour optional on some global `IoPolicy`.
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
+                    limit=self.SUBPROCESS_STREAM_LIMIT,
                     env=env,
                 )
             except BlockingIOError:
