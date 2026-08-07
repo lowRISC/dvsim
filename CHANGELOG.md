@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.50.1 (2026-08-07)
+
+### Bug Fixes
+
+- Prevent local async runtime deadlock on long subprocess output lines
+  ([`bdde627`](https://github.com/lowRISC/dvsim/commit/bdde6278c27adac1376830e2c1d5d53ed26cd418))
+
+### Testing
+
+- Cover local backend subprocess-output streaming
+  ([`56f61b1`](https://github.com/lowRISC/dvsim/commit/56f61b109f6063e550fd93f59bb8d4a106526fd3))
+
+
 ## v1.50.0 (2026-07-22)
 
 ### Bug Fixes
