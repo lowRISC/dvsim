@@ -10,7 +10,7 @@ A verification plan asks a different question: of everything we said we would ve
 Answering it needs the regression's own outcomes in a form a planning tool can read, rather than a log directory and a human.
 
 This is that form.
-DVSim writes one of these files per simulation flow, and it is the definition of the format rather than a description of one tool's output.
+DVSim writes one of these files per simulation flow, and this page specifies what any producer has to write rather than describing one tool's output.
 Anything that can produce it can be scored against a verification plan, whether or not it is DVSim.
 
 ## Where DVSim writes it
@@ -88,5 +88,7 @@ It is not the only thing that could: the format carries no DVPlan concepts, and 
 
 ## Changing it
 
-The pydantic models in `src/dvsim/report/dv_evidence.py` are the normative definition, and this document describes them.
-A change to either is a change to the format, so change both, and bear in mind that a consumer may be reading files this repo wrote months ago.
+The pydantic models in `src/dvsim/report/dv_evidence.py` specify what a producer writes, and this document describes them.
+They are not the whole format: the `inspection` half and the rules for scoring a file are the consumer's, and [DVPlan](https://github.com/lowRISC/dvplan) specifies those.
+So the models here reject a file carrying an `inspection` key, which is correct, since DVSim writes evidence and never reads it back.
+A change to the models or to this document is a change to the format, so change both, and bear in mind that a consumer may be reading files this repo wrote months ago.
