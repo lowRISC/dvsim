@@ -18,7 +18,7 @@ import hjson
 
 import dvsim.instrumentation.runtime as instrumentation
 from dvsim.flow.hjson import set_target_attribute
-from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
+from dvsim.job.data import CompletedJobStatus, JobSpec, JobStatusInfo, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.scheduler.resources import UnknownResourcePolicy
@@ -491,8 +491,19 @@ class FlowCfg(ABC):
                 interactive=self.interactive,
                 backend=backend,
                 resource_manager=resource_manager,
+                on_job_completed=self.on_job_completed,
             )
         )
+
+    def on_job_completed(
+        self, spec: JobSpec, status: JobStatus, reason: JobStatusInfo | None
+    ) -> None:
+        """Observe a job reaching a terminal state. Flows that care override this.
+
+        Called by the scheduler as each job finishes, so a flow can record an outcome while the
+        run is still going. Not abstract, since observing this is opt-in.
+        """
+        del spec, status, reason
 
     @abstractmethod
     def gen_results(self, results: Sequence[CompletedJobStatus]) -> None:

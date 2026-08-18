@@ -13,7 +13,7 @@ from signal import SIGINT, SIGTERM, getsignal, signal
 from types import FrameType
 from typing import Any, TypeAlias
 
-from dvsim.job.data import CompletedJobStatus, JobSpec, JobStatusInfo
+from dvsim.job.data import CompletedJobStatus, DependencyPolicy, JobSpec, JobStatusInfo
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.runtime.backend import RuntimeBackend
@@ -23,6 +23,7 @@ from dvsim.scheduler.resources import ResourceManager
 __all__ = (
     "JobPriorityFn",
     "JobRecord",
+    "OnJobCompletionCb",
     "OnJobStatusChangeCb",
     "OnRunEndCb",
     "OnRunStartCb",
@@ -62,6 +63,12 @@ OnRunEndCb: TypeAlias = Callable[[], None]
 # Callbacks for observers, for when a job status changes in the scheduler
 # The arguments are: (job spec, old status, new status).
 OnJobStatusChangeCb: TypeAlias = Callable[[JobSpec, JobStatus, JobStatus], None]
+
+# Callbacks for observers, for when a job reaches a terminal state.
+# The arguments are: (job spec, terminal status, the reason recorded with it).
+# Separate from the status-change callback, which carries no reason and so cannot tell a
+# cancelled job from one killed while running.
+OnJobCompletionCb: TypeAlias = Callable[[JobSpec, JobStatus, JobStatusInfo | None], None]
 
 # Callbacks for observers, for when the scheduler receives a kill signal (termination).
 OnSchedulerKillCb: TypeAlias = Callable[[], None]
@@ -153,6 +160,7 @@ class Scheduler:
         self._on_run_start: list[OnRunStartCb] = []
         self._on_run_end: list[OnRunEndCb] = []
         self._on_job_status_change: list[OnJobStatusChangeCb] = []
+        self._on_job_completion: list[OnJobCompletionCb] = []
         self._on_kill_signal: list[OnSchedulerKillCb] = []
 
         self._jobs = self.build_graph(jobs, self._backends, self._default_backend)
@@ -164,6 +172,10 @@ class Scheduler:
     def add_run_end_callback(self, cb: OnRunEndCb) -> None:
         """Register an observer to notify when the scheduler run ends."""
         self._on_run_end.append(cb)
+
+    def add_job_completion_callback(self, cb: OnJobCompletionCb) -> None:
+        """Register an observer to be notified as each job reaches a terminal state."""
+        self._on_job_completion.append(cb)
 
     def add_job_status_change_callback(self, cb: OnJobStatusChangeCb) -> None:
         """Register an observer to notify when the status of a job in the scheduler changes."""
@@ -322,6 +334,10 @@ class Scheduler:
             )
         self._change_job_status(job, status, reason)
 
+        # Notified after the status is settled, so an observer sees what the scheduler concluded
+        for cb in self._on_job_completion:
+            cb(job.spec, status, reason)
+
         # If the job was running, mark it as no longer running.
         if job.spec.id in self._running:
             self._running.remove(job.spec.id)
@@ -349,7 +365,10 @@ class Scheduler:
 
             # Handle dependency management and marking dependents as ready
             if dep.remaining_deps == 0 and dep.status == JobStatus.SCHEDULED:
-                if dep.spec.needs_all_dependencies_passing:
+                policy = dep.spec.dependency_policy
+                if policy is DependencyPolicy.ALWAYS:
+                    self._mark_job_ready(dep)
+                elif policy is DependencyPolicy.ALL_PASSING:
                     if dep.passing_deps == len(dep.spec.dependencies):
                         self._mark_job_ready(dep)
                     else:
