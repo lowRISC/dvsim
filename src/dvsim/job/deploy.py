@@ -17,6 +17,13 @@ from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
 from dvsim.logging import log
 from dvsim.report.data import IPMeta, ToolMeta
+from dvsim.report.dv_evidence import write_evidence
+from dvsim.report.vplan import (
+    VPLAN_DIR,
+    VPlanInputs,
+    overall_coverage,
+    shell_command,
+)
 from dvsim.test import Test
 from dvsim.tool.utils import get_sim_tool_plugin
 from dvsim.utils import (
@@ -177,7 +184,7 @@ class Deploy:
             interactive=self.sim_cfg.interactive,
             odir=self.odir,
             renew_odir=self.renew_odir,
-            log_path=Path(f"{self.odir}/{self.target}.log"),
+            log_path=self.log_path,
             pre_launch=self.pre_launch(),
             post_finish=self.post_finish(),
             pass_patterns=self.pass_patterns,
@@ -378,6 +385,11 @@ class Deploy:
 
         log.verbose('Deploy job "%s" is equivalent to "%s"', item.name, self.name)
         return True
+
+    @property
+    def log_path(self) -> Path:
+        """Path to the log this job writes."""
+        return Path(f"{self.odir}/{self.target}.log")
 
     def pre_launch(self) -> Callable[[], None]:
         """Get pre-launch callback."""
@@ -1038,104 +1050,113 @@ class CovAnalyze(Deploy):
 
 
 class CovVPlan(Deploy):
-    """Abstraction for generating a Verification Plan (vPlan) report using DVPlan."""
+    """Back-annotate the DVPlan verification plan, as a job of its own.
+
+    Scheduled like any other job, so the step gets a row in the status table and can depend on the
+    runs it annotates.
+    """
 
     target = "cov_vplan"
     weight = 10
 
-    def __init__(self, cov_report_job, sim_cfg) -> None:
-        self.report_job = cov_report_job
+    def __init__(self, dependencies: "Iterable[Deploy]", sim_cfg: "SimCfg") -> None:
+        """Construct the job, depending on whatever must finish before the plan can be scored."""
+        # Register a copy of sim_cfg which is explicitly the SimCfg type
+        self._typed_sim_cfg: SimCfg = sim_cfg
+        # Extracted from the hjson cfg by _set_attrs, and declared here so a type checker knows
+        # they exist, as the base class does for its own
+        self.proj_root: str = ""
+        self.vplan: str = ""
+        self.dut_instance: str = ""
+        self.dvplan_inspect: str = ""
         # Populated by post_finish() once the job completes successfully.
         self.vplan_coverage: float | None = None
         super().__init__(sim_cfg)
-        self.dependencies.append(cov_report_job)
+        # Every run it scores has to be terminal first, so the collector's evidence is complete
+        self.dependencies.extend(dependencies)
+        # A failed or killed run is still evidence, so score what happened rather than skipping
+        self.needs_all_dependencies_passing = False
 
     def _define_attrs(self) -> None:
         super()._define_attrs()
-        self.mandatory_cmd_attrs.update(
-            {
-                "proj_root": False,
-                "vplan": False,
-            }
-        )
+        self.mandatory_cmd_attrs.update({"proj_root": False, "vplan": False})
         self.mandatory_misc_attrs.update(
             {
                 "dut_instance": False,
+                # Optional. Unlike the coverage report and the test results, inspection records
+                # are written by hand and live in the tree, so dvsim only points dvplan at them
+                "dvplan_inspect": False,
             }
         )
 
     def _set_attrs(self) -> None:
-        self.cov_vplan_dir = f"{self.sim_cfg.scratch_path}/{self.target}"
+        # The base class derives `odir` from an attribute named after the target, and it does so
+        # inside the super() call below, so this has to be set first.
+        self.cov_vplan_dir = f"{self.sim_cfg.scratch_path}/{VPLAN_DIR}"
 
         super()._set_attrs()
         self.qual_name = self.target
         self.full_name = f"{self.sim_cfg.name}{self._variant_suffix}:{self.qual_name}"
-
-        self.prepare_opts = self.sim_cfg.cov_vplan_prepare_opts
-        self.process_opts = self.sim_cfg.cov_vplan_process_opts
-
-        # Calculate IP root.
-        vplan_path = Path(self.vplan)
-        self.ip_root = str(vplan_path.parent.parent)
-
-        # Use fixed output filenames so the report location is always predictable.
-        self.annotated_hjson = f"{self.odir}/vplan_annotated.hjson"
-        self.gen_html = f"{self.odir}/vplan_annotated.html"
         self.output_dirs = [self.odir]
+
+    @property
+    def annotated_hjson(self) -> Path:
+        """Where the annotated plan is written."""
+        return self._inputs().annotated
+
+    @property
+    def report_page(self) -> Path:
+        """Where the plan's HTML report is written."""
+        return self._inputs().report
+
+    def _inputs(self) -> VPlanInputs:
+        """Describe the annotation, so `report.vplan` needs nothing from the flow config."""
+        cfg = self._typed_sim_cfg
+        return VPlanInputs(
+            vplan=Path(self.vplan),
+            out_dir=Path(self.odir),
+            dut_entity=cfg.name,
+            dut_instance=self.dut_instance,
+            cov_report_dir=Path(cfg.cov_report_dir) if cfg.cov else None,
+            tool=cfg.tool or "",
+            inspect=self.dvplan_inspect,
+            prepare_opts=list(cfg.cov_vplan_prepare_opts),
+            process_opts=list(cfg.cov_vplan_process_opts),
+        )
+
+    def _construct_cmd(self) -> str:
+        """Build the dvplan invocation this job runs."""
+        return shell_command(self._inputs())
+
+    def pre_launch(self) -> Callable[[], None]:
+        """Get pre-launch callback."""
+
+        def callback() -> None:
+            """Write the evidence dvplan annotates the vPlan from.
+
+            Every run this job depends on is terminal by now, so the collector holds them all.
+            Written here rather than with the end-of-run reports because dvplan needs every coverage
+            source in one invocation, as `report.vplan._process_command` explains.
+            """
+            cfg = self._typed_sim_cfg
+            write_evidence(
+                self._inputs().evidence,
+                cfg.run_evidence.evidence(
+                    block=cfg.block_meta(),
+                    tool=cfg.tool,
+                    timestamp=cfg.run_timestamp().isoformat(),
+                ),
+            )
+
+        return callback
 
     def post_finish(self) -> Callable[[JobStatus], None]:
         """Get post finish callback."""
 
         def callback(status: JobStatus) -> None:
-            """Extract the overall vPlan normalised coverage from the annotated HJSON."""
+            """Read the plan's overall score back, for the flow's own report to quote."""
             if self.dry_run or status != JobStatus.PASSED:
                 return
-            hjson_path = Path(self.annotated_hjson)
-            if not hjson_path.exists():
-                return
-            try:
-                import hjson  # noqa: PLC0415
-
-                with hjson_path.open() as f:
-                    data = hjson.load(f)
-                # HJSON vPlans are keyed: {dut_name: {fields...}}
-                root_node = next(iter(data.values()), {})
-                raw = root_node.get("Normalized_Coverage")
-                if raw is not None:
-                    self.vplan_coverage = float(str(raw).rstrip(" %"))
-            except Exception:  # noqa: BLE001
-                log.debug("Could not extract vPlan coverage from '%s'.", hjson_path)
+            self.vplan_coverage = overall_coverage(self.annotated_hjson)
 
         return callback
-
-    def _construct_cmd(self) -> str:
-        """Construct the pure bash shell command, bypassing the base Makefile assumption."""
-        import shlex
-        import shutil
-
-        if shutil.which("dvplan") is None:
-            fallback = (
-                "echo 'WARNING: dvplan tool not installed in PATH. Skipping vPlan generation.'"
-            )
-            return f"/usr/bin/env bash -c {shlex.quote(fallback)}"
-
-        def format_opts(opts):
-            return " ".join(opts) if isinstance(opts, list) else str(opts)
-
-        prepare_opts_str = format_opts(self.prepare_opts)
-        process_opts_str = format_opts(self.process_opts)
-
-        prepare_cmd = f"dvplan prepare_vplan {prepare_opts_str} {self.ip_root} {self.vplan} {self.annotated_hjson}"
-        prepare_cmd = " ".join(prepare_cmd.split())
-
-        vendor_tool = f"{self.sim_cfg.tool}_report"
-        report_path = self.report_job.cov_report_dir
-
-        process_cmd = (
-            f"dvplan process_results {process_opts_str} --coverage {vendor_tool} {report_path} "
-            f"-R {self.gen_html} -s {self.sim_cfg.name} {self.dut_instance} {self.annotated_hjson}"
-        )
-        process_cmd = " ".join(process_cmd.split())
-
-        full_command = f"set -e; mkdir -p {self.odir}; {prepare_cmd} && {process_cmd}"
-        return f"/usr/bin/env bash -c {shlex.quote(full_command)}"

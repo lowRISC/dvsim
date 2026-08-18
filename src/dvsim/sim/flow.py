@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from dvsim.flow.base import FlowCfg
-from dvsim.job.data import CompletedJobStatus, JobSpec
+from dvsim.job.data import CompletedJobStatus, JobSpec, JobStatusInfo
 from dvsim.job.deploy import (
     CompileSim,
     CovAnalyze,
@@ -29,6 +29,7 @@ from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
+from dvsim.report.dv_evidence import RunEvidenceCollector
 from dvsim.sim.data import (
     IPMeta,
     SimFlowResults,
@@ -158,10 +159,15 @@ class SimCfg(FlowCfg):
         self.cov_report_dir = ""
         self.cov_report_page = ""
 
-        # Options for vPlan processing
+        # Options for vPlan processing. Extracted from the hjson cfg, and declared here so a type
+        # checker knows they exist. Nothing happens unless `vplan` names a plan
+        self.vplan: str = ""
         # dut_instance is the hierarchical testbench path to the DUT (e.g. "tb.dut"),
         # distinct from `name`/`qual_name` which identify the sim config itself.
         self.dut_instance = ""
+        # A file, a directory of them, or a glob holding hand-written dvplan inspection records.
+        # No regression produces these, so dvsim only passes the path on
+        self.dvplan_inspect = ""
         self.cov_vplan_prepare_opts = []
         self.cov_vplan_process_opts = []
 
@@ -178,6 +184,10 @@ class SimCfg(FlowCfg):
         self.run_list = []
         self.cov_merge_deploy = None
         self.cov_report_deploy = None
+        self.cov_vplan_deploy = None
+        # Filled in by the scheduler's completion hook, and read by the vPlan job once every run it
+        # depends on is terminal
+        self.run_evidence = RunEvidenceCollector()
         self.results_summary = OrderedDict()
 
         super().__init__(flow_cfg_file, hjson_data, args, mk_config)
@@ -560,9 +570,12 @@ class SimCfg(FlowCfg):
                 self.cov_report_deploy = CovReport(self.cov_merge_deploy, self)
                 self.deploy += [self.cov_merge_deploy, self.cov_report_deploy]
 
-                if getattr(self, "vplan", False):
-                    self.cov_vplan_deploy = CovVPlan(self.cov_report_deploy, self)
-                    self.deploy.append(self.cov_vplan_deploy)
+            if self.vplan and self.runs:
+                # Depends on the coverage report where there is one, so the vendor report exists
+                # to annotate from, and otherwise straight on the runs it scores.
+                vplan_deps = [self.cov_report_deploy] if self.cov_report_deploy else self.runs
+                self.cov_vplan_deploy = CovVPlan(vplan_deps, self)
+                self.deploy.append(self.cov_vplan_deploy)
 
     def _cov_analyze(self) -> None:
         """Open GUI tool for coverage analysis.
@@ -684,6 +697,45 @@ class SimCfg(FlowCfg):
             path=reports_dir,
         )
 
+    def on_job_completed(
+        self, spec: JobSpec, status: JobStatus, reason: JobStatusInfo | None
+    ) -> None:
+        """Record each run's outcome as the scheduler concludes it.
+
+        Fed from the scheduler rather than from a job callback, because only the scheduler sees a job
+        it cancelled before dispatching it.
+        """
+        self.run_evidence.record(spec, status, reason)
+
+    def run_timestamp(self) -> datetime:
+        """Return when this run started, as an aware datetime.
+
+        `self.timestamp` is a `TS_FORMAT` string, which is a dvsim convention no consumer of a report
+        can be expected to parse, so everything written out of this flow goes through here.
+        """
+        return datetime.strptime(self.timestamp, TS_FORMAT).replace(tzinfo=timezone.utc)
+
+    def block_meta(self, url: str | None = None) -> IPMeta:
+        """Describe the design under test, for anything this flow writes about the run.
+
+        Shared by the reports and the vPlan evidence file, so a run cannot say it came from a clean
+        tree in one artefact and a dirty one in another.
+
+        Args:
+            url: link to the IP in git, or None to derive it from the checkout.
+
+        """
+        return IPMeta(
+            name=self.name.lower(),
+            variant=(self.variant or "").lower() or None,
+            commit=self.commit,
+            commit_short=self.commit_short,
+            dirty=self.dirty,
+            branch=self.branch or "",
+            url=url if url is not None else (git_https_url_with_commit(path=Path(self.proj_root))),
+            revision_info=self.revision,
+        )
+
     def _gen_json_results(
         self,
         run_results: Sequence[CompletedJobStatus],
@@ -704,18 +756,8 @@ class SimCfg(FlowCfg):
             self.testplan.map_test_results(sim_results.table)
 
         # --- Metadata ---
-        timestamp = datetime.strptime(self.timestamp, TS_FORMAT).replace(tzinfo=timezone.utc)
-
-        block = IPMeta(
-            name=self.name.lower(),
-            variant=(self.variant or "").lower() or None,
-            commit=self.commit,
-            commit_short=self.commit_short,
-            dirty=self.dirty,
-            branch=self.branch or "",
-            url=url,
-            revision_info=self.revision,
-        )
+        timestamp = self.run_timestamp()
+        block = self.block_meta(url=url)
         tool = ToolMeta(name=self.tool.lower(), version="unknown")
 
         build_seed = self.build_seed if not self.run_only else None
@@ -844,8 +886,8 @@ class SimCfg(FlowCfg):
 
         vplan_report_page = None
         vplan_coverage = None
-        if getattr(self, "cov_vplan_deploy", None):
-            vplan_report_page = Path(self.scratch_path) / CovVPlan.target / "vplan_annotated.html"
+        if self.cov_vplan_deploy is not None:
+            vplan_report_page = self.cov_vplan_deploy.report_page
             vplan_coverage = self.cov_vplan_deploy.vplan_coverage
 
         failures = BucketedFailures.from_job_status(results=run_results)
