@@ -884,10 +884,13 @@ class SimCfg(FlowCfg):
             cov_report_dir = self.cov_report_dir or "cov_report"
             cov_report_page = Path(cov_report_dir, self.cov_report_page)
 
+        # Linked only once the page is actually there. The job can be killed, and it exits without
+        # annotating anything where dvplan is not installed, so its output directory is not proof
         vplan_report_page = None
         vplan_coverage = None
         if self.cov_vplan_deploy is not None:
-            vplan_report_page = self.cov_vplan_deploy.report_page
+            page = self.cov_vplan_deploy.report_page
+            vplan_report_page = page if page.is_file() else None
             vplan_coverage = self.cov_vplan_deploy.vplan_coverage
 
         failures = BucketedFailures.from_job_status(results=run_results)

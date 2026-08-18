@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import pytest
 from hamcrest import assert_that, contains_string, equal_to, has_key, is_, none, not_
 
-from dvsim.job.data import JobSpec, JobStatusInfo, WorkspaceConfig
+from dvsim.job.data import DependencyPolicy, JobSpec, JobStatusInfo, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.report.data import IPMeta, ToolMeta
 from dvsim.report.dv_evidence import (
@@ -74,7 +74,7 @@ def _spec(
         tool=ToolMeta(name=_TOOL, version="unknown"),
         workspace_cfg=_WORKSPACE,
         dependencies=[],
-        needs_all_dependencies_passing=True,
+        dependency_policy=DependencyPolicy.ALL_PASSING,
         weight=1,
         timeout_mins=None,
         cmd="make run",

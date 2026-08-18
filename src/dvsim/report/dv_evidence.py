@@ -4,8 +4,12 @@
 
 """Regression results in the tool-neutral `lowrisc-dv-evidence` format.
 
-dvplan defines the format, so a vPlan can be back-annotated from any regression flow and a person
-can write one by hand. What dvsim writes here is a plain serialisation of what it already knows.
+These models are the format's definition, and `doc/dv_evidence.md` describes them. It lives here
+because dvsim is what produces the file, so anything reading one can be written against a public
+spec rather than against whichever consumer happened to be built first.
+
+The format carries no planning-tool concepts, so a verification plan can be scored from any
+regression flow that emits it, and a person can write one by hand.
 
 Built from what the scheduler concludes about each job, through its completion hook. That is the
 same state the JSON report is derived from, so the two cannot disagree about a run, and it is
@@ -50,8 +54,8 @@ _CANCELLED_REASONS = frozenset(
 class Outcome(Enum):
     """How one run of a test ended, in the neutral format's vocabulary.
 
-    There is no waived outcome: dvplan requires an owner and a date on a waiver, and a regression
-    can supply neither. A known failure is accepted there by recording an inspection instead.
+    There is no waived outcome. A waiver needs an owner and a date, and a regression can supply
+    neither, so the format only allows one on an inspection, which is written by hand.
     """
 
     PASSED = "passed"
@@ -96,8 +100,8 @@ class TestRun(BaseModel):
 class EvidenceFile(BaseModel):
     """A regression's results, in the tool-neutral evidence format.
 
-    dvsim only ever fills the `testcase` half. The format also carries manual inspections, which a
-    person writes by hand.
+    dvsim only ever fills the `testcase` half. The format also has an `inspection` key, for claims
+    no simulation can measure, and those records are written by hand.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid", populate_by_name=True)

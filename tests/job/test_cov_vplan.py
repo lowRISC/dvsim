@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import pytest
 from hamcrest import assert_that, contains_string, equal_to, is_, none
 
-from dvsim.job.data import WorkspaceConfig
+from dvsim.job.data import DependencyPolicy, WorkspaceConfig
 from dvsim.job.deploy import CovVPlan
 from dvsim.job.status import JobStatus
 from dvsim.report.vplan import ANNOTATED_HJSON, ANNOTATED_HTML, VPLAN_DIR
@@ -62,9 +62,8 @@ def _cfg(**overrides: object) -> SimpleNamespace:
 
 
 @pytest.fixture
-def job(monkeypatch: pytest.MonkeyPatch) -> CovVPlan:
-    """A constructed job, with dvplan present so the real command is built."""
-    monkeypatch.setattr("dvsim.report.vplan.shutil.which", lambda _: "/usr/bin/dvplan")
+def job() -> CovVPlan:
+    """Construct the job the way the sim flow does."""
     return CovVPlan([], _cfg())
 
 
@@ -92,19 +91,31 @@ def test_the_job_builds_a_runnable_command(job: CovVPlan) -> None:
     assert_that(job.cmd, contains_string("-s hmac tb.dut"))
 
 
-def test_a_run_without_coverage_still_annotates(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_run_without_coverage_still_annotates() -> None:
     """Without --cov there is no vendor report, and the plan is scored from the evidence alone."""
-    monkeypatch.setattr("dvsim.report.vplan.shutil.which", lambda _: "/usr/bin/dvplan")
-
     job = CovVPlan([], _cfg(cov=False))
 
     assert_that(job.cmd, contains_string("--coverage dv_evidence"))
     assert_that("xcelium_report" in job.cmd, is_(False))
 
 
+def test_an_inspection_pattern_matching_nothing_fails_at_config_time() -> None:
+    """The cfg names records that are not there, so the run must stop before it burns a regression.
+
+    The command is built in `Deploy.__init__`, so this lands while the jobs are still being
+    created rather than hours later inside dvplan.
+    """
+    with pytest.raises(ValueError, match="No inspection records matched"):
+        CovVPlan([], _cfg(dvplan_inspect="/proj/hw/ip/hmac/dv/inspections/*.json"))
+
+
 def test_a_failing_run_still_gets_its_plan_scored(job: CovVPlan) -> None:
-    """A failed test is still evidence, so the job must not be skipped when a dependency fails."""
-    assert_that(job.needs_all_dependencies_passing, is_(False))
+    """A regression where nothing passed is the case the plan most needs to describe.
+
+    `ANY_PASSING` would not do here. With `--cov` this job has one dependency, the coverage
+    report, so anything that stops the report also stops the plan being scored.
+    """
+    assert_that(job.dependency_policy, equal_to(DependencyPolicy.ALWAYS))
 
 
 def test_no_score_is_read_back_when_the_job_did_not_pass(job: CovVPlan) -> None:
