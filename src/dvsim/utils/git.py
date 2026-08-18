@@ -5,12 +5,33 @@
 """Git utility functions."""
 
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from git import Repo
 
 from dvsim.logging import log
 
 __all__ = ("repo_root",)
+
+
+def strip_url_credentials(url: str) -> str:
+    """Remove any username/password from a URL, keeping the rest of it intact.
+
+    A CI checkout leaves its access token in the remote URL as ``https://oauth2:<token>@host/org/repo``.
+    That URL is recorded in the run metadata and published in the reports, which get archived, so the
+    token would outlive the run that leaked it.
+
+    An ssh URL keeps its user: ``git@`` names an ssh account rather than an identity to authenticate
+    as, so dropping it gives a URL that no longer addresses the remote. A password is stripped
+    whatever the scheme carries it.
+    """
+    parts = urlsplit(url)
+    userinfo, _, host = parts.netloc.rpartition("@")
+    if not userinfo:
+        return url
+    if ":" not in userinfo and parts.scheme not in ("http", "https"):
+        return url
+    return urlunsplit((parts.scheme, host, parts.path, parts.query, parts.fragment))
 
 
 def repo_root(path: Path) -> Path | None:
@@ -56,7 +77,11 @@ def git_is_dirty(path: Path | None = None) -> bool:
 
 
 def git_origin_url(path: Path | None = None) -> str | None:
-    """Get the git remote origin url, or None if no ``origin`` remote is configured."""
+    """Get the git remote origin url, or None if no ``origin`` remote is configured.
+
+    Any credentials the remote carries are stripped, so that the url is safe to record in run
+    metadata and reports.
+    """
     root = repo_root(path=path or Path.cwd())
 
     if root is None:
@@ -68,7 +93,7 @@ def git_origin_url(path: Path | None = None) -> str | None:
     if "origin" not in [remote.name for remote in r.remotes]:
         return None
 
-    return r.remote("origin").url
+    return strip_url_credentials(r.remote("origin").url)
 
 
 def git_https_url_with_commit(path: Path | None = None) -> str | None:

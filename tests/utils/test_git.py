@@ -136,9 +136,73 @@ class TestGit:
     @pytest.mark.parametrize(
         ("url", "expected"),
         [
+            (
+                "https://github.com/lowRISC/test.git",
+                "https://github.com/lowRISC/test.git",
+            ),
+            ("git@github.com:lowRISC/test.git", "git@github.com:lowRISC/test.git"),
+            # An ssh user is part of the address rather than a credential, so it stays. Dropping
+            # it would leave a url that no longer reaches the remote.
+            (
+                "ssh://git@github.com/lowRISC/test.git",
+                "ssh://git@github.com/lowRISC/test.git",
+            ),
+            (
+                "git+ssh://git@github.com/lowRISC/test.git",
+                "git+ssh://git@github.com/lowRISC/test.git",
+            ),
+            (
+                "https://oauth2:ghs_secrettoken@github.com/lowRISC/test.git",
+                "https://github.com/lowRISC/test.git",
+            ),
+            (
+                "https://someuser@github.com/lowRISC/test.git",
+                "https://github.com/lowRISC/test.git",
+            ),
+            # A password is a credential whatever the scheme carries it.
+            (
+                "ssh://user:secretpw@github.com/lowRISC/test.git",
+                "ssh://github.com/lowRISC/test.git",
+            ),
+        ],
+        ids=[
+            "plain_https",
+            "ssh_scp_form",
+            "ssh_url_form",
+            "git_ssh_scheme",
+            "token",
+            "user_only",
+            "ssh_with_password",
+        ],
+    )
+    def test_git_origin_url_strips_credentials(tmp_path: Path, url: str, expected: str) -> None:
+        """A token in the remote url never reaches the caller, whatever the url's shape.
+
+        The url is recorded in the run metadata and published in the reports, so a credential
+        left in it outlives the run. Both ssh forms carry an '@' without being credentialed, and
+        have to survive untouched or the recorded url stops addressing the remote.
+        """
+        r = Repo.init(path=tmp_path)
+
+        file = tmp_path / "a"
+        file.write_text("file to commit")
+        r.index.add([file])
+        r.index.commit("initial commit")
+        r.create_remote("origin", url)
+
+        assert_that(git_origin_url(tmp_path), equal_to(expected))
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
             ("git@github.com:lowRISC/test.git", "https://github.com/lowRISC/test/tree/{commit}"),
             (
                 "https://github.com/lowRISC/test.git",
+                "https://github.com/lowRISC/test/tree/{commit}",
+            ),
+            (
+                "https://oauth2:ghs_secrettoken@github.com/lowRISC/test.git",
                 "https://github.com/lowRISC/test/tree/{commit}",
             ),
         ],
