@@ -6,11 +6,10 @@
 
 The command built here is the interface to another tool, whose positional shape is a fixed
 contract, so it is checked as carefully as anything that runs in this process. The rest covers
-the promise that no vPlan problem can fail a regression that otherwise passed.
+the promise that no vPlan problem can fail a regression that otherwise passed, and that the one
+cfg mistake which can is caught while the jobs are still being built.
 """
 
-import logging
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -27,24 +26,29 @@ from dvsim.report.vplan import (
 
 
 def _inputs(tmp_path: Path, **overrides: object) -> VPlanInputs:
-    """Build the inputs for one annotation, overriding whatever a test cares about."""
-    base = VPlanInputs(
-        vplan=tmp_path / "hw" / "ip" / "hmac" / "doc" / "hmac_vplan.hjson",
-        out_dir=tmp_path / "out",
-        dut_entity="hmac",
-        dut_instance="tb.dut",
-        cov_report_dir=Path("/scratch/hmac/cov_report"),
-        tool="xcelium",
-    )
-    return replace(base, **overrides)
+    """Build the inputs for one annotation, overriding whatever a test cares about.
+
+    Merged before the model is built rather than copied onto a built one, so an override goes
+    through the same validation as the value it replaces.
+    """
+    base: dict[str, object] = {
+        "vplan": tmp_path / "hw" / "ip" / "hmac" / "doc" / "hmac_vplan.hjson",
+        "out_dir": tmp_path / "out",
+        "dut_entity": "hmac",
+        "dut_instance": "tb.dut",
+        "cov_report_dir": Path("/scratch/hmac/cov_report"),
+        "tool": "xcelium",
+    }
+    return VPlanInputs(**(base | overrides))
 
 
 def test_the_command_keeps_dvplan_s_positional_contract(tmp_path: Path) -> None:
     """`process_results` takes its three positionals last, with `-s` as a flag before them.
 
-    dvplan documents this shape as fixed because dvsim builds it. Getting `-s` wrong is the
-    error that reads as `--summary` swallowing the DUT name, so it is pinned here rather than
-    discovered in a nightly.
+    This pins what dvsim emits. It cannot check dvplan's side, which lives in another repo, so a
+    failure here means the argv moved and the two need reconciling. Getting `-s` wrong is the
+    error that reads as `--summary` swallowing the DUT name, hence pinning it rather than
+    discovering it in a nightly.
     """
     inputs = _inputs(tmp_path)
 
@@ -106,23 +110,16 @@ def test_a_directory_of_inspections_is_passed_through(tmp_path: Path) -> None:
     assert_that(_expand(str(folder)), equal_to([str(folder)]))
 
 
-def test_a_pattern_matching_nothing_warns_and_is_left_alone(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    """Silently dropping the source would read as the cfg not naming one at all.
+def test_a_pattern_matching_nothing_is_a_config_error(tmp_path: Path) -> None:
+    """Naming inspections that do not exist is a cfg mistake, and both other answers are worse.
 
-    The fixture's handler is attached to the 'dvsim' logger by hand, because that logger sets
-    `propagate = False` and so never reaches the root handler `caplog` installs.
+    Passing the pattern on would fail the job with dvplan's own message once the regression has
+    already run, and dropping it would score the plan as though the cfg had never named any.
     """
     pattern = str(tmp_path / "nothing" / "*.json")
-    dvsim_log = logging.getLogger("dvsim")
-    dvsim_log.addHandler(caplog.handler)
-    try:
-        assert_that(_expand(pattern), equal_to([pattern]))
-    finally:
-        dvsim_log.removeHandler(caplog.handler)
 
-    assert_that(caplog.text, contains_string("No inspection records matched"))
+    with pytest.raises(ValueError, match="No inspection records matched"):
+        _expand(pattern)
 
 
 @pytest.mark.parametrize(
@@ -152,32 +149,25 @@ def test_a_missing_annotated_plan_reports_no_score(tmp_path: Path) -> None:
     assert_that(overall_coverage(tmp_path / "absent.hjson"), is_(none()))
 
 
-def test_a_missing_dvplan_still_produces_a_runnable_command(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A checkout without dvplan installed must not fail every regression that names a vPlan.
+def test_a_missing_dvplan_is_decided_where_the_job_runs(tmp_path: Path) -> None:
+    """A checkout without dvplan must not fail every regression that names a vPlan.
 
-    The job still has to run something, so it warns and passes rather than erroring.
+    Testing PATH here would answer for the host dvsim was launched from, which on a compute farm
+    is not the host the job lands on, so the guard goes in the script and is checked there.
     """
-    monkeypatch.setattr("dvsim.report.vplan.shutil.which", lambda _: None)
-
     command = shell_command(_inputs(tmp_path))
 
-    assert_that(command, contains_string("bash -c"))
+    assert_that(command, contains_string("command -v dvplan"))
     assert_that(command, contains_string("WARNING"))
-    assert_that("dvplan process_results" in command, is_(False))
+    assert_that(command, contains_string("exit 0"))
 
 
-def test_the_command_fails_the_job_when_dvplan_does(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_the_command_fails_the_job_when_dvplan_does(tmp_path: Path) -> None:
     """A broken annotation shows as a failed job rather than a silently missing score.
 
     `set -e` and the `&&` are what carry a non-zero exit out to the scheduler, so they are
     checked rather than assumed.
     """
-    monkeypatch.setattr("dvsim.report.vplan.shutil.which", lambda _: "/usr/bin/dvplan")
-
     command = shell_command(_inputs(tmp_path))
 
     assert_that(command, contains_string("set -e"))

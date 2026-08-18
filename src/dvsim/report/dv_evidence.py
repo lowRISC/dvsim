@@ -4,19 +4,28 @@
 
 """Regression results in the tool-neutral `lowrisc-dv-evidence` format.
 
-dvplan defines the format, so a vPlan can be back-annotated from any regression flow and a person
-can write one by hand. What dvsim writes here is a plain serialisation of what it already knows.
+These models are the format's definition, and `doc/dv_evidence.md` describes them. It lives here
+because dvsim is what produces the file, so anything reading one can be written against a public
+spec rather than against whichever consumer happened to be built first.
+
+The format carries no planning-tool concepts, so a verification plan can be scored from any
+regression flow that emits it, and a person can write one by hand.
 
 Built from what the scheduler concludes about each job, through its completion hook. That is the
 same state the JSON report is derived from, so the two cannot disagree about a run, and it is
 available early enough for the vPlan job to read while the run is still going.
+
+Each run is appended to a log in the scratch directory as it finishes rather than accumulated in
+memory, so the scratch directory is the only thing standing between the runs and the job that
+scores them.
 """
 
+import json
 from enum import Enum
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from dvsim.job.data import JobSpec, JobStatusInfo
 from dvsim.job.status import JobStatus
@@ -27,7 +36,7 @@ from dvsim.scheduler.core import ALL_FAILED_DEP, FAILED_DEP, KILLED_QUEUED, KILL
 __all__ = (
     "EvidenceFile",
     "Outcome",
-    "RunEvidenceCollector",
+    "RunEvidenceLog",
     "run_outcome",
     "write_evidence",
 )
@@ -50,8 +59,8 @@ _CANCELLED_REASONS = frozenset(
 class Outcome(Enum):
     """How one run of a test ended, in the neutral format's vocabulary.
 
-    There is no waived outcome: dvplan requires an owner and a date on a waiver, and a regression
-    can supply neither. A known failure is accepted there by recording an inspection instead.
+    There is no waived outcome. A waiver needs an owner and a date, and a regression can supply
+    neither, so the format only allows one on an inspection, which is written by hand.
     """
 
     PASSED = "passed"
@@ -96,8 +105,8 @@ class TestRun(BaseModel):
 class EvidenceFile(BaseModel):
     """A regression's results, in the tool-neutral evidence format.
 
-    dvsim only ever fills the `testcase` half. The format also carries manual inspections, which a
-    person writes by hand.
+    dvsim only ever fills the `testcase` half. The format also has an `inspection` key, for claims
+    no simulation can measure, and those records are written by hand.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid", populate_by_name=True)
@@ -112,35 +121,79 @@ class EvidenceFile(BaseModel):
     timestamp: str | None = None
 
 
-class RunEvidenceCollector:
-    """Accumulates the outcome of every test run of one flow, as the scheduler concludes them.
+class RunEvidenceLog:
+    """Append-only record of how each test run ended, in one sim cfg's scratch directory.
 
     Fed by `Scheduler.add_job_completion_callback`, so a job cancelled before it ever started is
     recorded too, and a test the plan expected reads as a hole rather than as an absent test.
+
+    Each run is appended as it finishes rather than held in memory until the end, so the log on
+    disk, not a live dvsim process, is what the vPlan job reads. That is what lets the vPlan step
+    be retried, or a part-finished run be picked up, without the earlier outcomes having been
+    lost with the process that saw them.
+
+    One JSON object per line, opened and closed per run, so a dvsim that is killed still leaves a
+    readable log of everything that had finished by then. Appending costs one short write per
+    test, against a simulation that took minutes.
     """
 
-    def __init__(self) -> None:
-        """Start with nothing recorded. Runs arrive as the scheduler completes them."""
-        self._runs: dict[str, list[TestRun]] = {}
+    def __init__(self, path: Path) -> None:
+        """Log to `path`, which is created on the first write."""
+        self.path = path
+
+    def start(self) -> None:
+        """Begin an empty log, discarding whatever an earlier run left in the same scratch area.
+
+        A scratch path is reused between invocations on one branch, so without this a second run
+        would score the vPlan from both. Resuming a part-finished run is the case that would want
+        the opposite, and it would skip this rather than change what `record` writes.
+        """
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text("", encoding="utf-8")
 
     def record(self, spec: JobSpec, status: JobStatus, reason: JobStatusInfo | None) -> None:
-        """Record how one job ended, keeping only the ones that run a test.
+        """Append how one job ended, keeping only the ones that run a test.
 
-        Grouped by job name, which is the name a vPlan addresses. Reseeds of one test share it and
-        are told apart by their seeds.
+        Written under the job name, which is the name a vPlan addresses. Reseeds of one test share
+        it and are told apart by their seeds.
         """
         if spec.target != RUN_TARGET:
             return
         failed = status != JobStatus.PASSED
-        self._runs.setdefault(spec.name, []).append(
-            TestRun(
-                status=run_outcome(status, reason),
-                seed=spec.seed,
-                log=spec.log_path,
-                message=reason.message if reason is not None and failed else None,
-                line=_first_line(reason) if failed else None,
-            )
+        run = TestRun(
+            status=run_outcome(status, reason),
+            seed=spec.seed,
+            log=spec.log_path,
+            message=reason.message if reason is not None and failed else None,
+            line=_first_line(reason) if failed else None,
         )
+        record = {"test": spec.name, **run.model_dump(mode="json", exclude_none=True)}
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
+
+    def runs(self) -> dict[str, list[TestRun]]:
+        """Read the log back, grouped by test name, in the order the runs finished.
+
+        A line that will not parse is dropped with a warning rather than failing the job: dvsim
+        can be killed mid-write, and one torn line is not a reason to score nothing.
+        """
+        runs: dict[str, list[TestRun]] = {}
+        if not self.path.is_file():
+            log.warning(
+                "No run log at '%s', so the vPlan is scored from no test results.", self.path
+            )
+            return runs
+        for line in self.path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+                name = record.pop("test")
+                runs.setdefault(name, []).append(TestRun.model_validate(record))
+            except (ValueError, KeyError, ValidationError):
+                log.warning("Skipping an unreadable line in the run log '%s'.", self.path)
+        return runs
 
     def evidence(
         self,
@@ -149,9 +202,9 @@ class RunEvidenceCollector:
         tool: str | None = None,
         timestamp: str | None = None,
     ) -> EvidenceFile:
-        """Build the evidence document for everything recorded so far."""
+        """Build the evidence document from everything the log holds."""
         return EvidenceFile(
-            testcase=self._runs,
+            testcase=self.runs(),
             dut=block.variant_name(sep="/"),
             tool=tool,
             produced_by=_produced_by(),

@@ -13,7 +13,7 @@ from signal import SIGINT, SIGTERM, getsignal, signal
 from types import FrameType
 from typing import Any, TypeAlias
 
-from dvsim.job.data import CompletedJobStatus, JobSpec, JobStatusInfo
+from dvsim.job.data import CompletedJobStatus, DependencyPolicy, JobSpec, JobStatusInfo
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.runtime.backend import RuntimeBackend
@@ -365,7 +365,10 @@ class Scheduler:
 
             # Handle dependency management and marking dependents as ready
             if dep.remaining_deps == 0 and dep.status == JobStatus.SCHEDULED:
-                if dep.spec.needs_all_dependencies_passing:
+                policy = dep.spec.dependency_policy
+                if policy is DependencyPolicy.ALWAYS:
+                    self._mark_job_ready(dep)
+                elif policy is DependencyPolicy.ALL_PASSING:
                     if dep.passing_deps == len(dep.spec.dependencies):
                         self._mark_job_ready(dep)
                     else:

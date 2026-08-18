@@ -12,12 +12,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from dvsim.flow.base import FlowCfg
-from dvsim.job.data import JobSpec
+from dvsim.job.data import DependencyPolicy, JobSpec
 from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
 from dvsim.logging import log
 from dvsim.report.data import IPMeta, ToolMeta
-from dvsim.report.dv_evidence import write_evidence
+from dvsim.report.dv_evidence import RunEvidenceLog, write_evidence
 from dvsim.report.vplan import (
     VPLAN_DIR,
     VPlanInputs,
@@ -94,10 +94,9 @@ class Deploy:
         # A list of jobs on which this job depends.
         self.dependencies = []
 
-        # Indicates whether running this job requires all dependencies to pass.
-        # If this flag is set to False, any passing dependency will trigger
-        # this current job to run
-        self.needs_all_dependencies_passing = True
+        # What the jobs this one depends on must have concluded before it may run. The default
+        # suits anything consuming a dependency's output, which is most jobs
+        self.dependency_policy = DependencyPolicy.ALL_PASSING
 
         # These variables will be extracted from the hjson file by _set_attrs,
         # and then _check_attrs checks that they were indeed extracted. Define
@@ -175,7 +174,7 @@ class Deploy:
             ),
             workspace_cfg=self.sim_cfg.workspace_cfg,
             dependencies=[d.full_name for d in self.dependencies],
-            needs_all_dependencies_passing=self.needs_all_dependencies_passing,
+            dependency_policy=self.dependency_policy,
             weight=self.weight,
             timeout_mins=(None if self.gui else self.get_timeout_mins()),
             cmd=self.cmd,
@@ -925,8 +924,8 @@ class CovMerge(Deploy):
 
         super().__init__(sim_cfg)
         self.dependencies.extend(run_items)
-        # Run coverage merge even if one test passes.
-        self.needs_all_dependencies_passing = False
+        # Merge whatever coverage exists, so one passing test is enough to be worth merging.
+        self.dependency_policy = DependencyPolicy.ANY_PASSING
 
         # Append cov_db_dirs to the list of exports.
         self.merged_exports["cov_db_dirs"] = shlex.quote(" ".join(self.cov_db_dirs))
@@ -1088,8 +1087,9 @@ class CovVPlan(Deploy):
         super().__init__(sim_cfg)
         # Every run it scores has to be terminal first, so the collector's evidence is complete
         self.dependencies.extend(dependencies)
-        # A failed or killed run is still evidence, so score what happened rather than skipping
-        self.needs_all_dependencies_passing = False
+        # A failed or killed run is still evidence, and a regression where nothing passed is the
+        # case the plan most needs to describe, so this is scored whatever the dependencies did
+        self.dependency_policy = DependencyPolicy.ALWAYS
 
     def _define_attrs(self) -> None:
         super()._define_attrs()
@@ -1146,16 +1146,18 @@ class CovVPlan(Deploy):
         """Get pre-launch callback."""
 
         def callback() -> None:
-            """Write the evidence dvplan annotates the vPlan from.
+            """Assemble the evidence dvplan annotates the vPlan from, out of the run log.
 
-            Every run this job depends on is terminal by now, so the collector holds them all.
-            Written here rather than with the end-of-run reports because dvplan needs every coverage
-            source in one invocation, as `report.vplan._process_command` explains.
+            Every run this job depends on is terminal by now, so the log beside this job's output
+            holds them all. Assembled here rather than with the end-of-run reports because dvplan
+            needs every coverage source in one invocation, as `report.vplan._process_command`
+            explains.
             """
             cfg = self._typed_sim_cfg
+            inputs = self._inputs()
             write_evidence(
-                self._inputs().evidence,
-                cfg.run_evidence.evidence(
+                inputs.evidence,
+                RunEvidenceLog(inputs.evidence_log).evidence(
                     block=cfg.block_meta(),
                     tool=cfg.tool,
                     timestamp=cfg.run_timestamp().isoformat(),

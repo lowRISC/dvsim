@@ -12,16 +12,21 @@ Nothing happens at all unless the sim cfg names a `vplan`.
 
 import glob
 import shlex
-import shutil
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import hjson
+from pydantic import BaseModel, ConfigDict, Field
 
 from dvsim.logging import log
 
-__all__ = ("VPlanInputs", "overall_coverage", "shell_command")
+__all__ = (
+    "SKIP_WITHOUT_DVPLAN",
+    "VPlanInputs",
+    "evidence_log",
+    "overall_coverage",
+    "shell_command",
+)
 
 # Scratch subdirectory the annotated plan and its report are written to. Unchanged, so an existing
 # link to the report still resolves
@@ -31,10 +36,23 @@ ANNOTATED_HJSON = "vplan_annotated.hjson"
 ANNOTATED_HTML = "vplan_annotated.html"
 EVIDENCE_JSON = "dv_evidence.json"
 
+# The runs are logged here as they finish, and the evidence file is assembled from it. Beside
+# the file it feeds, so everything the vPlan step reads or writes is in one directory
+EVIDENCE_LOG = "dv_evidence.jsonl"
 
-@dataclass(frozen=True)
-class VPlanInputs:
+# Whether dvplan is installed is decided by the script, on the machine the job lands on, rather
+# than by dvsim on whichever host the run was launched from. Exits 0 so that a checkout without
+# dvplan does not fail every regression that names a vPlan
+SKIP_WITHOUT_DVPLAN = (
+    "if ! command -v dvplan >/dev/null 2>&1; then "
+    "echo 'WARNING: dvplan is not installed on PATH. Skipping vPlan annotation.'; exit 0; fi;"
+)
+
+
+class VPlanInputs(BaseModel):
     """Everything the annotation needs, so this module never reaches back into a flow config."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     vplan: Path
     """The verification plan to annotate."""
@@ -50,8 +68,10 @@ class VPlanInputs:
     """Simulator name, which selects the vendor report format."""
     inspect: str = ""
     """Where hand-written inspection records live, if the cfg names any. A path or a glob."""
-    prepare_opts: list[str] = field(default_factory=list)
-    process_opts: list[str] = field(default_factory=list)
+    prepare_opts: list[str] = Field(default_factory=list)
+    """Extra options for `prepare_vplan`, as the cfg wrote them."""
+    process_opts: list[str] = Field(default_factory=list)
+    """Extra options for `process_results`, as the cfg wrote them."""
 
     @property
     def annotated(self) -> Path:
@@ -68,18 +88,33 @@ class VPlanInputs:
         """Where the regression's evidence file is written, and read back from."""
         return self.out_dir / EVIDENCE_JSON
 
+    @property
+    def evidence_log(self) -> Path:
+        """Where the runs were logged as they finished, which the evidence file is built from."""
+        return self.out_dir / EVIDENCE_LOG
+
+
+def evidence_log(scratch_path: Path) -> Path:
+    """Where one sim cfg's runs are logged, given that cfg's scratch directory.
+
+    The runs are logged while the regression is still going and the vPlan job reads the log back
+    when it starts, so both ends have to agree on this without either holding the other's config.
+    """
+    return scratch_path / VPLAN_DIR / EVIDENCE_LOG
+
 
 def shell_command(inputs: VPlanInputs) -> str:
     """Build the bash command that prepares and annotates the vPlan.
 
-    Returned as one `bash -c` string because a scheduled job runs a shell command. `set -e` and the
-    `&&` mean a broken annotation shows as a failed job rather than a silently missing score.
-    """
-    if shutil.which("dvplan") is None:
-        # Warn and pass, so a checkout without dvplan does not fail every regression naming a vPlan
-        warning = "WARNING: dvplan is not installed on PATH. Skipping vPlan annotation."
-        return f"/usr/bin/env bash -c {shlex.quote(f'echo {shlex.quote(warning)}')}"
+    Returned as one `bash -c` string because a job is dispatched to a compute node as a single
+    command, so both dvplan calls and the guard in front of them have to travel as one. `set -e`
+    and the `&&` mean a broken annotation shows as a failed job rather than a silently missing
+    score. The output directory is not created here: every launcher makes a job's `odir` before it
+    runs the command.
 
+    The command is the same whether or not dvplan is installed here, because here is not where it
+    runs. See `SKIP_WITHOUT_DVPLAN`.
+    """
     # The vPlan sits at <ip_root>/<something>/<vplan>, so its grandparent is the IP root that
     # `prepare_vplan` traces specifications against.
     ip_root = inputs.vplan.parent.parent
@@ -93,10 +128,7 @@ def shell_command(inputs: VPlanInputs) -> str:
     ]
     process = _process_command(inputs)
 
-    script = (
-        f"set -e; mkdir -p {shlex.quote(str(inputs.out_dir))}; "
-        f"{shlex.join(prepare)} && {shlex.join(process)}"
-    )
+    script = f"set -e; {SKIP_WITHOUT_DVPLAN} {shlex.join(prepare)} && {shlex.join(process)}"
     return f"/usr/bin/env bash -c {shlex.quote(script)}"
 
 
@@ -146,11 +178,17 @@ def _expand(pattern: str) -> list[str]:
 
     A cfg naming inspections through `{proj_root}` always produces an absolute pattern, which
     `Path.glob` refuses, so this is one of the places the pathlib rule does not apply.
+
+    A pattern matching nothing raises, because both other answers are worse: passing it through
+    fails the job with dvplan's own message once the regression has already run, and dropping it
+    scores the plan as though the cfg had never named inspections at all. The command is built
+    while the jobs are, so this lands before a single test starts.
     """
     matches = sorted(glob.glob(pattern))  # noqa: PTH207 (Path.glob rejects an absolute pattern)
     if not matches:
-        log.warning("No inspection records matched '%s', so none were annotated from.", pattern)
-    return matches or [pattern]
+        msg = f"No inspection records matched 'dvplan_inspect' pattern '{pattern}'."
+        raise ValueError(msg)
+    return matches
 
 
 def overall_coverage(annotated: Path) -> float | None:

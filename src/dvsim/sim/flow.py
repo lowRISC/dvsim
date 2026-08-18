@@ -29,7 +29,8 @@ from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.modes import BuildMode, Mode, RunMode, find_mode
 from dvsim.regression import Regression
-from dvsim.report.dv_evidence import RunEvidenceCollector
+from dvsim.report.dv_evidence import RunEvidenceLog
+from dvsim.report.vplan import evidence_log
 from dvsim.scheduler.core import OnJobCompletionCb
 from dvsim.sim.data import (
     IPMeta,
@@ -192,9 +193,6 @@ class SimCfg(FlowCfg):
         self.cov_merge_deploy = None
         self.cov_report_deploy = None
         self.cov_vplan_deploy = None
-        # Filled in by the scheduler's completion hook, and read by the vPlan job once every run it
-        # depends on is terminal
-        self.run_evidence = RunEvidenceCollector()
         self.results_summary = OrderedDict()
 
         super().__init__(flow_cfg_file, hjson_data, args, mk_config)
@@ -707,24 +705,38 @@ class SimCfg(FlowCfg):
             path=reports_dir,
         )
 
-    def job_completion_callback(self) -> OnJobCompletionCb:
-        """Record each run's outcome as the scheduler concludes it.
+    def job_completion_callback(self) -> OnJobCompletionCb | None:
+        """Log each run's outcome to its own cfg's scratch area as the scheduler concludes it.
 
         Fed from the scheduler rather than from a job callback, because only the scheduler
         sees a job it cancelled before dispatching it.
 
-        One scheduler serves every cfg of a primary run, so each run is routed to the cfg that owns
-        it. A block then scores its own vPlan from its own tests rather than from the regression's.
+        One scheduler serves every cfg of a primary run, so a run is filed under the scratch
+        directory it ran in. The vPlan job then reads the log beside its own output and never has
+        to be told which of the regression's runs were its.
+
+        Nothing is logged for a cfg that named no vPlan, and a run of nothing but such cfgs hands
+        the scheduler no observer at all.
         """
         # A primary sim cfg only ever loads sim cfgs, which the base class cannot say
         cfgs = cast("Sequence[SimCfg]", self.cfgs)
-        collectors = {cfg.variant_name: cfg.run_evidence for cfg in cfgs}
+        logs = {
+            cfg.workspace_cfg.scratch_path: RunEvidenceLog(
+                evidence_log(cfg.workspace_cfg.scratch_path)
+            )
+            for cfg in cfgs
+            if cfg.vplan
+        }
+        if not logs:
+            return None
+        for run_log in logs.values():
+            run_log.start()
 
         def record(spec: JobSpec, status: JobStatus, reason: JobStatusInfo | None) -> None:
-            """Route one completed job to the collector of the cfg that owns it."""
-            collector = collectors.get(spec.block.variant_name(sep="/"))
-            if collector is not None:
-                collector.record(spec, status, reason)
+            """File one completed job under the cfg whose scratch area it ran in."""
+            run_log = logs.get(spec.workspace_cfg.scratch_path)
+            if run_log is not None:
+                run_log.record(spec, status, reason)
 
         return record
 
@@ -905,10 +917,13 @@ class SimCfg(FlowCfg):
             cov_report_dir = self.cov_report_dir or "cov_report"
             cov_report_page = Path(cov_report_dir, self.cov_report_page)
 
+        # Linked only once the page is actually there. The job can be killed, and it exits without
+        # annotating anything where dvplan is not installed, so its output directory is not proof
         vplan_report_page = None
         vplan_coverage = None
         if self.cov_vplan_deploy is not None:
-            vplan_report_page = self.cov_vplan_deploy.report_page
+            page = self.cov_vplan_deploy.report_page
+            vplan_report_page = page if page.is_file() else None
             vplan_coverage = self.cov_vplan_deploy.vplan_coverage
 
         failures = BucketedFailures.from_job_status(results=run_results)
