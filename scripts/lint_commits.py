@@ -35,6 +35,15 @@ CONVENTIONAL_COMMIT_TYPES = {
 # Matches: <type>[(<scope>)][!]: <description>
 CONVENTIONAL_COMMIT_RE = re.compile(r"^(?P<type>[a-z]+)(\([^)]+\))?!?: .+")
 
+# Author names whose commits are exempt from these checks. Dependabot opens
+# dependency-update PRs automatically; its commits use a GitHub noreply email
+# and carry no Signed-off-by line, so they can satisfy neither the author email
+# check nor the CLA signoff check. The CLA does not apply to these automated
+# bumps, so we skip linting them entirely rather than fail every Dependabot PR.
+EXEMPT_AUTHOR_NAMES = {
+    "dependabot[bot]",
+}
+
 
 def error(msg: str, commit: str | None = None) -> None:
     """Log error."""
@@ -182,6 +191,10 @@ def lint_commit_message(commit: str) -> bool:
 
 def lint_commit(commit: str) -> bool:
     """Check a commit."""
+    if commit.author.name in EXEMPT_AUTHOR_NAMES:
+        logger.info("Skipping lint for exempt bot author %r.", commit.author.name)
+        return True
+
     return all(
         [
             lint_commit_author(commit),
