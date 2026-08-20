@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.51.0 (2026-08-20)
+
+### Features
+
+- Report EDA tool version from a dedicated version query
+  ([`bcceebc`](https://github.com/lowRISC/dvsim/commit/bcceebced5e859d1ec5a532c1d0ad3a7bf8bc362))
+
+
 ## v1.50.3 (2026-08-20)
 
 ### Bug Fixes
