@@ -1,0 +1,46 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+# Dependabot configuration.
+#
+# This file configures Dependabot *version updates* (the weekly proactive
+# refresh of dependencies). It is also consulted when Dependabot opens
+# *security updates* -- the PRs raised automatically whenever a vulnerability
+# advisory is reported by the Dependabot alert scan. Security updates are
+# enabled via the repository's Code security settings (not this file), but they
+# inherit the PR-shaping options below (commit-message prefix, labels, ...) from
+# the `updates` entry whose `package-ecosystem` + `directory` match the
+# vulnerable manifest. Security updates are event-driven and ignore `schedule`.
+version: 2
+updates:
+  # Python dependencies -- uv.lock / pyproject.toml.
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    commit-message:
+      # Repo requires conventional-commit prefixes (feat/fix/refactor/perf);
+      # "fix" keeps both version and security PRs passing lint_commits.py.
+      prefix: "fix"
+    groups:
+      python-deps:
+        patterns:
+          - "*"
+
+  # GitHub Actions used in the CI and release workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "fix"
+    groups:
+      actions:
+        patterns:
+          - "*"
