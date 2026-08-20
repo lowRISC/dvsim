@@ -8,10 +8,11 @@ import re
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from dvsim.job.data import JobSpec
 from dvsim.sim.data import CodeCoverageMetrics, CoverageMetrics
+from dvsim.sim.tool.base import VersionQuery
 
 if TYPE_CHECKING:
     from dvsim.job.deploy import Deploy
@@ -21,6 +22,12 @@ __all__ = ("Xcelium",)
 
 class Xcelium:
     """Implement Xcelium tool support."""
+
+    # `xrun -version` reports a line like: "TOOL:   xrun(64)        24.03-s007".
+    version_query: ClassVar[VersionQuery | None] = VersionQuery(
+        cmd="xrun -version",
+        pattern=r"^TOOL:.*xrun.*\s(\S+)$",
+    )
 
     @staticmethod
     def get_cov_summary_table(cov_report_path: Path) -> tuple[Sequence[Sequence[str]], str]:

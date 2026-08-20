@@ -43,7 +43,7 @@ from dvsim.sim.report import gen_reports
 from dvsim.sim_results import BucketedFailures, SimResults
 from dvsim.test import Test
 from dvsim.testplan import Testplan
-from dvsim.tool.utils import get_sim_tool_plugin
+from dvsim.tool.utils import get_sim_tool_plugin, query_tool_version
 from dvsim.utils import TS_FORMAT, rm_path
 from dvsim.utils.fs import relative_to
 from dvsim.utils.git import git_https_url_with_commit
@@ -716,7 +716,7 @@ class SimCfg(FlowCfg):
             url=url,
             revision_info=self.revision,
         )
-        tool = ToolMeta(name=self.tool.lower(), version="unknown")
+        tool = ToolMeta(name=self.tool.lower(), version=query_tool_version(self.tool) or "unknown")
 
         build_seed = self.build_seed if not self.run_only else None
 
