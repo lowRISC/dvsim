@@ -18,6 +18,7 @@ import hjson
 
 import dvsim.instrumentation.runtime as instrumentation
 from dvsim.flow.hjson import set_target_attribute
+from dvsim.fusesoc import rewrite_fusesoc_opts
 from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
@@ -225,6 +226,13 @@ class FlowCfg(ABC):
             ignore_error=partial,
         )
 
+        # Now that the wildcards are substituted, the FuseSoC command lines hold
+        # literal arguments and can be rewritten.  This has to happen at the end
+        # of _expand() rather than after it, because subclasses call
+        # _create_objects() from their own _expand(), and the objects they
+        # create take a copy of these option lists.
+        self._apply_fusesoc_opts()
+
     def _post_init(self) -> None:
         # Run some post init checks
         if not self.is_primary_cfg:  # noqa: SIM102
@@ -318,6 +326,34 @@ class FlowCfg(ABC):
 
         # Return the temp cfg file created
         return temp_cfg_file
+
+    def _apply_fusesoc_opts(self) -> None:
+        """Rewrite the FuseSoC command lines this cfg will run.
+
+        Only option lists whose command is actually FuseSoC are touched, so the
+        --fusesoc-* arguments are inert for flows driven by something else.
+        """
+        options = getattr(self.args, "resolved_fusesoc_options", None)
+        if not options:
+            return
+
+        for cmd_attr, opts_attr in (
+            ("build_cmd", "build_opts"),
+            ("sv_flist_gen_cmd", "sv_flist_gen_opts"),
+        ):
+            opts = getattr(self, opts_attr, None)
+            if not opts:
+                continue
+
+            cmd = str(getattr(self, cmd_attr, "") or "")
+            # The command may carry a prefix, e.g. "{job_prefix} fusesoc".
+            if not any(Path(word).name == "fusesoc" for word in cmd.split()):
+                continue
+
+            # Name the config these arguments belong to, so that the overrides
+            # logged from dvsim.fusesoc can be traced back to it.
+            context = f"{getattr(self, 'name', '?')} {opts_attr} [{self.flow_cfg_file}]"
+            setattr(self, opts_attr, rewrite_fusesoc_opts(opts, options, context))
 
     def _process_overrides(self) -> None:
         # Look through the dict and find available overrides.

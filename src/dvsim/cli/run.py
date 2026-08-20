@@ -32,6 +32,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 from dvsim.flow.factory import make_cfg
+from dvsim.fusesoc import resolve_options as resolve_fusesoc_options
 from dvsim.instrumentation.factory import InstrumentationFactory
 from dvsim.instrumentation.runtime import set_instrumentation
 from dvsim.job.deploy import RunTest
@@ -527,6 +528,33 @@ def parse_args(argv: list[str] | None = None):
         help="Clean the scratch directory before running.",
     )
 
+    fusesocg = parser.add_argument_group("FuseSoC integration")
+
+    fusesocg.add_argument(
+        "--fusesoc-mapping",
+        action="append",
+        default=[],
+        metavar="[OLD=]NEW",
+        help=(
+            "Select a FuseSoC mapping. OLD=NEW replaces an existing "
+            "--mapping=OLD in the generated FuseSoC command line; a bare NEW "
+            "appends a mapping. Repeatable. Also settable from the config "
+            "file, whose values are applied first."
+        ),
+    )
+
+    fusesocg.add_argument(
+        "--fusesoc-extra-cores-root",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help=(
+            "Add a --cores-root to the generated FuseSoC command line, so that "
+            "cores outside the project tree are discoverable. Repeatable. Also "
+            "settable from the config file."
+        ),
+    )
+
     buildg = parser.add_argument_group("Options for building")
 
     buildg.add_argument(
@@ -829,6 +857,18 @@ def parse_args(argv: list[str] | None = None):
     dvg = parser.add_argument_group("Controlling DVSim itself")
 
     dvg.add_argument(
+        "--dvsim-config",
+        metavar="FILE",
+        help=(
+            "Path to dvsim's own config file. If not specified, the nearest "
+            "dvsim.hjson found by walking up from the current directory is "
+            "used, else $XDG_CONFIG_HOME/lowRISC/dvsim/dvsim.hjson. This "
+            "configures the tool, and is distinct from the flow config file "
+            "passed as the positional argument."
+        ),
+    )
+
+    dvg.add_argument(
         "--instrument",
         dest="instrumentation",
         nargs="+",
@@ -979,6 +1019,11 @@ def main(argv: list[str] | None = None) -> None:
     NcLauncher.max_parallel = args.max_parallel
     Launcher.max_odirs = args.max_odirs
     RuntimeBackend.max_output_dirs = args.max_odirs
+
+    # Resolve the FuseSoC options once, from the config file and the command
+    # line, and stash them on args so that every FlowCfg -- including the
+    # children of a primary cfg -- sees the same set.
+    args.resolved_fusesoc_options = resolve_fusesoc_options(args)
 
     # Configure the runtime backend.
     set_backend_type(is_local=args.local, fake=args.fake)
