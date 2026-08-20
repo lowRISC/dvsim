@@ -7,10 +7,11 @@
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from dvsim.job.data import JobSpec
 from dvsim.sim.data import CodeCoverageMetrics, CoverageMetrics
+from dvsim.sim.tool.base import VersionQuery
 
 if TYPE_CHECKING:
     from dvsim.job.deploy import Deploy
@@ -20,6 +21,12 @@ __all__ = ("VCS",)
 
 class VCS:
     """Implement VCS tool support."""
+
+    # `vcs -full64 -id` reports a line like: "Compiler version = VCS X-2025.06-SP2-1_Full64".
+    version_query: ClassVar[VersionQuery | None] = VersionQuery(
+        cmd="vcs -full64 -id",
+        pattern=r"^Compiler version\s*=.*\s(\S+)$",
+    )
 
     @staticmethod
     def get_cov_summary_table(cov_report_path: Path) -> tuple[Sequence[Sequence[str]], str]:

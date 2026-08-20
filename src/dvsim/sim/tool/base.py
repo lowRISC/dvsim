@@ -5,8 +5,9 @@
 """EDA simulation tool interface."""
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
 
 from dvsim.job.data import JobSpec
 from dvsim.sim.data import CoverageMetrics
@@ -14,12 +15,31 @@ from dvsim.sim.data import CoverageMetrics
 if TYPE_CHECKING:
     from dvsim.job.deploy import Deploy
 
-__all__ = ("SimTool",)
+__all__ = ("SimTool", "VersionQuery")
+
+
+@dataclass(frozen=True)
+class VersionQuery:
+    """Declarative description of how to query an EDA tool for its version.
+
+    Attributes:
+        cmd: the command that makes the tool print its version.
+        pattern: a regex applied (in multiline mode) to the combined
+            stdout/stderr of ``cmd``. The first capture group is used as the
+            version string.
+
+    """
+
+    cmd: str
+    pattern: str
 
 
 @runtime_checkable
 class SimTool(Protocol):
     """Simulation tool interface required by the Sim workflow."""
+
+    version_query: ClassVar[VersionQuery | None]
+    """How to query this tool's version, or ``None`` if unsupported."""
 
     @staticmethod
     def get_cov_summary_table(cov_report_path: Path) -> tuple[Sequence[Sequence[str]], str]:
