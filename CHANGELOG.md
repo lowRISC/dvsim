@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.51.2 (2026-08-21)
+
+### Bug Fixes
+
+- Bump pillow from 12.2.0 to 12.3.0
+  ([`0ce31ea`](https://github.com/lowRISC/dvsim/commit/0ce31ea75efe145850b0145745fe7ad60e8d63b7))
+
+
 ## v1.51.1 (2026-08-21)
 
 ### Bug Fixes
