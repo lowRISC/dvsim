@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.51.1 (2026-08-21)
+
+### Bug Fixes
+
+- Bump gitpython from 3.1.50 to 3.1.58
+  ([`8bfa00f`](https://github.com/lowRISC/dvsim/commit/8bfa00f1493cc842c73fe4d8312931cba551a6d3))
+
+
 ## v1.51.0 (2026-08-20)
 
 ### Features

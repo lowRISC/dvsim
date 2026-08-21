@@ -528,7 +528,7 @@ wheels = [
 
 [[package]]
 name = "dvsim"
-version = "1.51.0"
+version = "1.51.1"
 source = { editable = "." }
 dependencies = [
     { name = "anybadge" },
@@ -621,7 +621,7 @@ requires-dist = [
     { name = "dvsim", extras = ["linting", "typing", "test", "debug"], marker = "extra == 'dev'" },
     { name = "dvsim", extras = ["typing", "test", "debug"], marker = "extra == 'nix'" },
     { name = "enlighten", specifier = ">=1.12.4" },
-    { name = "gitpython", specifier = ">=3.1.45" },
+    { name = "gitpython", specifier = ">=3.1.58" },
     { name = "gitpython", marker = "extra == 'ci'" },
     { name = "gitpython", marker = "extra == 'nix'" },
     { name = "hjson", specifier = ">=3.1.0" },
