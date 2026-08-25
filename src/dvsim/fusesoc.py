@@ -25,14 +25,14 @@ and values from the config file are applied before values from the command line.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from dvsim.config import as_str_list, find_config_file, load_config_file, read_section
+from dvsim.config import as_str_list, read_section, resolve_path
 from dvsim.logging import log
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+    from pathlib import Path
 
 __all__ = (
     "FuseSoCOptions",
@@ -90,34 +90,26 @@ CONFIG_SECTION = "fusesoc"
 CONFIG_KEYS = frozenset({"mapping", "extra_cores_root"})
 
 
-def options_from_config(path: Path) -> FuseSoCOptions:
-    """Read the ``fusesoc`` section of a dvsim config file.
-
-    Relative ``extra_cores_root`` entries resolve against the config file's own
-    directory, not the working directory, so that a checked-in config file is
-    valid wherever dvsim is invoked from.
-    """
-    section = read_section(load_config_file(path), CONFIG_SECTION, CONFIG_KEYS, path)
+def options_from_config(data: dict, path: Path) -> FuseSoCOptions:
+    """Read the ``fusesoc`` section of an already-loaded dvsim config file."""
+    section = read_section(data, CONFIG_SECTION, CONFIG_KEYS, path)
 
     mappings = tuple(
         MappingSpec.parse(m) for m in as_str_list(section, "mapping", CONFIG_SECTION, path)
     )
-
-    base = path.parent
     roots = tuple(
-        str(base / root) if not Path(root).is_absolute() else root
+        str(resolve_path(root, path.parent))
         for root in as_str_list(section, "extra_cores_root", CONFIG_SECTION, path)
     )
 
     return FuseSoCOptions(mappings, roots)
 
 
-def resolve_options(args) -> FuseSoCOptions:  # noqa: ANN001
+def resolve_options(args, data: dict, path: Path | None) -> FuseSoCOptions:  # noqa: ANN001
     """Combine config-file and command-line options, config file first."""
-    config_path = find_config_file(getattr(args, "dvsim_config", None))
-    from_file = options_from_config(config_path) if config_path is not None else FuseSoCOptions()
-    if config_path is not None and from_file:
-        log.verbose("Read FuseSoC options from %s", config_path)
+    from_file = options_from_config(data, path) if path is not None else FuseSoCOptions()
+    if from_file:
+        log.verbose("Read FuseSoC options from %s", path)
 
     cli_mappings = tuple(MappingSpec.parse(m) for m in getattr(args, "fusesoc_mapping", []) or [])
     cli_roots = tuple(getattr(args, "fusesoc_extra_cores_root", []) or [])

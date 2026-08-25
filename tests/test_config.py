@@ -11,10 +11,15 @@ import pytest
 from dvsim.config import (
     CONFIG_BASENAME,
     XDG_SUBPATH,
+    check_top_level_keys,
     find_config_file,
     load_config_file,
+    proj_root_from_config,
     read_section,
+    resolve_path,
 )
+
+KNOWN = frozenset({"proj_root", "fusesoc"})
 
 
 def write(path: Path, body: str) -> Path:
@@ -83,6 +88,49 @@ class TestReadSection:
     def test_non_dict_section_is_rejected(self, tmp_path):
         with pytest.raises(RuntimeError, match="must be a dict"):
             read_section({"fusesoc": []}, "fusesoc", self.KEYS, tmp_path)
+
+
+class TestResolvePath:
+    """Relative values are relative to the config file, not the caller."""
+
+    def test_relative_resolves_against_the_base(self, tmp_path):
+        assert resolve_path("opentitan", tmp_path) == tmp_path / "opentitan"
+
+    def test_absolute_is_left_alone(self, tmp_path):
+        assert resolve_path("/elsewhere/opentitan", tmp_path) == Path("/elsewhere/opentitan")
+
+
+class TestProjRoot:
+    def test_relative_resolves_against_the_config_file(self, tmp_path):
+        cfg = write(tmp_path / CONFIG_BASENAME, '{proj_root: "opentitan"}')
+
+        assert proj_root_from_config(load_config_file(cfg), cfg) == tmp_path / "opentitan"
+
+    def test_absolute_is_left_alone(self, tmp_path):
+        cfg = write(tmp_path / CONFIG_BASENAME, '{proj_root: "/elsewhere/ot"}')
+
+        assert proj_root_from_config(load_config_file(cfg), cfg) == Path("/elsewhere/ot")
+
+    def test_absent_is_none(self, tmp_path):
+        cfg = write(tmp_path / CONFIG_BASENAME, "{}")
+
+        assert proj_root_from_config(load_config_file(cfg), cfg) is None
+
+    def test_non_string_is_rejected(self, tmp_path):
+        cfg = write(tmp_path / CONFIG_BASENAME, "{proj_root: 3}")
+
+        with pytest.raises(RuntimeError, match="must be a string"):
+            proj_root_from_config(load_config_file(cfg), cfg)
+
+
+class TestTopLevelKeys:
+    def test_known_keys_accepted(self, tmp_path):
+        check_top_level_keys({"proj_root": "x", "fusesoc": {}}, KNOWN, tmp_path)
+
+    def test_unknown_key_is_rejected(self, tmp_path):
+        """A typo should fail loudly rather than silently do nothing."""
+        with pytest.raises(RuntimeError, match="unknown top-level key"):
+            check_top_level_keys({"proj_roots": "x"}, KNOWN, tmp_path)
 
 
 class TestXdgFallback:

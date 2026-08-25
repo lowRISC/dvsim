@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from dvsim.config import CONFIG_BASENAME
+from dvsim.config import CONFIG_BASENAME, load_config_file
 from dvsim.fusesoc import (
     FuseSoCOptions,
     MappingSpec,
@@ -117,7 +117,7 @@ class TestFuseSoCSection:
             '{fusesoc: {mapping: ["%s=%s"], extra_cores_root: ["prim_my_tech"]}}'
             % (GENERIC, MY_TECH),
         )
-        options = options_from_config(cfg)
+        options = options_from_config(load_config_file(cfg), cfg)
 
         assert options.mappings == (MappingSpec(GENERIC, MY_TECH),)
         assert options.extra_cores_roots == (str(tmp_path / "prim_my_tech"),)
@@ -127,20 +127,22 @@ class TestFuseSoCSection:
             tmp_path / CONFIG_BASENAME,
             '{fusesoc: {extra_cores_root: ["/abs/path"]}}',
         )
-        assert options_from_config(cfg).extra_cores_roots == ("/abs/path",)
+        assert options_from_config(load_config_file(cfg), cfg).extra_cores_roots == ("/abs/path",)
 
     def test_string_value_is_accepted_as_a_singleton(self, tmp_path):
         cfg = self._write(tmp_path / CONFIG_BASENAME, '{fusesoc: {mapping: "%s"}}' % MY_TECH)
-        assert options_from_config(cfg).mappings == (MappingSpec(None, MY_TECH),)
+        assert options_from_config(load_config_file(cfg), cfg).mappings == (
+            MappingSpec(None, MY_TECH),
+        )
 
     def test_unknown_key_is_rejected(self, tmp_path):
         cfg = self._write(tmp_path / CONFIG_BASENAME, "{fusesoc: {mappings: []}}")
         with pytest.raises(RuntimeError, match="unknown key"):
-            options_from_config(cfg)
+            options_from_config(load_config_file(cfg), cfg)
 
     def test_missing_section_is_empty(self, tmp_path):
         cfg = self._write(tmp_path / CONFIG_BASENAME, "{}")
-        assert not options_from_config(cfg)
+        assert not options_from_config(load_config_file(cfg), cfg)
 
 
 class TestResolveOptions:
@@ -150,11 +152,11 @@ class TestResolveOptions:
             % (GENERIC, MY_TECH),
         )
         args = Namespace(
-            dvsim_config=str(tmp_path / CONFIG_BASENAME),
             fusesoc_mapping=["lowrisc:other:all:0.1"],
             fusesoc_extra_cores_root=["/from/cli"],
         )
-        options = resolve_options(args)
+        cfg = tmp_path / CONFIG_BASENAME
+        options = resolve_options(args, load_config_file(cfg), cfg)
 
         assert options.mappings == (
             MappingSpec(GENERIC, MY_TECH),

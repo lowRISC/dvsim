@@ -24,9 +24,12 @@ __all__ = (
     "CONFIG_BASENAME",
     "XDG_SUBPATH",
     "as_str_list",
+    "check_top_level_keys",
     "find_config_file",
     "load_config_file",
+    "proj_root_from_config",
     "read_section",
+    "resolve_path",
 )
 
 #: Name of the discoverable config file. Deliberately not hidden.
@@ -110,3 +113,34 @@ def as_str_list(section: dict, key: str, name: str, path: Path) -> list[str]:
         msg = f"dvsim config file {path}: '{name}.{key}' must be a string or list of strings"
         raise RuntimeError(msg)
     return list(value)
+
+
+def resolve_path(value: str, base: Path) -> Path:
+    """Resolve a config-file path value against the config file's own directory.
+
+    Absolute values are left alone.  Relative ones are taken to be relative to
+    the directory holding the config file rather than to the working directory,
+    so that a checked-in file means the same thing wherever dvsim is invoked
+    from.
+    """
+    path = Path(value).expanduser()
+    return path if path.is_absolute() else (base / path).resolve()
+
+
+def check_top_level_keys(data: dict, known_keys: frozenset[str], path: Path) -> None:
+    """Reject unknown top-level keys, so that a typo fails rather than doing nothing."""
+    unknown = set(data) - known_keys
+    if unknown:
+        msg = f"dvsim config file {path}: unknown top-level key(s): {sorted(unknown)}"
+        raise RuntimeError(msg)
+
+
+def proj_root_from_config(data: dict, path: Path) -> Path | None:
+    """Read the top-level ``proj_root``, resolved against the config file's directory."""
+    value = data.get("proj_root")
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        msg = f"dvsim config file {path}: 'proj_root' must be a string"
+        raise RuntimeError(msg)
+    return resolve_path(value, path.parent)

@@ -31,7 +31,14 @@ import textwrap
 from importlib.metadata import version
 from pathlib import Path
 
+from dvsim.config import (
+    check_top_level_keys,
+    find_config_file,
+    load_config_file,
+    proj_root_from_config,
+)
 from dvsim.flow.factory import make_cfg
+from dvsim.fusesoc import CONFIG_SECTION as FUSESOC_CONFIG_SECTION
 from dvsim.fusesoc import resolve_options as resolve_fusesoc_options
 from dvsim.instrumentation.factory import InstrumentationFactory
 from dvsim.instrumentation.runtime import set_instrumentation
@@ -175,12 +182,14 @@ def parse_resource(s: str) -> tuple[str, int | None]:
         raise argparse.ArgumentTypeError(msg) from e
 
 
-def resolve_branch(branch):
+def resolve_branch(branch, cwd=None):
     """Choose a branch name for output files.
 
     If the --branch argument was passed on the command line, the branch
-    argument is the branch name to use. Otherwise it is None and we use git to
-    find the name of the current branch in the working directory.
+    argument is the branch name to use.  Otherwise it is None and we use git to
+    find the name of the current branch in `cwd`, which is the project root
+    rather than the working directory: dvsim may be invoked from outside the
+    project, where there is no repository to read.
 
     Note, as this name will be used to generate output files any forward slashes
     are replaced with single dashes to avoid being interpreted as directory hierarchy.
@@ -191,6 +200,8 @@ def resolve_branch(branch):
     result = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
         stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        cwd=cwd,
         check=False,
     )
     branch = result.stdout.decode("utf-8").strip().replace("/", "-")
@@ -217,6 +228,33 @@ def get_proj_root():
     return proj_root
 
 
+def find_proj_root(args) -> str:
+    """Choose the project root.
+
+    In order of precedence: the --proj-root argument, relative to the working
+    directory; then `proj_root` from dvsim's config file, relative to the
+    directory holding that file; then the git repository containing the working
+    directory.
+
+    Both settings may equally be given as absolute paths.  Resolving them here
+    is what allows dvsim to be invoked from outside the project, since the value
+    is handed on to flows (and from there to tools such as FuseSoC) that run
+    with a different working directory.
+    """
+    if args.proj_root:
+        return str(Path(args.proj_root).expanduser().resolve())
+
+    from_config = (
+        proj_root_from_config(args.dvsim_config_data, args.dvsim_config_path)
+        if args.dvsim_config_path is not None
+        else None
+    )
+    if from_config is not None:
+        return str(from_config)
+
+    return get_proj_root()
+
+
 def resolve_proj_root(args):
     """Update proj_root based on how DVSim is invoked.
 
@@ -229,7 +267,8 @@ def resolve_proj_root(args):
     --remote switch is not set, the destination path is identical to the src
     path. Likewise, if --dry-run is set.
     """
-    proj_root_src = args.proj_root or get_proj_root()
+    proj_root_src = find_proj_root(args)
+    args.branch = resolve_branch(args.branch, proj_root_src)
 
     # Check if jobs are dispatched to external compute machines. If yes,
     # then the repo needs to be copied over to the scratch area
@@ -490,9 +529,11 @@ def parse_args(argv: list[str] | None = None):
         "-pr",
         metavar="PATH",
         help=(
-            "The root directory of the project. If not "
-            "specified, dvsim will search for a git "
-            "repository containing the current directory."
+            "The root directory of the project, relative to the current "
+            "directory unless absolute. If not specified, dvsim uses "
+            "`proj_root` from its config file, resolved relative to that "
+            "file; failing that, it searches for a git repository containing "
+            "the current directory."
         ),
     )
 
@@ -984,7 +1025,24 @@ def main(argv: list[str] | None = None) -> None:
         log.fatal("Path to config file %s appears to be invalid.", args.cfg)
         sys.exit(1)
 
-    args.branch = resolve_branch(args.branch)
+    # Load dvsim's own config file once, before anything reads it.  The keys it
+    # may define are listed here because this is the only place that knows about
+    # every feature that owns a section.
+    args.dvsim_config_path = find_config_file(args.dvsim_config)
+    args.dvsim_config_data = (
+        load_config_file(args.dvsim_config_path) if args.dvsim_config_path is not None else {}
+    )
+    if args.dvsim_config_path is not None:
+        check_top_level_keys(
+            args.dvsim_config_data,
+            frozenset({"proj_root", FUSESOC_CONFIG_SECTION}),
+            args.dvsim_config_path,
+        )
+        log.info("[dvsim_config]: %s", args.dvsim_config_path)
+
+    # proj_root is resolved before the branch, because the branch is read from
+    # the git repository at proj_root rather than from the working directory:
+    # dvsim may be invoked from outside the project entirely.
     proj_root_src, proj_root = resolve_proj_root(args)
     args.scratch_root = resolve_scratch_root(args.scratch_root, proj_root)
     log.info("[proj_root]: %s", proj_root)
@@ -1023,7 +1081,9 @@ def main(argv: list[str] | None = None) -> None:
     # Resolve the FuseSoC options once, from the config file and the command
     # line, and stash them on args so that every FlowCfg -- including the
     # children of a primary cfg -- sees the same set.
-    args.resolved_fusesoc_options = resolve_fusesoc_options(args)
+    args.resolved_fusesoc_options = resolve_fusesoc_options(
+        args, args.dvsim_config_data, args.dvsim_config_path
+    )
 
     # Configure the runtime backend.
     set_backend_type(is_local=args.local, fake=args.fake)
