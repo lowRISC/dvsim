@@ -5,6 +5,7 @@
 """Test Job deployment models."""
 
 from collections.abc import Mapping
+from pathlib import Path
 
 import pytest
 from hamcrest import assert_that, equal_to
@@ -48,6 +49,7 @@ class FakeSimCfg:
         self.pre_build_cmds = ["A", "B"]
         self.post_build_cmds = ["C", "D"]
         self.build_dir = "build/dir"
+        self.build_opts_file = "{build_dir}/build_opts.f"
         self.build_pass_patterns = None
         self.build_fail_patterns = None
         self.build_seed = 123
@@ -201,6 +203,51 @@ class TestCompileSim:
         )
 
         assert_that(job.seed, equal_to(seed))
+
+    @staticmethod
+    def test_build_opts_file(tmp_path: Path) -> None:
+        """Test that a CompileSim records the options it built with, for the run step."""
+        build_dir = tmp_path / "build" / "dir"
+        # pre_launch() also deletes the coverage database, so keep that path inside tmp_path
+        job = _build_compile_sim(
+            sim_overrides={"build_dir": str(build_dir), "cov_db_dir": str(tmp_path / "cov")},
+        )
+
+        assert_that(job.build_opts_file, equal_to(str(build_dir / "build_opts.f")))
+
+        # The build directory does not exist until the build job launches.
+        job.pre_launch()()
+
+        assert_that(
+            Path(job.build_opts_file).read_text(encoding="UTF-8"),
+            equal_to('-b path/here\n-a "Quoted"\n'),
+        )
+
+    @staticmethod
+    def test_build_opts_file_from_cfg(tmp_path: Path) -> None:
+        """Test that a cfg-supplied build_opts_file is used as given.
+
+        SimCfg only fills in a default, so an HJson that sets build_opts_file itself can put the
+        file outside the build directory.
+        """
+        opts_file = tmp_path / "elsewhere" / "opts.f"
+        # pre_launch() also deletes the coverage database, so keep that path inside tmp_path
+        job = _build_compile_sim(
+            sim_overrides={
+                "build_dir": str(tmp_path / "build" / "dir"),
+                "build_opts_file": str(opts_file),
+                "cov_db_dir": str(tmp_path / "cov"),
+            },
+        )
+
+        assert_that(job.build_opts_file, equal_to(str(opts_file)))
+
+        job.pre_launch()()
+
+        assert_that(
+            opts_file.read_text(encoding="UTF-8"),
+            equal_to('-b path/here\n-a "Quoted"\n'),
+        )
 
     @staticmethod
     @pytest.mark.parametrize(

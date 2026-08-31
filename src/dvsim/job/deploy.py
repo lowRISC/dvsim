@@ -431,6 +431,7 @@ class CompileSim(Deploy):
         self.build_cmd: str = ""
         self.build_dir: str = ""
         self.build_opts: list[str] = []
+        self.build_opts_file: str = ""
         self.post_build_cmds: list[str] = []
         self.build_fail_patterns: list[str] = []
         self.build_pass_patterns: list[str] = []
@@ -485,6 +486,7 @@ class CompileSim(Deploy):
         self.mandatory_misc_attrs.update(
             {
                 "build_fail_patterns": False,
+                "build_opts_file": False,
                 "build_pass_patterns": False,
                 "build_timeout_mins": False,
                 "cov_db_dir": False,
@@ -509,6 +511,21 @@ class CompileSim(Deploy):
         if self.sim_cfg.args.build_timeout_mins is not None:
             self.build_timeout_mins = self.sim_cfg.args.build_timeout_mins
 
+    def _write_build_opts_file(self) -> None:
+        """Write the options this build used to {build_opts_file}.
+
+        Doing so allows a run step to recompile and elaborate for itself, without having to
+        re-invoke dvsim from scratch. It would be complicated for an external tool to infer these
+        options: they depend on lots of configuration files. Writing them out here solves that
+        problem.
+        """
+        maybe_options = [opt.strip() for opt in self.build_opts]
+        options = [opt for opt in maybe_options if opt]
+
+        opts_file = Path(self.build_opts_file)
+        opts_file.parent.mkdir(parents=True, exist_ok=True)
+        opts_file.write_text("\n".join(options) + "\n", encoding="UTF-8")
+
     def pre_launch(self) -> Callable[[], None]:
         """Get pre-launch callback."""
 
@@ -517,6 +534,8 @@ class CompileSim(Deploy):
             # Delete old coverage database directories before building again. We
             # need to do this because the build directory is not 'renewed'.
             rm_path(Path(self.cov_db_dir))
+
+            self._write_build_opts_file()
 
         return callback
 
