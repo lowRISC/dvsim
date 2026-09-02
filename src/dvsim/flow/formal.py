@@ -4,6 +4,7 @@
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import hjson
 from tabulate import tabulate
@@ -41,6 +42,10 @@ class FormalCfg(OneShotCfg):
         # Default not to publish child cfg results.
         self.publish_report = hjson_data.get("publish_report", False)
         self.sub_flow = hjson_data["sub_flow"]
+        # The coverage columns this cfg's tool measured, filled in by get_coverage once a report
+        # has been read. Empty until then, and on a cfg whose flow collects no coverage at all,
+        # which is what makes summary_header below the fallback rather than the answer.
+        self.cov_header: list[str] = []
         self.summary_header = ["name", "pass_rate", "formal_cov", "stimuli_cov", "checker_cov"]
         self.results_title = self.name.upper() + " Formal " + self.sub_flow.upper() + " Results"
 
@@ -123,33 +128,70 @@ class FormalCfg(OneShotCfg):
             results_str = "No coverage information found\n"
             summary = ["N/A", "N/A", "N/A"]
         else:
-            cov_header = ["formal", "stimuli", "checker"]
+            # The columns are whatever the tool's own report parser wrote, not a fixed set.
+            # A formal engine reports the coverage it measures under its own names: JasperGold
+            # gives formal, stimuli and checker, VC Formal gives stimuli, coi and proof, and only
+            # stimuli is common. Naming them here fixed one engine's vocabulary and raised
+            # KeyError: 'formal' on every VC Formal run with cov: true, after the job had already
+            # passed and written its results.
+            cov_header = list(formal_coverage)
+            if not cov_header:
+                # A parser that wrote the key and no columns measured nothing, which is the same
+                # thing to report as no key at all. Falling through instead would tabulate an
+                # empty table and contribute no cells to a row the summary expects three of.
+                return "No coverage information found\n", ["N/A", "N/A", "N/A"]
+
             cov_colalign = ("center",) * len(cov_header)
-            cov_table = [cov_header]
-            cov_table.append(
-                [formal_coverage["formal"], formal_coverage["stimuli"], formal_coverage["checker"]],
+            cov_table = [cov_header, [formal_coverage[name] for name in cov_header]]
+            summary.extend(formal_coverage[name] for name in cov_header)
+            # The cross-cfg summary table is one row per cfg under one header, so the columns this
+            # cfg's tool measured have to reach the primary cfg that renders it. Setting
+            # self.summary_header would not: get_coverage runs on a child cfg and
+            # gen_results_summary reads the header off the primary, which no child touches.
+            self.cov_header = list(cov_header)
+            results_str = tabulate(
+                cov_table,
+                headers="firstrow",
+                tablefmt="pipe",
+                colalign=cov_colalign,
             )
-            summary.append(formal_coverage["formal"])
-            summary.append(formal_coverage["stimuli"])
-            summary.append(formal_coverage["checker"])
-
-            if len(cov_table) > 1:
-                results_str = tabulate(
-                    cov_table,
-                    headers="firstrow",
-                    tablefmt="pipe",
-                    colalign=cov_colalign,
-                )
-
-            else:
-                results_str = "No content in formal_coverage\n"
-                summary = ["N/A", "N/A", "N/A"]
         return results_str, summary
+
+    def formal_cfgs(self) -> "Sequence[FormalCfg]":
+        """Return this cfg's children as the formal cfgs they are.
+
+        `FlowCfg` types the list for every flow, so the formal-only attributes the two methods
+        below read off a child are invisible to a type checker without narrowing it here.
+        """
+        return cast("Sequence[FormalCfg]", self.cfgs)
+
+    def resolve_summary_header(self) -> list[str]:
+        """Return the summary header naming the coverage columns the cfgs actually measured.
+
+        Each cfg's own tool decides what it measures and under what names, and get_coverage
+        records that on the cfg. One table cannot carry two vocabularies, so cfgs disagreeing is
+        reported rather than silently resolved in favour of whichever came first: a single `-t`
+        makes them agree today, and the error is what says so if that ever stops being true.
+        """
+        cfgs = self.formal_cfgs()
+        measured = {tuple(cfg.cov_header) for cfg in cfgs if cfg.cov_header}
+        if not measured:
+            return self.summary_header
+        if len(measured) > 1:
+            log.error(
+                "The cfgs of %s measured different coverage columns, %s, so one summary header "
+                "cannot name them all. Reporting the columns of %s.",
+                self.name,
+                sorted(measured),
+                cfgs[0].name,
+            )
+        columns = next(iter(measured)) if len(measured) == 1 else tuple(cfgs[0].cov_header)
+        return ["name", "pass_rate", *(f"{name}_cov" for name in columns)]
 
     def gen_results_summary(self):
         # Gathers the aggregated results from all sub configs
-        # The results_summary will only contain the passing rate and
-        # percentages of the stimuli, coi, and proven coverage
+        # The results_summary will only contain the passing rate and the coverage percentages the
+        # cfgs' own tool measured, under the names that tool's report parser wrote.
         results_str = "## " + self.results_title + " (Summary)\n\n"
         results_str += "### " + self.timestamp_long + "\n"
         if self.revision:
@@ -157,13 +199,17 @@ class FormalCfg(OneShotCfg):
         results_str += "### Branch: " + self.branch + "\n"
         results_str += "\n"
 
+        self.summary_header = self.resolve_summary_header()
         colalign = ("center",) * len(self.summary_header)
         table = [self.summary_header]
-        for cfg in self.cfgs:
+        # One cell per column beyond name, so a missing result stays aligned with a header whose
+        # width follows the tool rather than being three coverage columns wide by assumption.
+        missing = ["N/A"] * (len(self.summary_header) - 2)
+        for cfg in self.formal_cfgs():
             try:
                 table.append(cfg.result_summary[cfg.name])
             except KeyError as e:
-                table.append([cfg.name, "ERROR", "N/A", "N/A", "N/A"])
+                table.append([cfg.name, "ERROR", *missing])
                 log.exception("cfg: %s could not find generated results_summary: %s", cfg.name, e)
         if len(table) > 1:
             self.results_summary_md = results_str + tabulate(
