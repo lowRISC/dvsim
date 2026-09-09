@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.52.2 (2026-09-09)
+
+### Bug Fixes
+
+- Use increase versioning-strategy for uv dependabot updates
+  ([`5ac7974`](https://github.com/lowRISC/dvsim/commit/5ac7974661f85638275b9b4dd3cc57e9d61d691b))
+
+
 ## v1.52.1 (2026-09-03)
 
 ### Bug Fixes
