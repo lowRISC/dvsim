@@ -120,7 +120,7 @@ jobs:
           uv build
 
       - name: Publish | Create GitHub Release (src + dist)
-        uses: python-semantic-release/publish-action@v10.6.1
+        uses: python-semantic-release/publish-action@v10.6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ needs.release.outputs.tag }}
