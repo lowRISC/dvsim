@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 from hamcrest import assert_that, calling, empty, equal_to, only_contains, raises
 
-from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
+from dvsim.job.data import CompletedJobStatus, DependencyPolicy, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
 from dvsim.report.data import IPMeta, ToolMeta
@@ -302,7 +302,7 @@ def job_spec_factory(
         "resources": None,
         "seed": None,
         "dependencies": [],
-        "needs_all_dependencies_passing": True,
+        "dependency_policy": DependencyPolicy.ALL_PASSING,
         "weight": 1,
         "timeout_mins": None,
         "cmd": "echo 'test_cmd'",
@@ -618,10 +618,10 @@ class TestSchedulingStructure:
     @staticmethod
     @pytest.mark.asyncio
     @pytest.mark.timeout(DEFAULT_TIMEOUT)
-    @pytest.mark.parametrize("needs_all_passing", [True, False])
-    async def test_no_deps(fxt: Fxt, *, needs_all_passing: bool) -> None:
+    @pytest.mark.parametrize("policy", list(DependencyPolicy))
+    async def test_no_deps(fxt: Fxt, policy: DependencyPolicy) -> None:
         """Tests scheduling of jobs without any listed dependencies."""
-        job = job_spec_factory(fxt.tmp_path, needs_all_dependencies_passing=needs_all_passing)
+        job = job_spec_factory(fxt.tmp_path, dependency_policy=policy)
         result = await Scheduler([job], fxt.backends, MOCK_BACKEND).run()
         _assert_result_status(result, 1)
 
@@ -630,14 +630,13 @@ class TestSchedulingStructure:
         fxt: Fxt,
         dep_list: dict[int, list[int]],
         passes: list[int],
-        *,
-        all_passing: bool,
+        policy: DependencyPolicy,
     ) -> None:
         """Run a simple dependency test, with 5 jobs where jobs 2 & 4 will fail."""
         jobs = make_many_jobs(
             fxt.tmp_path,
             5,
-            needs_all_dependencies_passing=all_passing,
+            dependency_policy=policy,
             interdeps=dep_list,
         )
         fxt.mock_ctx.set_config(jobs[2], MockJob(default_status=JobStatus.FAILED))
@@ -672,7 +671,9 @@ class TestSchedulingStructure:
         passes: list[int],
     ) -> None:
         """Tests scheduling of jobs with dependencies that don't need all passing."""
-        await TestSchedulingStructure._dep_test_case(fxt, dep_list, passes, all_passing=False)
+        await TestSchedulingStructure._dep_test_case(
+            fxt, dep_list, passes, DependencyPolicy.ANY_PASSING
+        )
 
     @staticmethod
     @pytest.mark.asyncio
@@ -694,7 +695,31 @@ class TestSchedulingStructure:
         passes: list[int],
     ) -> None:
         """Tests scheduling of jobs with dependencies that need all passing."""
-        await TestSchedulingStructure._dep_test_case(fxt, dep_list, passes, all_passing=True)
+        await TestSchedulingStructure._dep_test_case(
+            fxt, dep_list, passes, DependencyPolicy.ALL_PASSING
+        )
+
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    @pytest.mark.parametrize(
+        ("dep_list", "passes"),
+        [
+            # One failing dependency, which both of the other policies treat as a reason to skip
+            ({1: [2]}, [0, 1, 3]),
+            # Every dependency failed, which is the case a vPlan score most needs to describe
+            ({3: [2, 4]}, [0, 1, 3]),
+            # A mix, so a passing dependency is not what releases the job
+            ({0: [1, 2, 3, 4]}, [0, 1, 3]),
+        ],
+    )
+    async def test_runs_whatever_the_deps_concluded(
+        fxt: Fxt,
+        dep_list: dict[int, list[int]],
+        passes: list[int],
+    ) -> None:
+        """Tests scheduling of jobs that only wait for their dependencies to be terminal."""
+        await TestSchedulingStructure._dep_test_case(fxt, dep_list, passes, DependencyPolicy.ALWAYS)
 
     @staticmethod
     @pytest.mark.asyncio

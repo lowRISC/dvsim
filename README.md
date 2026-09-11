@@ -86,6 +86,7 @@ You can access it [online at opentitan.org/book/](https://opentitan.org/book/).
 
 * [Testplanner tool](./doc/testplanner.md)
 * [Design document](./doc/design_doc.md)
+* [The `lowrisc-dv-evidence` format](./doc/dv_evidence.md)
 * [Glossary](./doc/glossary.md)
 
 ## How to contribute

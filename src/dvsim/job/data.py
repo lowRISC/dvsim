@@ -10,6 +10,7 @@ capture the results of the job run.
 """
 
 from collections.abc import Callable, Mapping, Sequence
+from enum import Enum
 from pathlib import Path
 from typing import TypeAlias
 
@@ -20,10 +21,28 @@ from dvsim.report.data import IPMeta, ToolMeta
 
 __all__ = (
     "CompletedJobStatus",
+    "DependencyPolicy",
     "JobSpec",
     "JobStatusInfo",
     "WorkspaceConfig",
 )
+
+
+class DependencyPolicy(Enum):
+    """When a job may start, given how the jobs it depends on ended."""
+
+    ALL_PASSING = "all_passing"
+    """Start only if every dependency passed, which is right for a job consuming their output."""
+
+    ANY_PASSING = "any_passing"
+    """Start if at least one dependency passed, for a job gathering whatever results exist."""
+
+    ALWAYS = "always"
+    """Start once every dependency is terminal, whatever they concluded.
+
+    For a job whose input is the outcome itself rather than an artefact a dependency produced, so
+    a regression where nothing passed is still the thing it has to report on.
+    """
 
 
 class WorkspaceConfig(BaseModel):
@@ -92,8 +111,8 @@ class JobSpec(BaseModel):
 
     dependencies: list[str]
     """Full names of the other Jobs that this one depends on."""
-    needs_all_dependencies_passing: bool
-    """Wait for dependent jobs to pass before scheduling."""
+    dependency_policy: DependencyPolicy
+    """What the jobs this one depends on must have concluded before it may be scheduled."""
     weight: int
     """Weight to apply to the scheduling priority."""
     timeout_mins: float | None
