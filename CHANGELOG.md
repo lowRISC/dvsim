@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.53.0 (2026-09-11)
+
+### Features
+
+- Expose a build's options to the run step as {build_opts_file}
+  ([`367a7e8`](https://github.com/lowRISC/dvsim/commit/367a7e853fce2a3b9fce350a684eb092f3bab3ee))
+
+
 ## v1.52.2 (2026-09-09)
 
 ### Bug Fixes
