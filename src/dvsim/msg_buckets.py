@@ -193,4 +193,12 @@ class MsgBuckets:
             if not isinstance(signatures, list):
                 msg = f"Signatures in {k} must be a list of strings"
                 raise RuntimeError(msg)
-            self.buckets[k].signatures.extend(signatures)
+            # check the key is in the bucket list to avoid an exception
+            if k in self.buckets:
+                self.buckets[k].signatures.extend(signatures)
+            else:
+                # This is the case when a Signature defined in the python
+                # parser is not in the Hjson. It is ok the other way around,
+                # i.e. the bucket is in the hjson but in the parser list.
+                msg = f"Signatures in {k} must be in the Hjson buckets list."
+                log.warning(msg)
