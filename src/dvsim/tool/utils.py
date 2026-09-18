@@ -13,6 +13,7 @@ from functools import cache
 from dvsim.logging import log
 from dvsim.sim.tool.base import SimTool
 from dvsim.sim.tool.vcs import VCS
+from dvsim.sim.tool.verilator import Verilator
 from dvsim.sim.tool.xcelium import Xcelium
 from dvsim.sim.tool.z01x import Z01X
 
@@ -20,6 +21,7 @@ __all__ = ("get_sim_tool_plugin", "query_tool_version")
 
 _SUPPORTED_SIM_TOOLS = {
     "vcs": VCS,
+    "verilator": Verilator,
     "xcelium": Xcelium,
     "z01x": Z01X,
 }

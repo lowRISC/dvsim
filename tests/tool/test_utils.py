@@ -25,6 +25,8 @@ VCS Build Date = Jan 29 2026 20:22:37
 """
 
 _XRUN_VERSION_OUTPUT = "TOOL:   xrun(64)        24.03-s007\n"
+_VERILATOR_RELEASE_OUTPUT = "Verilator v5.052 (2026-09-06)\n"
+_VERILATOR_DEVEL_OUTPUT = "Verilator 5.053 devel rev vUNKNOWN-built19800101\n"
 
 
 class TestEDAToolPlugins:
@@ -64,6 +66,12 @@ class TestToolVersionQuery:
             ("vcs", _VCS_ID_OUTPUT, "X-2025.06-SP2-1_Full64"),
             ("z01x", _VCS_ID_OUTPUT, "X-2025.06-SP2-1_Full64"),
             ("xcelium", _XRUN_VERSION_OUTPUT, "24.03-s007"),
+            ("verilator", _VERILATOR_RELEASE_OUTPUT, "5.052 (2026-09-06)"),
+            (
+                "verilator",
+                _VERILATOR_DEVEL_OUTPUT,
+                "5.053 devel rev vUNKNOWN-built19800101",
+            ),
         ],
     )
     def test_parses_version(tool: str, output: str, expected: str) -> None:
