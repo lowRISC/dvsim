@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.54.0 (2026-09-22)
+
+### Features
+
+- Add Verilator simulation tool plugin
+  ([`cd7a547`](https://github.com/lowRISC/dvsim/commit/cd7a5474e6236dcb275069b7d86a641a4a953329))
+
+- Register Verilator as a simulation tool
+  ([`5d35d6e`](https://github.com/lowRISC/dvsim/commit/5d35d6e94e0d66b82951225779698f5ddb7da548))
+
+
 ## v1.53.0 (2026-09-11)
 
 ### Features
