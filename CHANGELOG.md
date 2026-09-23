@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.54.1 (2026-09-23)
+
+### Bug Fixes
+
+- Report the command output when run_cmd fails
+  ([`be595e2`](https://github.com/lowRISC/dvsim/commit/be595e2590ea61f5e50c1ff468ac7cd27c2952c1))
+
+
 ## v1.54.0 (2026-09-22)
 
 ### Features
