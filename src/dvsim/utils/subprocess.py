@@ -11,6 +11,29 @@ import time
 
 from dvsim.logging import log
 
+# An {eval_cmd} is a shell snippet from a flow config, so its output on failure is usually a line
+# or two. It does not have to be: a snippet that shells out to find or to a script can produce a
+# great deal before it fails, and flooding the terminal with all of it helps nobody. Keep the tail,
+# where the error almost always is.
+_MAX_FAILURE_LINES = 20
+
+
+def _log_failure_output(output: str) -> None:
+    """Log a failing command's output, keeping only the tail when it is long."""
+    lines = output.strip().splitlines()
+    if not lines:
+        return
+
+    if len(lines) > _MAX_FAILURE_LINES:
+        log.error(
+            "Last %d of %d output lines:",
+            _MAX_FAILURE_LINES,
+            len(lines),
+        )
+        lines = lines[-_MAX_FAILURE_LINES:]
+
+    log.error("%s", "\n".join(lines))
+
 
 def run_cmd(cmd: str) -> str:
     """Run a command and get the result.
@@ -20,6 +43,11 @@ def run_cmd(cmd: str) -> str:
     """
     (status, output) = subprocess.getstatusoutput(cmd)
     if status:
+        # getstatusoutput folds stderr into output, so this is the only place the command's
+        # diagnostic exists. Dropping it leaves the user with a bare exit status and no clue,
+        # which is what a flow config that guards a missing tool with ${VAR:?message} hits.
+        log.error("Command failed with status %d: %s", status, cmd)
+        _log_failure_output(output)
         sys.exit(status)
 
     return output
