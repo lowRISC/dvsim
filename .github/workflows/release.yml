@@ -40,7 +40,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup | Install uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.2.0
 
       - name: Setup | Install Python + the python project with release dependencies
         run: |
@@ -107,7 +107,7 @@ jobs:
           fetch-tags: true
 
       - name: Setup | Install uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.2.0
 
       - name: Setup | Install Python + the python project with build dependencies
         run: |
@@ -120,7 +120,7 @@ jobs:
           uv build
 
       - name: Publish | Create GitHub Release (src + dist)
-        uses: python-semantic-release/publish-action@v10.6.1
+        uses: python-semantic-release/publish-action@v10.6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ needs.release.outputs.tag }}
