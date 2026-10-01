@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Protocol
 
 from dvsim.job.data import JobSpec, ResourceMapping
+from dvsim.job.status import JobStatus
 from dvsim.logging import log
 
 __all__ = (
@@ -17,6 +18,10 @@ __all__ = (
     "ResourceProvider",
     "StaticResourceProvider",
 )
+
+
+# Used to format logs
+MIN_FIELD_WIDTH = 5
 
 
 class ResourceProvider(Protocol):
@@ -73,6 +78,13 @@ class ResourceManager:
         self._provider = provider
         self._missing_policy = missing_policy
         self._usage = defaultdict(int)
+        # Index tracking number of jobs with each status, per resource
+        self._status_counts: defaultdict[str, dict[JobStatus, int]] = defaultdict(
+            lambda: defaultdict(int)
+        )
+        # The number of characters used to represent the largest field in the displayed table
+        self._int_field_width: int
+        self._str_field_width: int
 
     async def can_allocate(self, request: ResourceMapping) -> bool:
         """Check if a given resource request can be allocated, given current usage and limits."""
@@ -108,6 +120,29 @@ class ResourceManager:
         for resource, amount in request.items():
             if amount is not None:
                 self._usage[resource] -= amount
+
+    def update_status_counts(self, spec: JobSpec, old: JobStatus, new: JobStatus) -> None:
+        """Update the index that tracks job status counts per resource."""
+        for resource in spec.resources or {}:
+            if status_counts := self._status_counts.get(resource):
+                status_counts[old] = status_counts[old] - 1
+                status_counts[new] = status_counts[new] + 1
+            else:
+                log.warning("Unrecognised resource: %s", resource)
+
+    def log_status_counts(self) -> None:
+        """Log job status counts per resource.
+
+        This should be registered as a callback on job status change in Scheduler only when verbose
+        logging is enabled.
+        """
+        for resource, status_counts in self._status_counts.items():
+            status_count_str = ", ".join(
+                f"{status.value[0]}: {count:>{self._int_field_width}}"
+                for status, count in status_counts.items()
+            )
+            log_msg = f"[ Resource: %-{self._str_field_width}s ] [ %s ]"
+            log.verbose(log_msg, resource, status_count_str)
 
     def _log_usage(self, capacity: ResourceMapping, used: ResourceMapping) -> None:
         """Debug log individual job resource usage aggregates."""
@@ -201,3 +236,22 @@ class ResourceManager:
 
         self._log_usage(capacity, aggregate)
         self._emit_validation_errors(missing_resource_errors, limit_exceeded_errors)
+
+    def init_status_counts(self, jobs: Iterable[JobSpec]) -> None:
+        """Initialise an index tracking the number of jobs with each status, per resource."""
+        for job in jobs:
+            for resource in job.resources or {}:
+                if not self._status_counts.get(resource):
+                    self._status_counts[resource] = dict.fromkeys(JobStatus, 0)
+                self._status_counts[resource][JobStatus.SCHEDULED] += 1
+
+        self._int_field_width = max(
+            (
+                len(str(job_status_counts[JobStatus.SCHEDULED]))
+                for job_status_counts in self._status_counts.values()
+            ),
+            default=MIN_FIELD_WIDTH,
+        )
+        self._str_field_width = max(
+            (len(resource) for resource in self._status_counts), default=MIN_FIELD_WIDTH
+        )
