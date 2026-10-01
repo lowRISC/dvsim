@@ -4,8 +4,10 @@
 
 """Test the DVSim scheduler."""
 
+import logging
 import multiprocessing
 import os
+import random
 import sys
 import threading
 import time
@@ -22,10 +24,13 @@ from hamcrest import assert_that, calling, empty, equal_to, only_contains, raise
 from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.launcher.base import ErrorMessage, Launcher, LauncherBusyError, LauncherError
+from dvsim.logging import _VERBOSE_LOG_LEVEL
 from dvsim.report.data import IPMeta, ToolMeta
 from dvsim.runtime.legacy import LegacyLauncherAdapter
 from dvsim.scheduler.core import Scheduler
 from dvsim.scheduler.resources import ResourceManager, StaticResourceProvider
+from dvsim.scheduler.runner import run_scheduler
+from dvsim.tool.utils import _SUPPORTED_SIM_TOOLS
 
 __all__ = ()
 
@@ -33,6 +38,10 @@ __all__ = ()
 # Default scheduler test timeout to handle infinite loops in the scheduler
 DEFAULT_TIMEOUT = 2
 SIGNAL_TEST_TIMEOUT = 5
+
+# Used for randomly selected simulation tool names
+SEED = 42
+random.seed(SEED)
 
 
 @dataclass
@@ -255,9 +264,14 @@ def ip_meta_factory(**overrides: str | None) -> IPMeta:
     return IPMeta(**meta)
 
 
-def tool_meta_factory(name: str = "test_tool", version: str = "test_version") -> ToolMeta:
+def tool_meta_factory(name: str = "", version: str = "test_version") -> ToolMeta:
     """Create a ToolMeta from a set of default values, for use in testing."""
-    return ToolMeta(name=name, version=version)
+    if name:
+        return ToolMeta(name=name, version=version)
+    return ToolMeta(
+        name=random.choice([*_SUPPORTED_SIM_TOOLS]),  # noqa: S311
+        version=version,
+    )
 
 
 def build_workspace(
@@ -1037,3 +1051,65 @@ class TestSignals:
             proc.join()
             pytest.fail("Scheduler hung and was terminated")
         assert_that(proc.exitcode, equal_to(0))
+
+
+class TestLogging:
+    """Tests for the logging functionality of the scheduler."""
+
+    @staticmethod
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(DEFAULT_TIMEOUT)
+    async def test_resource_logging(fxt: Fxt, caplog: pytest.LogCaptureFixture) -> None:
+        """Test logging of job status counts per tool.
+
+        This test modifies TestSchedulingPriority::test_blocked_weight_starvation
+        """
+        start_job = job_spec_factory(fxt.tmp_path, name="start")
+        short_blocker = job_spec_factory(fxt.tmp_path, name="short", dependencies=["start"])
+        long_blocker = job_spec_factory(fxt.tmp_path, name="long", dependencies=["start"])
+        high = job_spec_factory(fxt.tmp_path, name="high", dependencies=["long"], weight=1000000)
+        jobs = [start_job, short_blocker, long_blocker, high]
+        jobs += make_many_jobs(
+            fxt.tmp_path,
+            n=5,
+            weight=1,
+            dependencies=["short"],
+            vary_targets=True,
+        )
+        # Status counts are tracked per resource, so have each job use its tool as a resource
+        jobs = [job.model_copy(update={"resources": {job.tool.name: 1}}) for job in jobs]
+        fxt.mock_ctx.set_config(
+            short_blocker,
+            MockJob(status_thresholds=[(0, JobStatus.RUNNING), (1, JobStatus.PASSED)]),
+        )
+        fxt.mock_ctx.set_config(
+            long_blocker,
+            MockJob(status_thresholds=[(0, JobStatus.RUNNING), (5, JobStatus.PASSED)]),
+        )
+
+        # Capture logging and set debug level
+        dvsim_logger = logging.getLogger("dvsim")
+        dvsim_logger.addHandler(caplog.handler)
+        caplog.set_level(_VERBOSE_LOG_LEVEL, logger="dvsim")
+        try:
+            result = await run_scheduler(
+                jobs=jobs,
+                max_parallel=len(jobs),
+                interactive=True,
+                backend=fxt.mock_legacy_backend,
+                resource_manager=ResourceManager(StaticResourceProvider({"A": 5, "B": 10})),
+            )
+        finally:
+            dvsim_logger.removeHandler(caplog.handler)
+
+        _assert_result_status(result, len(jobs))
+
+        expected_tools = {job.tool.name for job in jobs}
+        logged_tools = set()
+        for record in caplog.records:
+            if record.module == "resources" and record.levelno == _VERBOSE_LOG_LEVEL:
+                args = record.args
+                if isinstance(args, tuple) and args:
+                    logged_tools.add(str(args[0]).strip())
+
+        assert_that(logged_tools, equal_to(expected_tools))

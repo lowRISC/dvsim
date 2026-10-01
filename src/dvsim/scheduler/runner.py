@@ -8,6 +8,7 @@ from collections.abc import Iterable
 
 import dvsim.instrumentation.runtime as instrumentation
 from dvsim.job.data import CompletedJobStatus, JobSpec
+from dvsim.logging import log
 from dvsim.runtime.backend import RuntimeBackend
 from dvsim.runtime.fake import FakePolicy, FakeRuntimeBackend
 from dvsim.runtime.registry import backend_registry
@@ -95,6 +96,9 @@ async def run_scheduler(
     # Convert to list so that first use doesn't consume the Iterable
     jobs = list(jobs)
 
+    if log.isEnabledFor(log.VERBOSE) and resource_manager:
+        resource_manager.init_status_counts(jobs)
+
     scheduler = Scheduler(
         jobs=jobs,
         backends={backend.name: backend},
@@ -111,6 +115,14 @@ async def run_scheduler(
             len(job.dependents),
         ),
     )
+
+    # Setup additional verbose logging
+    if log.isEnabledFor(log.VERBOSE) and resource_manager:
+        scheduler.add_job_status_change_callback(
+            lambda spec, old, new, resources=resource_manager: (
+                resources.update_status_counts(spec, old, new) or resources.log_status_counts()
+            )
+        )
 
     if not interactive:
         status_printer = create_status_printer(jobs)

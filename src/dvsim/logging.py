@@ -64,7 +64,7 @@ class DVSimLogger(logging.getLoggerClass()):
 
     def verbose(self, msg: object, *args: object) -> None:
         """Log a verbose msg."""
-        self.log(self.VERBOSE, msg, *args)
+        self.log(self.VERBOSE, msg, *args, stacklevel=2)
 
     def set_logfile(
         self,
