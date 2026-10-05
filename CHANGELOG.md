@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.55.0 (2026-10-05)
+
+### Features
+
+- Let a regression include other regressions
+  ([`817ecbf`](https://github.com/lowRISC/dvsim/commit/817ecbf90ff707be84eaef6e28ef245898b957fe))
+
+
 ## v1.54.2 (2026-10-05)
 
 ### Bug Fixes
