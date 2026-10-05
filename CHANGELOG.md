@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.54.2 (2026-10-05)
+
+### Bug Fixes
+
+- Bump the actions group across 1 directory with 2 updates
+  ([`90959c3`](https://github.com/lowRISC/dvsim/commit/90959c339afeedbbceead4086f7770927b275143))
+
+
 ## v1.54.1 (2026-09-23)
 
 ### Bug Fixes
