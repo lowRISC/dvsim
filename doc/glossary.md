@@ -107,6 +107,22 @@ DVSim provides these standard regression targets for all DUTs:
 - `all` (runs all tests with the preset reseeds, without coverage)
 - `all_once` (run all tests with only a single randomly chosen seed)
 
+A regression can include other regressions by name with the `regressions` key, and then runs their tests along with its own:
+
+```hjson
+regressions: [
+  {
+    name: regression_a_b
+    regressions: ["regression_a", "regression_b"]
+  }
+]
+```
+
+Inclusion is transitive, and a test reached twice runs once.
+Only the tests of an included regression are taken.
+Its sim modes, run modes, options and reseed do not apply, so the including regression sets its own.
+A regression that includes one running all tests, such as `all`, runs all tests too.
+
 ## Reseeds
 
 ## Run

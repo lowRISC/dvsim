@@ -28,6 +28,10 @@ class Regression(Mode):
         self.tests = None
         self.test_names = []
 
+        # Names of other regressions whose tests this one runs as well. Only their tests are taken,
+        # so the modes and options of this regression apply to every test it ends up with.
+        self.regressions = []
+
         self.reseed = None
         self.excl_tests = []  # TODO: add support for this
         self.en_sim_modes = []
@@ -74,7 +78,10 @@ class Regression(Mode):
                 regression_objs.append(new_regression)
                 Regression.item_names.append(new_regression.name)
 
-        # Pass 2: Process dependencies
+        # Pass 2: Add the tests of the included regressions
+        Regression._include_regressions(regression_objs)
+
+        # Pass 3: Process dependencies
         build_modes = getattr(sim_cfg, "build_modes", [])
         run_modes = getattr(sim_cfg, "run_modes", [])
 
@@ -160,6 +167,55 @@ class Regression(Mode):
 
         # Return the list of tests
         return regression_objs
+
+    @staticmethod
+    def _include_regressions(regression_objs: list["Regression"]) -> None:
+        """Add to each regression the tests of the regressions it includes.
+
+        The `regressions` key names the regressions to include, and inclusion is transitive. A
+        regression that sets `regressions` but no `tests` runs only the included tests. Including
+        a regression that runs all tests, because it leaves `tests` unset, makes the including
+        regression run all tests too.
+        """
+        regr_map = {regr.name: regr for regr in regression_objs}
+        resolved: dict[str, list[str] | None] = {}
+
+        def resolve(regr: Regression, chain: list[str]) -> list[str] | None:
+            if regr.name in resolved:
+                return resolved[regr.name]
+            if not regr.regressions:
+                return regr.tests
+            if regr.name in chain:
+                log.error(
+                    'Regression "%s" includes itself through %s',
+                    regr.name,
+                    ", ".join(f'"{name}"' for name in [*chain, regr.name]),
+                )
+                sys.exit(1)
+
+            tests: list[str] | None = list(regr.tests or [])
+            for name in regr.regressions:
+                included = regr_map.get(name)
+                if included is None:
+                    log.error(
+                        'Regression "%s" includes "%s", which is not a regression',
+                        regr.name,
+                        name,
+                    )
+                    sys.exit(1)
+                included_tests = resolve(included, [*chain, regr.name])
+                if included_tests is None:
+                    tests = None
+                    break
+                tests.extend(included_tests)
+
+            # Keep the first occurrence of each test, in order
+            resolved[regr.name] = None if tests is None else list(dict.fromkeys(tests))
+            return resolved[regr.name]
+
+        for regr in regression_objs:
+            if regr.regressions:
+                regr.tests = resolve(regr, [])
 
     def merge_regression_opts(self) -> None:
         processed_build_modes = []
