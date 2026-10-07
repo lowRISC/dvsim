@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.55.1 (2026-10-07)
+
+### Bug Fixes
+
+- Bump urllib3 from 2.7.0 to 2.8.0
+  ([`90b51fe`](https://github.com/lowRISC/dvsim/commit/90b51fe0609b279ef9b53a89d693f7222365f245))
+
+
 ## v1.55.0 (2026-10-05)
 
 ### Features
