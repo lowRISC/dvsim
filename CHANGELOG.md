@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.56.1 (2026-10-09)
+
+### Bug Fixes
+
+- Bump python-semantic-release/publish-action
+  ([`180f79a`](https://github.com/lowRISC/dvsim/commit/180f79a17987b4c99e165f7b29de309740041240))
+
+
 ## v1.56.0 (2026-10-09)
 
 ### Features
