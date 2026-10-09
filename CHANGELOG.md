@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.56.0 (2026-10-09)
+
+### Features
+
+- Logging the number of jobs with each status, broken down by resource
+  ([`8193435`](https://github.com/lowRISC/dvsim/commit/8193435e1774a8837092721379c6eabc81e27315))
+
+
 ## v1.55.1 (2026-10-07)
 
 ### Bug Fixes
