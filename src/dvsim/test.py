@@ -6,7 +6,7 @@ import sys
 from copy import deepcopy
 
 from dvsim.logging import log
-from dvsim.modes import RunMode, find_mode, find_mode_list
+from dvsim.modes import RunMode, find_mode, find_mode_list, merge_resources
 
 
 class Test(RunMode):
@@ -111,6 +111,9 @@ class Test(RunMode):
             test_obj.run_opts.extend(test_obj.build_mode.run_opts)
             test_obj.sw_images.extend(test_obj.build_mode.sw_images)
             test_obj.sw_build_opts.extend(test_obj.build_mode.sw_build_opts)
+            test_obj.run_resources = merge_resources(
+                test_obj.run_resources, test_obj.build_mode.run_resources
+            )
 
         # Return the list of tests
         return tests_objs
@@ -127,6 +130,8 @@ class Test(RunMode):
         global_run_opts,
         global_sw_images,
         global_sw_build_opts,
+        global_build_resources=None,
+        global_run_resources=None,
     ) -> None:
         processed_build_modes = set()
         for test in tests:
@@ -135,9 +140,13 @@ class Test(RunMode):
                 test.build_mode.post_build_cmds.extend(global_post_build_cmds)
                 test.build_mode.build_opts.extend(global_build_opts)
                 test.build_mode.post_build_opts.extend(global_post_build_opts)
+                test.build_mode.build_resources = merge_resources(
+                    test.build_mode.build_resources, global_build_resources
+                )
                 processed_build_modes.add(test.build_mode.name)
             test.pre_run_cmds.extend(global_pre_run_cmds)
             test.post_run_cmds.extend(global_post_run_cmds)
             test.run_opts.extend(global_run_opts)
             test.sw_images.extend(global_sw_images)
             test.sw_build_opts.extend(global_sw_build_opts)
+            test.run_resources = merge_resources(test.run_resources, global_run_resources)

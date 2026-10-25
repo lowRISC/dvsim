@@ -16,6 +16,7 @@ from dvsim.job.data import JobSpec
 from dvsim.job.status import JobStatus
 from dvsim.job.time import JobTime
 from dvsim.logging import log
+from dvsim.modes import merge_resources
 from dvsim.report.data import IPMeta, ToolMeta
 from dvsim.test import Test
 from dvsim.tool.utils import get_sim_tool_plugin
@@ -238,7 +239,7 @@ class Deploy:
         self._extract_attrs(self.sim_cfg.__dict__)
 
         # Use the configured tool to determine the resources (licenses) that are required.
-        # For now, we just assume that the tool itself is the only resource needed.
+        # Every job needs the tool itself; build and run jobs add what their mode asks for.
         self.resources = None
         if hasattr(self.sim_cfg, "tool") and self.sim_cfg.tool:
             self.resources = {self.sim_cfg.tool.upper(): 1}
@@ -276,6 +277,11 @@ class Deploy:
         # Pass and fail patterns.
         self.pass_patterns = []
         self.fail_patterns = []
+
+    def _add_resources(self, resources: Mapping[str, int] | None) -> None:
+        """Add resources that a mode or test asks for to those of this job."""
+        if resources:
+            self.resources = merge_resources(self.resources, resources)
 
     def _check_attrs(self) -> None:
         """Check if all required class attributes are set.
@@ -362,6 +368,10 @@ class Deploy:
         # Check if the cmd field is identical.
         item_cmd = item.cmd.replace(item.name, self.name)
         if self.cmd != item_cmd:
+            return False
+
+        # A job that needs other resources is not interchangeable.
+        if self.resources != item.resources:
             return False
 
         # Check if exports have identical set of keys.
@@ -496,6 +506,7 @@ class CompileSim(Deploy):
     def _set_attrs(self) -> None:
         super()._extract_attrs(self.build_mode_obj.__dict__)
         super()._set_attrs()
+        self._add_resources(self.build_mode_obj.build_resources)
 
         # Dont run the compile job in GUI mode.
         self.gui = False
@@ -617,6 +628,7 @@ class CompileOneShot(Deploy):
     def _set_attrs(self) -> None:
         super()._extract_attrs(self.build_mode_obj.__dict__)
         super()._set_attrs()
+        self._add_resources(self.build_mode_obj.build_resources)
 
         # 'build_mode' is used as a substitution variable in the HJson.
         self.build_mode = self.name
@@ -745,6 +757,8 @@ class RunTest(Deploy):
     def _set_attrs(self) -> None:
         super()._extract_attrs(self.test_obj.__dict__)
         super()._set_attrs()
+        # The test's run_resources already include its build mode's.
+        self._add_resources(self.test_obj.run_resources)
 
         # When running a test, we should always renew the output directory
         self.renew_odir = True
