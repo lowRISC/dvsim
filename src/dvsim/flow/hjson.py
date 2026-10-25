@@ -4,11 +4,17 @@
 
 """A wrapper for loading hjson files as used by dvsim's FlowCfg."""
 
+import os
+from pathlib import Path
+
 from dvsim.utils import parse_hjson, subst_wildcards
 
 # A set of fields that can be overridden on the command line and shouldn't be
 # loaded from the hjson in that case.
 _CMDLINE_FIELDS = {"tool"}
+
+# Replaced, as each file is parsed, by the directory that holds that file.
+_FILE_DIR_WILDCARD = "{file_dir}"
 
 
 def load_hjson(path, initial_values):
@@ -16,7 +22,8 @@ def load_hjson(path, initial_values):
 
     Combines them all into a single dictionary, which is then returned. This
     does wildcard substitution on include names (since it might be needed to
-    find included files), but not otherwise.
+    find included files) and replaces {file_dir} in each file (see
+    _load_single_file), but does no other substitution.
 
     initial_values is a starting point for the dictionary to be returned (which
     is not modified). It needs to contain values for anything needed to resolve
@@ -52,8 +59,28 @@ def load_hjson(path, initial_values):
     return ret
 
 
+def _subst_file_dir(value: object, file_dir: str) -> object:
+    """Replace {file_dir} with file_dir in every string inside value.
+
+    value is parsed hjson: a string, or lists and dictionaries nested to any
+    depth. Other values are returned unchanged.
+
+    """
+    if isinstance(value, str):
+        return value.replace(_FILE_DIR_WILDCARD, file_dir)
+    if isinstance(value, list):
+        return [_subst_file_dir(item, file_dir) for item in value]
+    if isinstance(value, dict):
+        return {key: _subst_file_dir(item, file_dir) for key, item in value.items()}
+    return value
+
+
 def _load_single_file(target, path, is_first, arg_keys):
     """Load a single hjson file, merging its keys into target.
+
+    Every {file_dir} in the file's string values is replaced by the absolute
+    path of the directory that holds the file, so that an imported file can
+    name the files next to it. Symlinks are kept, as they are in {proj_root}.
 
     Returns a list of further includes that should be loaded.
 
@@ -63,12 +90,17 @@ def _load_single_file(target, path, is_first, arg_keys):
         msg = f"{path!r}: Top-level hjson object is not a dictionary."
         raise RuntimeError(msg)
 
+    # Not resolve(): that would also follow symlinks.
+    file_dir = str(Path(os.path.normpath(Path(path).absolute())).parent)
+
     import_cfgs = []
-    for key, dict_val in hjson.items():
+    for key, raw_val in hjson.items():
         # If this key got set at the start of time and we want to ignore any
         # updates: ignore them!
         if key in arg_keys:
             continue
+
+        dict_val = _subst_file_dir(raw_val, file_dir)
 
         # If key is 'import_cfgs', this should be a list. Add each item to the
         # list of cfgs to process

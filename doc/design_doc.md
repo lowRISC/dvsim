@@ -145,6 +145,9 @@ Thus, all Make variables must be defined in the DUT configuration file and diffe
 The **DUT configuration** is expressed in Hjson, split into a tree of files.
 The root DUT configuration file indicates the [flow](./glossary.md#eda-tool-flow) and the EDA tool used to execute the flow, among several other things.
 It may recursively import auxiliary Hjson files containing additional EDA tool flow configuration data, such as test specifications that are common to multiple DUTs.
+Within any of these files, `{file_dir}` names the directory that holds that file (as an absolute path), so a file can name the files next to it wherever it is imported from.
+`{self_dir}`, by contrast, is the directory of the configuration file that dvsim loaded, at the top of the import tree.
+`{file_dir}` is replaced as each file is loaded, so it can only be used in Hjson files, not in options given on the command line.
 
 ### Parser stage
 
