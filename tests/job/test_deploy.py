@@ -72,6 +72,7 @@ class FakeBuildMode:
         self.build_mode = "build_mode"
         self.build_opts = ["-b path/here", '-a "Quoted"']
         self.post_build_opts = ["E"]
+        self.build_resources = {}
 
 
 def _build_compile_sim(
@@ -269,3 +270,36 @@ class TestCompileSim:
         )
 
         assert_that(job.build_timeout_mins, equal_to(timeout))
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("tool", "resources", "expected"),
+        [
+            (None, None, None),
+            ("vcs", None, {"VCS": 1}),
+            ("vcs", {}, {"VCS": 1}),
+            ("vcs", {"VIP": 2}, {"VCS": 1, "VIP": 2}),
+            (None, {"VIP": 1}, {"VIP": 1}),
+        ],
+    )
+    def test_resources(
+        tool: str | None,
+        resources: Mapping | None,
+        expected: Mapping | None,
+    ) -> None:
+        """Test that a CompileSim needs its tool and what its build mode asks for."""
+        job = _build_compile_sim(
+            build_overrides={"build_resources": resources},
+            sim_overrides={"tool": tool},
+        )
+
+        assert_that(job.resources, equal_to(expected))
+
+    @staticmethod
+    def test_resources_make_jobs_distinct() -> None:
+        """Test that builds that differ only in their resources are not merged."""
+        plain = _build_compile_sim()
+        licensed = _build_compile_sim(build_overrides={"build_resources": {"VIP": 1}})
+
+        assert_that(plain.is_equivalent_job(_build_compile_sim()), equal_to(True))
+        assert_that(plain.is_equivalent_job(licensed), equal_to(False))

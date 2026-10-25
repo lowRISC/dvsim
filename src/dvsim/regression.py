@@ -5,7 +5,7 @@
 import sys
 
 from dvsim.logging import log
-from dvsim.modes import Mode, find_mode, find_mode_list
+from dvsim.modes import Mode, find_mode, find_mode_list, merge_resources
 from dvsim.test import Test
 
 
@@ -44,6 +44,11 @@ class Regression(Mode):
         self.post_build_opts = []
         self.run_opts = []
         super().__init__("regression", regdict)
+
+        # Resources that the enabled modes ask for: those for the builds, and those for the tests.
+        # Set after the regression's own keys, as they are not keys of a regression.
+        self.build_resources = {}
+        self.run_resources = {}
 
     @staticmethod
     def create_regressions(regdicts, sim_cfg, tests):
@@ -123,6 +128,12 @@ class Regression(Mode):
                 regression_obj.pre_run_cmds.extend(sim_mode_obj.pre_run_cmds)
                 regression_obj.post_run_cmds.extend(sim_mode_obj.post_run_cmds)
                 regression_obj.run_opts.extend(sim_mode_obj.run_opts)
+                regression_obj.build_resources = merge_resources(
+                    regression_obj.build_resources, sim_mode_obj.build_resources
+                )
+                regression_obj.run_resources = merge_resources(
+                    regression_obj.run_resources, sim_mode_obj.run_resources
+                )
 
             # Unpack the run_modes
             # TODO: If there are other params other than run_opts throw an
@@ -138,6 +149,9 @@ class Regression(Mode):
                 regression_obj.pre_run_cmds.extend(run_mode_obj.pre_run_cmds)
                 regression_obj.post_run_cmds.extend(run_mode_obj.post_run_cmds)
                 regression_obj.run_opts.extend(run_mode_obj.run_opts)
+                regression_obj.run_resources = merge_resources(
+                    regression_obj.run_resources, run_mode_obj.run_resources
+                )
 
             # Unpack tests
             # If `tests` member resolves to None, then we add ALL available
@@ -225,10 +239,14 @@ class Regression(Mode):
                 test.build_mode.post_build_cmds.extend(self.post_build_cmds)
                 test.build_mode.post_build_opts.extend(self.post_build_opts)
                 test.build_mode.build_opts.extend(self.build_opts)
+                test.build_mode.build_resources = merge_resources(
+                    test.build_mode.build_resources, self.build_resources
+                )
                 processed_build_modes.append(test.build_mode.name)
             test.pre_run_cmds.extend(self.pre_run_cmds)
             test.post_run_cmds.extend(self.post_run_cmds)
             test.run_opts.extend(self.run_opts)
+            test.run_resources = merge_resources(test.run_resources, self.run_resources)
 
             # Override reseed if available.
             if self.reseed is not None:

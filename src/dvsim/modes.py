@@ -41,6 +41,11 @@ class Mode:
                 sys.exit(1)
             setattr(self, key, mdict[key])
 
+        for key in ("build_resources", "run_resources"):
+            if key in keys:
+                where = f"{type_name} {mdict['name']!r}, {key}"
+                setattr(self, key, check_resources(mdict[key], where))
+
     def get_sub_modes(self) -> Sequence[str]:
         # Default behaviour is not to have sub-modes
         return []
@@ -103,6 +108,11 @@ class Mode:
             if isinstance(self_attr_val, list):
                 assert isinstance(mode_attr_val, list)
                 self_attr_val.extend(mode_attr_val)
+                continue
+
+            # Resources merge by name, taking the larger count.
+            if attr in ("build_resources", "run_resources"):
+                setattr(self, attr, merge_resources(self_attr_val, mode_attr_val))
                 continue
 
             # The types that we support other than lists are "scalar" types,
@@ -226,6 +236,44 @@ class Mode:
         return None
 
 
+def check_resources(resources: object, where: str) -> dict[str, int]:
+    """Check the resources requested by a mode or test, and normalise them.
+
+    resources must map resource names to positive counts. The names are
+    upper-cased, as they are for limits given with --resource, so they must
+    be names that --resource can give: no whitespace and no '='. Names that
+    differ only in case are the same resource and take the larger count.
+    """
+    if not isinstance(resources, Mapping):
+        log.error("%s: must map resource names to counts, not %r.", where, resources)
+        sys.exit(1)
+
+    checked = {}
+    for name, count in resources.items():
+        if not name or "=" in name or any(c.isspace() for c in name):
+            log.error("%s: %r is not a valid resource name.", where, name)
+            sys.exit(1)
+        if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
+            log.error("%s: resource %s must be a positive integer, not %r.", where, name, count)
+            sys.exit(1)
+        checked = merge_resources(checked, {name.upper(): count})
+    return checked
+
+
+def merge_resources(
+    first: Mapping[str, int] | None, second: Mapping[str, int] | None
+) -> dict[str, int]:
+    """Combine two resource requests for one job.
+
+    Where both name a resource, the job needs the larger count: a test and
+    its build mode that both ask for one licence of a tool need one, not two.
+    """
+    merged = dict(first or {})
+    for name, count in (second or {}).items():
+        merged[name] = max(merged.get(name, 0), count)
+    return merged
+
+
 def find_mode(mode_name: str, modes: Sequence[Mode]) -> Mode | None:
     """Search through a list of modes and return the one with the given name.
 
@@ -275,6 +323,8 @@ class BuildMode(Mode):
         self.run_opts = []
         self.sw_images = []
         self.sw_build_opts = []
+        self.build_resources = {}
+        self.run_resources = {}
 
         super().__init__("build mode", bdict)
         self.en_build_modes = list(set(self.en_build_modes))
@@ -311,6 +361,7 @@ class RunMode(Mode):
         self.sw_images = []
         self.sw_build_device = ""
         self.sw_build_opts = []
+        self.run_resources = {}
 
         super().__init__("run mode", rdict)
         self.en_run_modes = list(set(self.en_run_modes))
