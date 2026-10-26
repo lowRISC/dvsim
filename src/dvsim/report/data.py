@@ -57,12 +57,15 @@ class ToolMeta(BaseModel):
 
 
 class CfgExtensionMeta(BaseModel):
-    """A cfg extension (--cfg-extend) merged into a flow's cfg."""
+    """A cfg extension (--cfg-extend) that a flow's cfg matched: merged, or skipped."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     path: str
     """Path of the extension file."""
+    skipped: str | None = None
+    """Why the extension was left out (--on-cfg-extend-error skip), or None if
+    it was merged."""
     revision: "GitRevisionMeta | None" = None
     """The git revision of the checkout that holds the extension file (not of
     any files it imports from elsewhere), or None if it isn't in git."""

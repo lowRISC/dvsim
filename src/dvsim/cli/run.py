@@ -477,6 +477,19 @@ def parse_args(argv: list[str] | None = None):
         ),
     )
 
+    whatg.add_argument(
+        "--on-cfg-extend-error",
+        type=str.lower,
+        choices=["error", "skip"],
+        default="error",
+        help=(
+            "What to do when a --cfg-extend file can't be loaded, merged or "
+            "overridden, or names no cfg: stop the run (error), or leave the "
+            "extension out, run the cfg without it and say so in its report "
+            "(skip). Defaults to %(default)s."
+        ),
+    )
+
     disg = parser.add_argument_group("Dispatch options")
 
     disg.add_argument(

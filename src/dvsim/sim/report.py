@@ -223,9 +223,16 @@ class MarkdownReportRenderer:
         if len(results.stages) > 0 and testplan_ref:
             report_md += f"\n### [Testplan]({testplan_ref})"
         report_md += f"\n### Simulator: {results.tool.name.upper()}"
-        if results.extensions:
+        merged = [ext for ext in results.extensions if ext.skipped is None]
+        if merged:
             report_md += "\n### Cfg extensions:\n"
-            report_md += "".join(f"\n* `{ext.path}`{_revision(ext)}" for ext in results.extensions)
+            report_md += "".join(f"\n* `{ext.path}`{_revision(ext)}" for ext in merged)
+        for ext in results.extensions:
+            if ext.skipped is not None:
+                report_md += (
+                    f"\n\n> **Warning:** cfg extension `{ext.path}`{_revision(ext)} skipped: "
+                    f"{ext.skipped}\n"
+                )
 
         # Record a summary of the simulation results, coverage, and failure buckets, if applicable.
         result_summary = self.render_block_results(results)
@@ -450,6 +457,9 @@ class MarkdownReportRenderer:
                 name_link = f"[{name.upper()}]({html_report_path!s})"
             else:
                 name_link = name.upper()
+            skipped = sum(ext.skipped is not None for ext in flow_result.extensions)
+            if skipped:
+                name_link += f" ({skipped} {_plural('extension', skipped)} skipped)"
 
             table.append(
                 {

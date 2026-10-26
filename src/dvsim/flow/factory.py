@@ -143,15 +143,20 @@ def make_cfg(path, args, proj_root) -> FlowCfg:
 
     # Every extension must have found its cfg. A name that matches nothing is
     # a typo or a cfg that has been renamed, and would otherwise pass silently.
+    # With --on-cfg-extend-error skip, the rest of the run goes ahead.
     errors = check_cfg_extensions_used(
         args.cfg_extend,
         [ext for child in cfg.cfgs for ext in child.cfg_extensions],
         [child.cfg_extend_name for child in cfg.cfgs],
         cfg.name if cfg.is_primary_cfg else None,
     )
+    skip = args.on_cfg_extend_error == "skip"
     for error in errors:
-        log.error("%s", error)
-    if errors:
+        if skip:
+            log.warning("Skipping: %s", error)
+        else:
+            log.error("%s", error)
+    if errors and not skip:
         sys.exit(1)
 
     return cfg

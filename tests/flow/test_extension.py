@@ -185,7 +185,9 @@ class TestMerge:
         with pytest.raises(SystemExit):
             _load(proj, "top_sim_cfgs.hjson", f"blk={ext}")
 
-        assert f"Cannot extend cfg 'blk': '{ext}': Value for key '{key}'" in dvsim_log.text
+        assert f"Cannot extend cfg 'blk' with {ext}: Value for key '{key}'" in dvsim_log.text
+        # The reason doesn't repeat the path.
+        assert f"'{ext}'" not in dvsim_log.text
 
     def test_tool_from_the_command_line_wins(self, proj: Path, tmp_path: Path) -> None:
         """As in the cfg's own files, the extension's tool gives way to --tool."""
@@ -265,6 +267,142 @@ class TestNames:
         assert check_cfg_extensions_used(exts[:1], [], ["b"], None) == [
             "Cfg extension /a names 'a', but no loaded cfg has that name (loaded: b)."
         ]
+
+
+def _reasons(cfg: FlowCfg) -> list[str]:
+    """Why each skipped extension of cfg was skipped."""
+    return [meta.skipped for meta in cfg.cfg_extensions.values() if meta.skipped is not None]
+
+
+def _skipped(cfg: FlowCfg) -> list[CfgExtension]:
+    """The extensions of cfg that were skipped."""
+    return [ext for ext, meta in cfg.cfg_extensions.items() if meta.skipped is not None]
+
+
+def _load_skip(proj: Path, *extends: str) -> FlowCfg:
+    return _load(proj, "top_sim_cfgs.hjson", *extends, argv=["--on-cfg-extend-error", "skip"])
+
+
+class TestOnError:
+    """--on-cfg-extend-error: a broken extension stops the run, or is skipped."""
+
+    def test_default_is_error(self, proj: Path) -> None:
+        assert parse_args([str(proj / "hw" / "top_sim_cfgs.hjson")]).on_cfg_extend_error == "error"
+
+    def test_parse_error_is_skipped(self, proj: Path, tmp_path: Path) -> None:
+        ext = _write(tmp_path / "ext.hjson", "{tests: [{name: ")
+
+        blk = _blk(_load_skip(proj, f"blk={ext}"))
+
+        assert [t.name for t in blk.tests] == ["t1"]
+        # It was matched, and skipped.
+        assert list(blk.cfg_extensions) == [CfgExtension("blk", ext)]
+        (reason,) = _reasons(blk)
+        assert "can't be parsed" in reason
+        # The reports name the extension beside the reason, so the reason doesn't.
+        assert str(ext) not in reason
+
+    def test_parse_error_stops_the_run_by_default(self, proj: Path, tmp_path: Path) -> None:
+        ext = _write(tmp_path / "ext.hjson", "{tests: [{name: ")
+
+        with pytest.raises(SystemExit):
+            _load(proj, "top_sim_cfgs.hjson", f"blk={ext}")
+
+    def test_partial_merge_is_undone(self, proj: Path, tmp_path: Path) -> None:
+        """Keys merged before the one that fails are put back as they were."""
+        ext = _write(
+            tmp_path / "ext.hjson",
+            '{run_opts: ["+x"], tests: [{name: "t2"}], new_key: "n", blk_var: "clash"}',
+        )
+
+        blk = _blk(_load_skip(proj, f"blk={ext}"))
+
+        assert blk.run_opts == ["+tool"]
+        assert [t.name for t in blk.tests] == ["t1"]
+        assert not hasattr(blk, "new_key")
+        assert blk.blk_var == "orig"
+        (reason,) = _reasons(blk)
+        assert "conflicting value" in reason
+        # The reason doesn't repeat the path, which the skip names already.
+        assert str(ext) not in reason
+
+    @pytest.mark.parametrize(
+        ("overrides", "message"),
+        [
+            ('[{name: "no_such_key", value: "x"}]', "which the cfg doesn't have"),
+            ('[{name: "blk_var", value: 3}]', "doesn't match the type"),
+            ('[{name: "blk_var"}]', "needs a name and a value"),
+            ('{name: "blk_var", value: "x"}', "Conflicting types"),
+            ('[{name: ["blk_var"], value: "x"}]', "needs a key name"),
+        ],
+    )
+    def test_bad_override_is_skipped(
+        self, proj: Path, tmp_path: Path, overrides: str, message: str
+    ) -> None:
+        ext = _write(tmp_path / "ext.hjson", f'{{run_opts: ["+x"], overrides: {overrides}}}')
+
+        blk = _blk(_load_skip(proj, f"blk={ext}"))
+
+        assert blk.run_opts == ["+tool"]
+        assert getattr(blk, "overrides", []) == []
+        (reason,) = _reasons(blk)
+        assert message in reason
+
+    def test_bad_override_stops_the_run_by_default(self, proj: Path, tmp_path: Path) -> None:
+        ext = _write(tmp_path / "ext.hjson", '{overrides: [{name: "no_such_key", value: "x"}]}')
+
+        with pytest.raises(SystemExit):
+            _load(proj, "top_sim_cfgs.hjson", f"blk={ext}")
+
+    def test_override_taken_by_an_earlier_extension(self, proj: Path, tmp_path: Path) -> None:
+        first = _write(tmp_path / "a.hjson", '{overrides: [{name: "blk_var", value: "a"}]}')
+        second = _write(tmp_path / "b.hjson", '{overrides: [{name: "blk_var", value: "b"}]}')
+
+        blk = _blk(_load_skip(proj, f"blk={first}", f"blk={second}"))
+
+        assert blk.blk_var == "a"
+        assert _skipped(blk) == [CfgExtension("blk", second)]
+        (reason,) = _reasons(blk)
+        assert "already overridden" in reason
+
+    def test_later_extensions_still_apply(self, proj: Path, tmp_path: Path) -> None:
+        broken = _write(tmp_path / "a.hjson", '{use_cfgs: ["/x.hjson"]}')
+        good = _write(tmp_path / "b.hjson", '{run_opts: ["+b"]}')
+
+        blk = _blk(_load_skip(proj, f"blk={broken}", f"blk={good}"))
+
+        assert blk.run_opts == ["+tool", "+b"]
+        # Both in command-line order; only the broken one skipped.
+        assert list(blk.cfg_extensions) == [CfgExtension("blk", broken), CfgExtension("blk", good)]
+        assert _skipped(blk) == [CfgExtension("blk", broken)]
+
+    def test_missing_file_is_skipped(self, proj: Path, tmp_path: Path) -> None:
+        blk = _blk(_load_skip(proj, f"blk={tmp_path / 'nope.hjson'}"))
+
+        (reason,) = _reasons(blk)
+        assert "Not a file" in reason
+
+    def test_unresolved_import_is_skipped(self, proj: Path, tmp_path: Path) -> None:
+        ext = _write(tmp_path / "ext.hjson", '{import_cfgs: ["{nope}/x.hjson"]}')
+
+        blk = _blk(_load_skip(proj, f"blk={ext}"))
+
+        (reason,) = _reasons(blk)
+        assert "Can't resolve the name of an imported file" in reason
+
+    @pytest.mark.parametrize("name", ["blkk", "top"])
+    def test_unknown_name_is_skipped(
+        self, proj: Path, tmp_path: Path, dvsim_log: pytest.LogCaptureFixture, name: str
+    ) -> None:
+        """No cfg matched it, so no report shows it: there is only the warning."""
+        ext = _write(tmp_path / "ext.hjson", '{run_opts: ["+x"]}')
+
+        blk = _blk(_load_skip(proj, f"{name}={ext}"))
+
+        assert f"Skipping: Cfg extension {ext} names" in dvsim_log.text
+        assert not blk.cfg_extensions
+
+        assert blk.run_opts == ["+tool"]
 
 
 class TestRevision:

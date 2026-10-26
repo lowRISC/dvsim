@@ -16,8 +16,10 @@ from dvsim.flow.hjson import load_hjson
 
 __all__ = (
     "CfgExtension",
+    "check_cfg_extension_overrides",
     "check_cfg_extensions_used",
     "load_cfg_extension",
+    "override_names",
 )
 
 
@@ -61,6 +63,11 @@ def load_cfg_extension(
 
     try:
         data = load_hjson(path, initial_values, set(arg_keys))
+    except SystemExit as err:
+        # parse_hjson logs why a file can't be parsed and exits. Raise instead,
+        # so that --on-cfg-extend-error skip can leave the extension out.
+        msg = f"{path!r}: It, or a file it imports, can't be parsed (see above)."
+        raise RuntimeError(msg) from err
     except ValueError as err:
         # An import_cfgs entry with a wildcard that can't be resolved.
         msg = f"{path!r}: Can't resolve the name of an imported file: {err}"
@@ -111,3 +118,51 @@ def check_cfg_extensions_used(
                 f"that name (loaded: {known})."
             )
     return errors
+
+
+def override_names(overrides: object) -> set[str]:
+    """Return the names of the keys that an ``overrides`` list sets."""
+    if not isinstance(overrides, list):
+        return set()
+    return {o["name"] for o in overrides if isinstance(o, dict) and isinstance(o.get("name"), str)}
+
+
+def check_cfg_extension_overrides(overrides: object, cfg: object, taken: Iterable[str]) -> None:
+    """Check an extension's overrides as the cfg will apply them.
+
+    The cfg processes overrides only once every file is merged (see
+    FlowCfg._process_overrides, whose checks these mirror). Checking an
+    extension's own here, against the cfg it has just been merged into, lets
+    a broken one (most often, a key that the cfg no longer has) be reported
+    as that extension's fault. So an extension can only override keys that
+    the cfg or an earlier extension define. taken are the keys already
+    overridden before this extension.
+
+    Raises a RuntimeError for the first problem found (its message gives the reason only).
+    """
+    if not isinstance(overrides, list):
+        msg = "Its 'overrides' must be a list."
+        raise RuntimeError(msg)
+    taken = set(taken)
+    for item in overrides:
+        if not (isinstance(item, dict) and set(item) == {"name", "value"}):
+            msg = f"Each of its overrides needs a name and a value, not {item!r}."
+            raise RuntimeError(msg)
+        name, value = item["name"], item["value"]
+        if not isinstance(name, str):
+            msg = f"Each of its overrides needs a key name, not {name!r}."
+            raise RuntimeError(msg)
+        if name in taken:
+            msg = f"It overrides {name!r}, which is already overridden."
+            raise RuntimeError(msg)
+        if not hasattr(cfg, name):
+            msg = f"It overrides {name!r}, which the cfg doesn't have."
+            raise RuntimeError(msg)
+        old = getattr(cfg, name)
+        if not isinstance(value, type(old)):
+            msg = (
+                f"It overrides {name!r} with {value!r}, "
+                f"which doesn't match the type of its value {old!r}."
+            )
+            raise RuntimeError(msg)
+        taken.add(name)

@@ -166,7 +166,11 @@ The usual merge rules apply: the extension's list entries follow the configurati
 In an extension, `{self_dir}` is still the directory of the configuration file that dvsim loaded, so the extension names its own files with `{file_dir}`.
 Several extensions apply in command-line order.
 An extension whose `NAME` matches no loaded configuration is an error, as is naming one extension twice.
-The sim reports and JSON results list the extensions that each configuration merged, with the git revision of the checkout that holds each extension file: its `origin` (without credentials), its commit, and whether it was dirty, which includes the extension file itself not being tracked.
+With `--on-cfg-extend-error skip`, an extension that can't be loaded or merged, or whose `overrides` don't fit the configuration, is left out with a warning instead: the configuration runs as if the extension had not been named, later extensions still apply, and its reports say which extension was skipped and why.
+An extension's `overrides` can only name keys that the configuration or an earlier extension define.
+In that mode, an extension whose `NAME` matches nothing only gets a warning, as no report belongs to it.
+Errors found after the merge are not covered: for example an unknown wildcard in one of the extension's values, a test that names a build mode that doesn't exist, or a failing build.
+The sim reports and JSON results list the extensions that each configuration matched, with the git revision of the checkout that holds each extension file: its `origin` (without credentials), its commit, and whether it was dirty, which includes the extension file itself not being tracked.
 Files that an extension imports from elsewhere are not recorded.
 The JSON results of a configuration that merged no extension have no `extensions` key, as before extensions were recorded.
 
