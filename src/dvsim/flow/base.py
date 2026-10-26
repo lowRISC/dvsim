@@ -23,6 +23,7 @@ from dvsim.fusesoc import rewrite_fusesoc_opts
 from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
+from dvsim.report.data import CfgExtensionMeta
 from dvsim.scheduler.resources import UnknownResourcePolicy
 from dvsim.scheduler.runner import (
     build_default_scheduler_backend,
@@ -34,7 +35,7 @@ from dvsim.utils import (
     rm_path,
     subst_wildcards,
 )
-from dvsim.utils.git import git_commit_hash, git_is_dirty
+from dvsim.utils.git import git_commit_hash, git_is_dirty, git_revision
 
 if TYPE_CHECKING:
     from dvsim.job.deploy import Deploy
@@ -148,9 +149,9 @@ class FlowCfg(ABC):
         # configuration".
         self.is_primary_cfg = "use_cfgs" in hjson_data
 
-        # The cfg extensions (--cfg-extend) merged into this cfg, and the name
-        # that they were matched against.
-        self.cfg_extensions: list[CfgExtension] = []
+        # The cfg extensions (--cfg-extend) merged into this cfg, in order, as
+        # the reports describe them, and the name that they were matched against.
+        self.cfg_extensions: dict[CfgExtension, CfgExtensionMeta] = {}
         self.cfg_extend_name: str | None = None
 
         if not self.is_primary_cfg:
@@ -245,7 +246,9 @@ class FlowCfg(ABC):
             except RuntimeError as err:
                 log.error("Cannot extend cfg %r: %s", name, err)
                 sys.exit(1)
-            self.cfg_extensions.append(ext)
+            self.cfg_extensions[ext] = CfgExtensionMeta(
+                path=str(ext.path), revision=git_revision(ext.path)
+            )
 
     def _expand(self) -> None:
         """Expand wildcards after merging hjson.
