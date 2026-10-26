@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.57.0 (2026-10-26)
+
+### Features
+
+- Adds CDC results parsing for Meridian in the CDC flow
+  ([`178075c`](https://github.com/lowRISC/dvsim/commit/178075c419189381cbd62576d3c7589a4c12c4d8))
+
+
 ## v1.56.1 (2026-10-09)
 
 ### Bug Fixes
