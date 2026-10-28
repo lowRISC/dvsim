@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.57.1 (2026-10-28)
+
+### Bug Fixes
+
+- Report the formal coverage columns the engine actually measured
+  ([`5778f8c`](https://github.com/lowRISC/dvsim/commit/5778f8c6df52da3ffea1377843d15808fc97b0b6))
+
+
 ## v1.57.0 (2026-10-26)
 
 ### Features
