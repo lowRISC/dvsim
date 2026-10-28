@@ -12,7 +12,7 @@ from dvsim.logging import log
 from dvsim.runtime.backend import RuntimeBackend
 from dvsim.runtime.fake import FakePolicy, FakeRuntimeBackend
 from dvsim.runtime.registry import backend_registry
-from dvsim.scheduler.core import Scheduler
+from dvsim.scheduler.core import OnJobCompletionCb, Scheduler
 from dvsim.scheduler.log_manager import LogManager
 from dvsim.scheduler.resources import (
     ResourceManager,
@@ -77,6 +77,7 @@ async def run_scheduler(
     interactive: bool,
     backend: RuntimeBackend,
     resource_manager: ResourceManager | None,
+    on_job_completed: OnJobCompletionCb | None = None,
 ) -> list[CompletedJobStatus]:
     """Run the scheduler with the given set of job specifications.
 
@@ -86,6 +87,8 @@ async def run_scheduler(
         interactive: run the tool in interactive mode?
         backend: the scheduler backend to use
         resource_manager: the scheduler resource manager to use, if any.
+        on_job_completed: observer notified as each job reaches a terminal state, with the
+            reason the scheduler recorded for it.
 
     Returns:
         List of completed job status objects.
@@ -123,6 +126,9 @@ async def run_scheduler(
                 resources.update_status_counts(spec, old, new) or resources.log_status_counts()
             )
         )
+
+    if on_job_completed is not None:
+        scheduler.add_job_completion_callback(on_job_completed)
 
     if not interactive:
         status_printer = create_status_printer(jobs)

@@ -22,6 +22,7 @@ from dvsim.fusesoc import rewrite_fusesoc_opts
 from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
+from dvsim.scheduler.core import OnJobCompletionCb
 from dvsim.scheduler.resources import UnknownResourcePolicy
 from dvsim.scheduler.runner import (
     build_default_scheduler_backend,
@@ -527,8 +528,17 @@ class FlowCfg(ABC):
                 interactive=self.interactive,
                 backend=backend,
                 resource_manager=resource_manager,
+                on_job_completed=self.job_completion_callback(),
             )
         )
+
+    def job_completion_callback(self) -> OnJobCompletionCb | None:
+        """Return an observer for jobs reaching a terminal state, or None to observe nothing.
+
+        Asked for once, as the scheduler is built. Observing is opt-in and the base flow declines,
+        so nothing here knows what any one flow does with the outcomes.
+        """
+        return None
 
     @abstractmethod
     def gen_results(self, results: Sequence[CompletedJobStatus]) -> None:
