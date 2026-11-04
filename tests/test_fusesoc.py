@@ -4,7 +4,6 @@
 
 """Tests for the FuseSoC integration."""
 
-import logging
 from argparse import Namespace
 from pathlib import Path
 
@@ -290,16 +289,6 @@ class TestDeduplication:
         )
 
         assert result == ["run", "--mapping", MY_TECH, "core"]
-
-
-@pytest.fixture
-def dvsim_log(caplog):
-    """Capture dvsim's own logger, which deliberately does not propagate."""
-    logger = logging.getLogger("dvsim")
-    logger.addHandler(caplog.handler)
-    caplog.set_level(logging.INFO, logger="dvsim")
-    yield caplog
-    logger.removeHandler(caplog.handler)
 
 
 class TestOverrideLogging:

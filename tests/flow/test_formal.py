@@ -13,9 +13,6 @@ cfg and `gen_results_summary` on the primary that renders the cross-cfg table. A
 only the child cannot see whether a column name reaches the table at all.
 """
 
-import logging
-from collections.abc import Iterator
-
 import pytest
 from hamcrest import assert_that, contains_string, equal_to, has_length, is_not
 
@@ -72,16 +69,6 @@ class FakePrimaryCfg:
         self.revision = ""
         self.branch = "master"
         self.results_summary_md = ""
-
-
-@pytest.fixture
-def dvsim_log(caplog: pytest.LogCaptureFixture) -> Iterator[pytest.LogCaptureFixture]:
-    """Capture dvsim's own logger, which deliberately does not propagate."""
-    logger = logging.getLogger("dvsim")
-    logger.addHandler(caplog.handler)
-    caplog.set_level(logging.ERROR, logger="dvsim")
-    yield caplog
-    logger.removeHandler(caplog.handler)
 
 
 def reported(*results: dict[str, dict[str, str]]) -> FakePrimaryCfg:
