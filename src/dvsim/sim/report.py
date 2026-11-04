@@ -16,6 +16,7 @@ from dvsim.logging import log
 from dvsim.report.artifacts import ReportArtifacts, display_report, render_static_content
 from dvsim.report.data import CfgExtensionMeta, IPMeta
 from dvsim.sim.data import SimFlowResults, SimResultsSummary
+from dvsim.sim_results import BucketedFailures
 from dvsim.templates.render import render_template
 from dvsim.utils import TS_FORMAT_LONG
 from dvsim.utils.fs import relative_to
@@ -285,7 +286,7 @@ class MarkdownReportRenderer:
                 report_md += "\n\n" + coverage_table
 
         if results.failed_jobs.buckets:
-            bucket_summary = self.render_bucket_summary(results)
+            bucket_summary = self.render_bucket_summary(results.failed_jobs)
             if bucket_summary:
                 report_md += "\n\n" + bucket_summary
 
@@ -379,16 +380,21 @@ class MarkdownReportRenderer:
 
         return report_md
 
-    def render_bucket_summary(self, results: SimFlowResults) -> str:
+    def render_bucket_summary(
+        self,
+        failures: BucketedFailures,
+        title: str = "Failure Buckets",
+        noun: str = "failure",
+    ) -> str:
         """Generate a Markdown string with a summary of the buckets (failures/killed)."""
-        lines = [(0, "## Failure Buckets")]
+        lines = [(0, f"## {title}")]
 
         for bucket, tests in sorted(
-            results.failed_jobs.buckets.items(),
+            failures.buckets.items(),
             key=lambda kv: len(kv[1]),
             reverse=True,
         ):
-            lines.append((0, f"* `{bucket}` has {len(tests)} {_plural('failure', tests)}:"))
+            lines.append((0, f"* `{bucket}` has {len(tests)} {_plural(noun, tests)}:"))
 
             grouped_tests = defaultdict(list)
             for job in tests:
@@ -396,9 +402,7 @@ class MarkdownReportRenderer:
 
             displayed = list(grouped_tests.items())[: self.MAX_TESTS_PER_BUCKET]
             for name, reseeds in displayed:
-                lines.append(
-                    (1, f"* Test {name} has {len(reseeds)} {_plural('failure', reseeds)}.")
-                )
+                lines.append((1, f"* Test {name} has {len(reseeds)} {_plural(noun, reseeds)}."))
 
                 for failure in reseeds[: self.MAX_RESEEDS_PER_BUCKETED_TEST]:
                     lines.append((2, f"* {failure.qual_name}\\"))
@@ -411,7 +415,7 @@ class MarkdownReportRenderer:
 
                 extra = len(reseeds) - self.MAX_RESEEDS_PER_BUCKETED_TEST
                 if extra > 0:
-                    lines.append((2, f"* ... and {extra} more {_plural('failure', extra)}."))
+                    lines.append((2, f"* ... and {extra} more {_plural(noun, extra)}."))
 
             extra = len(grouped_tests) - self.MAX_TESTS_PER_BUCKET
             if extra > 0:
