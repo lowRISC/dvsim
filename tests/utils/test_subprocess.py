@@ -4,24 +4,12 @@
 
 """Test utilities for running external tools."""
 
-import logging
-
 import pytest
 from hamcrest import assert_that, contains_string, equal_to, is_not
 
 from dvsim.utils.subprocess import run_cmd
 
 __all__ = ("TestRunCmd",)
-
-
-@pytest.fixture
-def dvsim_log(caplog):
-    """Capture dvsim's own logger, which deliberately does not propagate."""
-    logger = logging.getLogger("dvsim")
-    logger.addHandler(caplog.handler)
-    caplog.set_level(logging.ERROR, logger="dvsim")
-    yield caplog
-    logger.removeHandler(caplog.handler)
 
 
 class TestRunCmd:

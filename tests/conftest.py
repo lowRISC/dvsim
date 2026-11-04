@@ -4,8 +4,10 @@
 
 """Fixtures shared by all the tests."""
 
+import logging
 import os
 import subprocess
+from collections.abc import Iterator
 
 import pytest
 
@@ -42,3 +44,13 @@ def _isolated_git(monkeypatch: pytest.MonkeyPatch, _git_repo_vars: list[str]) ->
     for role in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{role}_NAME", "dvsim test")
         monkeypatch.setenv(f"GIT_{role}_EMAIL", "dvsim-test@example.com")
+
+
+@pytest.fixture
+def dvsim_log(caplog: pytest.LogCaptureFixture) -> Iterator[pytest.LogCaptureFixture]:
+    """Capture dvsim's own logger, which deliberately does not propagate."""
+    logger = logging.getLogger("dvsim")
+    logger.addHandler(caplog.handler)
+    caplog.set_level(logging.INFO, logger="dvsim")
+    yield caplog
+    logger.removeHandler(caplog.handler)
