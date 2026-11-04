@@ -30,6 +30,20 @@ class Test(RunMode):
         "run_timeout_multiplier": None,
     }
 
+    def __init__(self, tdict) -> None:
+        # Why the test is expected to fail, or "" if it is expected to pass.
+        self.xfail = ""
+
+        super().__init__(tdict)
+
+        if not isinstance(self.xfail, str):
+            log.error(
+                'Test "%s": xfail must be a string giving the reason, not %r.',
+                self.name,
+                self.xfail,
+            )
+            sys.exit(1)
+
     @staticmethod
     def create_tests(tdicts, sim_cfg):
         """Create Test objects from a given list of raw dicts.

@@ -193,6 +193,8 @@
                             <div class="w-100 text-start">{{ s_name }}</div>
                             <div class="w-100 text-center">
                                 {{ stage.passed }}/{{ stage.total }} passed
+                                {%- if stage.xfailed %}, {{ stage.xfailed }} xfail{% endif %}
+                                {%- if stage.xpassed %}, {{ stage.xpassed }} xpass{% endif %}
                             </div>
                             <div class="w-100 text-end me-3">
                                 {{ "%.2f %%" | format(stage.percent) if stage.total > 0 else "" }}
@@ -225,7 +227,14 @@
                                     {% for t_name, t in tp.tests.items() %}
                                     <tr>
                                         <td></td>
-                                        <td>{{ t_name }}</td>
+                                        <td>
+                                            {{ t_name }}
+                                            {% if t.xfail %}
+                                            <span class="badge text-bg-secondary" title="{{ t.xfail }}">
+                                                xfail
+                                            </span>
+                                            {% endif %}
+                                        </td>
                                         <td>{{ "%.3fs" | format(t.max_time) if t.max_time is not none else "" }}</td>
                                         <td>{{ "%.3fus" | format(t.sim_time) if t.sim_time is not none else "" }}</td>
                                         <td>{{ t.passed }}</td>
@@ -253,6 +262,10 @@
 
     {% if failed_jobs %}
     {{ bucket_table("Error Messages", failed_jobs) }}
+    {% endif %}
+
+    {% if xfailed_jobs %}
+    {{ bucket_table("Expected Failures", xfailed_jobs) }}
     {% endif %}
 </div>
 {% endblock %}

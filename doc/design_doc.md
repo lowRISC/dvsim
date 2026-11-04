@@ -239,6 +239,20 @@ A version of the generated report (in Markdown format) is logged to the console.
 A slightly longer version of the generated report is written to an HTML file.
 The HTML report is optionally published to the report server.
 
+A test can be marked as expected to fail, giving the reason:
+
+```hjson
+tests: [
+  {name: "foo_smoke", xfail: "foo doesn't support bar yet (issue #123)"}
+]
+```
+
+A run of such a test that fails is reported as XFAIL: it has its own buckets and count, and doesn't fail the invocation.
+It still counts in the total that the pass rate divides by, so the pass rate is the share of runs that passed.
+A run that passes is reported as XPASS and counts as a failure (strict), so the list of expected failures stays current.
+Neither counts as passed.
+A run that times out, can't be launched, or is cancelled by the scheduler is a failure as usual, not an XFAIL.
+
 # Design
 
 ## Language

@@ -42,6 +42,17 @@ class TestResult(BaseModel):
     percent: float
     """Percentage test pass rate."""
 
+    xfailed: int = 0
+    """Number of runs that failed, as expected (XFAIL). Not counted as passed."""
+    xpassed: int = 0
+    """Number of runs that passed, but were expected to fail (XPASS). Counted as failures."""
+    xfail: str | None = None
+    """Why the test is expected to fail, or None if it is expected to pass."""
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return _without_unused_xfail(handler(self))
+
 
 class Testpoint(BaseModel):
     """Testpoint."""
@@ -58,6 +69,15 @@ class Testpoint(BaseModel):
     percent: float
     """Percentage test pass rate."""
 
+    xfailed: int = 0
+    """Number of runs that failed, as expected (XFAIL). Not counted as passed."""
+    xpassed: int = 0
+    """Number of runs that passed, but were expected to fail (XPASS). Counted as failures."""
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return _without_unused_xfail(handler(self))
+
 
 class TestStage(BaseModel):
     """Test stages."""
@@ -73,6 +93,15 @@ class TestStage(BaseModel):
     """Total number of tests run."""
     percent: float
     """Percentage test pass rate."""
+
+    xfailed: int = 0
+    """Number of runs that failed, as expected (XFAIL). Not counted as passed."""
+    xpassed: int = 0
+    """Number of runs that passed, but were expected to fail (XPASS). Counted as failures."""
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return _without_unused_xfail(handler(self))
 
 
 class CodeCoverageMetrics(BaseModel):
@@ -181,6 +210,22 @@ def _without_empty_extensions(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def _without_unused_xfail(data: dict[str, Any]) -> dict[str, Any]:
+    """Leave out the xfail keys of results that have no xfail test.
+
+    Results without xfail tests then have the keys they had before xfail was added, so a reader
+    built for those (whose models forbid unknown keys) can still load them.
+    """
+    for key in ("xfailed", "xpassed"):
+        if data.get(key) == 0:
+            data.pop(key)
+    if "xfail" in data and data["xfail"] is None:
+        data.pop("xfail")
+    if "xfailed_jobs" in data and not data["xfailed_jobs"].get("buckets"):
+        data.pop("xfailed_jobs")
+    return data
+
+
 class SimFlowResults(BaseModel):
     """Flow results data."""
 
@@ -222,9 +267,17 @@ class SimFlowResults(BaseModel):
     extensions: tuple[CfgExtensionMeta, ...] = ()
     """The cfg extensions (--cfg-extend) named for this flow."""
 
+    xfailed: int = 0
+    """Number of runs that failed, as expected (XFAIL). Not counted as passed."""
+    xpassed: int = 0
+    """Number of runs that passed, but were expected to fail (XPASS). Counted as failures."""
+
+    xfailed_jobs: BucketedFailures = BucketedFailures(buckets={})
+    """Bucketed overview of the expected failures (XFAIL)."""
+
     @model_serializer(mode="wrap")
     def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
-        return _without_empty_extensions(handler(self))
+        return _without_unused_xfail(_without_empty_extensions(handler(self)))
 
     def summary(self) -> "SimFlowSummary":
         """Load results from JSON file.
@@ -269,9 +322,14 @@ class SimFlowSummary(BaseModel):
     extensions: tuple[CfgExtensionMeta, ...] = ()
     """The cfg extensions (--cfg-extend) named for this flow."""
 
+    xfailed: int = 0
+    """Number of runs that failed, as expected (XFAIL). Not counted as passed."""
+    xpassed: int = 0
+    """Number of runs that passed, but were expected to fail (XPASS). Counted as failures."""
+
     @model_serializer(mode="wrap")
     def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
-        return _without_empty_extensions(handler(self))
+        return _without_unused_xfail(_without_empty_extensions(handler(self)))
 
     @staticmethod
     def load(path: Path) -> "SimFlowSummary":

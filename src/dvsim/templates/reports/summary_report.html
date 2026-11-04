@@ -125,7 +125,12 @@
                                     </div>
                                 </a>
                             </td>
-                            <td>{{ flow.passed }}</td>
+                            <td>
+                                {{ flow.passed }}
+                                {% if flow.xfailed %}
+                                <span class="badge text-bg-secondary">{{ flow.xfailed }} xfail</span>
+                                {% endif %}
+                            </td>
                             <td>{{ flow.total }}</td>
                             <td class="c{{ (flow.percent / 10)|int }}">
                                 {{ "%.2f" | format(flow.percent) }}

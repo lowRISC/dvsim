@@ -23,6 +23,8 @@ __all__ = (
     "JobSpec",
     "JobStatusInfo",
     "WorkspaceConfig",
+    "is_xfail",
+    "is_xpass",
 )
 
 
@@ -131,6 +133,9 @@ class JobSpec(BaseModel):
     fail_patterns: Sequence[str]
     """regex patterns to match on to determine if the job has failed."""
 
+    xfail: str | None = None
+    """Why the job is expected to fail, or None if it is expected to pass."""
+
     @property
     def id(self) -> str:
         """Returns a string that uniquely identifies this job."""
@@ -203,3 +208,25 @@ class CompletedJobStatus(BaseModel):
     """Status of the job."""
     fail_msg: JobStatusInfo | None
     """Error message."""
+
+    xfail: str | None = None
+    """Why the job is expected to fail, or None if it is expected to pass."""
+
+
+def is_xfail(xfail: str | None, status: JobStatus, info: JobStatusInfo | None) -> bool:
+    """Whether a job that is expected to fail failed (XFAIL).
+
+    Only a job that ran and failed counts. A killed job (a timeout, or a job that could not be
+    launched) and a job the scheduler cancelled are failures, so that a hang or a broken
+    environment doesn't pass for the expected failure.
+    """
+    return (
+        xfail is not None
+        and status == JobStatus.FAILED
+        and not (info is not None and info.cancelled)
+    )
+
+
+def is_xpass(xfail: str | None, status: JobStatus) -> bool:
+    """Whether a job that is expected to fail passed (XPASS), which counts as a failure."""
+    return xfail is not None and status == JobStatus.PASSED

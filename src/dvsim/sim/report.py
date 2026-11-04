@@ -36,6 +36,14 @@ def _plural(item: str, n: int | Collection[Any], suffix: str = "s") -> str:
     return item if n == 1 else item + suffix
 
 
+def _xfail_cell(xfailed: int, xpassed: int) -> str:
+    """Describe the XFAIL and XPASS runs of a test or group, for a table cell."""
+    cell = str(xfailed) if xfailed else ""
+    if xpassed:
+        cell += f" ({xpassed} XPASS)"
+    return cell.strip()
+
+
 def _indent_by_levels(lines: Iterable[tuple[int, str]], indent_spaces: int = 4) -> str:
     """Format per-line indentation of (0-indexed level, msg) log messages."""
     return "\n".join(" " * lvl * indent_spaces + msg for lvl, msg in lines)
@@ -115,11 +123,17 @@ class HtmlReportRenderer:
             sorted_buckets = dict(
                 sorted(results.failed_jobs.buckets.items(), key=lambda kv: len(kv[1]), reverse=True)
             )
+            sorted_xfail_buckets = dict(
+                sorted(
+                    results.xfailed_jobs.buckets.items(), key=lambda kv: len(kv[1]), reverse=True
+                )
+            )
             artifacts[block_file] = render_template(
                 path="reports/block_report.html",
                 data={
                     "results": results,
                     "failed_jobs": sorted_buckets,
+                    "xfailed_jobs": sorted_xfail_buckets,
                     "version": summary.version,
                 },
             )
@@ -290,6 +304,13 @@ class MarkdownReportRenderer:
             if bucket_summary:
                 report_md += "\n\n" + bucket_summary
 
+        if results.xfailed_jobs.buckets:
+            bucket_summary = self.render_bucket_summary(
+                results.xfailed_jobs, title="Expected Failures", noun="expected failure"
+            )
+            if bucket_summary:
+                report_md += "\n\n" + bucket_summary
+
         return report_md
 
     def render_result_table(self, results: SimFlowResults) -> str:
@@ -304,6 +325,14 @@ class MarkdownReportRenderer:
             ("Total", "center"),
             ("Pass Rate", "center"),
         ]
+        show_xfail = any(
+            t.xfail
+            for stage in results.stages.values()
+            for tp in stage.testpoints.values()
+            for t in tp.tests.values()
+        )
+        if show_xfail:
+            column_info.append(("XFail", "center"))
         table = []
         hidden_names = ("n.a.", "unmapped")
 
@@ -328,19 +357,23 @@ class MarkdownReportRenderer:
                         result.total,
                         pass_rate,
                     ]
+                    if show_xfail:
+                        row.append(_xfail_cell(result.xfailed, result.xpassed))
                     table.append(row)
 
             pass_rate = "-- %" if stage.total == 0 else f"{stage.percent:.2f} %"
             # TODO: note the calculated stage totals are currently not correct.
-            table.append(
-                [stage_name, None, "**TOTAL**", None, None, stage.passed, stage.total, pass_rate]
-            )
+            row = [stage_name, None, "**TOTAL**", None, None, stage.passed, stage.total, pass_rate]
+            if show_xfail:
+                row.append(_xfail_cell(stage.xfailed, stage.xpassed))
+            table.append(row)
 
         # TODO: note the calculated overall totals are currently not correct.
         pass_rate = "-- %" if results.total == 0 else f"{results.percent:.2f} %"
-        table.append(
-            [None, None, "**TOTAL**", None, None, results.passed, results.total, pass_rate]
-        )
+        row = [None, None, "**TOTAL**", None, None, results.passed, results.total, pass_rate]
+        if show_xfail:
+            row.append(_xfail_cell(results.xfailed, results.xpassed))
+        table.append(row)
 
         if not table:
             return ""
@@ -464,6 +497,13 @@ class MarkdownReportRenderer:
                     "Coverage": coverage,
                 }
             )
+            if flow_result.xfailed or flow_result.xpassed:
+                table[-1]["XFail"] = _xfail_cell(flow_result.xfailed, flow_result.xpassed)
+
+        # Every row needs every column.
+        if any("XFail" in row for row in table):
+            for row in table:
+                row.setdefault("XFail", "")
 
         if table:
             colalign = ("center",) * len(table[0])

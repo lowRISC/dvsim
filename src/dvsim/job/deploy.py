@@ -93,6 +93,9 @@ class Deploy:
         # this current job to run
         self.needs_all_dependencies_passing = True
 
+        # Why the job is expected to fail, if it is (only tests can be).
+        self.xfail: str | None = None
+
         # These variables will be extracted from the hjson file by _set_attrs,
         # and then _check_attrs checks that they were indeed extracted. Define
         # placeholder values here to allow a type checker to know the class has
@@ -183,6 +186,7 @@ class Deploy:
             post_finish=self.post_finish(),
             pass_patterns=self.pass_patterns,
             fail_patterns=self.fail_patterns,
+            xfail=self.xfail,
         )
 
     def _define_attrs(self) -> None:
@@ -762,6 +766,8 @@ class RunTest(Deploy):
 
         # When running a test, we should always renew the output directory
         self.renew_odir = True
+
+        self.xfail = self.test_obj.xfail or None
 
         # 'test' is used as a substitution variable in the HJson.
         self.test = self.name

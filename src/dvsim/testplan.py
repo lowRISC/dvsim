@@ -48,6 +48,12 @@ class Result:
         self.simulated_time = simulated_time_us
         self.mapped = False
 
+        # For a test that is expected to fail: the reason, and how many of its runs failed
+        # (XFAIL) or passed (XPASS). Both kinds count in total, but not in passing.
+        self.xfail: str | None = None
+        self.xfailed = 0
+        self.xpassed = 0
+
 
 class Element:
     """An element of the testplan.
