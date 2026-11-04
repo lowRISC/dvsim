@@ -123,7 +123,8 @@ def resolve_max_parallel(arg):
 
     Always use the CLI argument if provided. If not, check if some $DVSIM_MAX_PARALLEL
     environment variable is defined. If not, try to determine the number of logical
-    CPUs on the system and use (logical CPUs - 1). Otherwise, default to 16.
+    CPUs on the system and use (logical CPUs - 1), up to a maximum of 16 (1 on a system
+    with a single logical CPU). Otherwise, default to 16.
     """
     if arg is not None:
         assert arg > 0
@@ -144,17 +145,19 @@ def resolve_max_parallel(arg):
             )
 
     # If the CLI args and env var did not define any parallelism limit, try and
-    # use the number of logical CPU cores minus one (for IO, scheduler overhead, etc.)
+    # use the number of logical CPU cores minus one (for IO, scheduler overhead, etc.),
+    # up to a maximum of 16. The cap keeps the default from taking more licences from a
+    # shared licence server than a run needs; a run that wants more must ask for them.
     logical_cores = os.cpu_count()
     if logical_cores == 1:
         log.info("Using max_parallel=1 as the system has 1 logical CPU available.")
         return 1
     if logical_cores is not None and logical_cores > 0:
-        max_parallel = max(logical_cores - 1, 16)
+        max_parallel = min(logical_cores - 1, 16)
         log.info(
             "Using max_parallel=%d%s as the system has %d logical CPUs available",
-            " (capped)" if (logical_cores - 1) > 16 else "",
             max_parallel,
+            " (capped)" if (logical_cores - 1) > 16 else "",
             logical_cores,
         )
         return max_parallel
@@ -478,10 +481,13 @@ def parse_args(argv: list[str] | None = None):
         metavar="N",
         help=(
             "Run only up to N builds/tests at a time. "
-            "Default value 16, unless the DVSIM_MAX_PARALLEL "
-            "environment variable is set, in which case that "
-            "is used. Only applicable when launching jobs "
-            "locally."
+            "Default: 16 where your machine has more than 16 logical "
+            "cores (threads) or the number of threads can't be "
+            "determined. For smaller machines the default is one "
+            "less than the number of threads (1 with a single "
+            "thread). The DVSIM_MAX_PARALLEL environment variable, "
+            "if set, replaces the default. Only applicable when "
+            "launching jobs locally."
         ),
     )
 
