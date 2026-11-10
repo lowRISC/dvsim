@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.58.0 (2026-11-10)
+
+### Features
+
+- Add {file_dir}, the directory of the hjson file being parsed
+  ([`322d6a0`](https://github.com/lowRISC/dvsim/commit/322d6a050162c32a554e52a710b96d177515ecb0))
+
+
 ## v1.57.1 (2026-10-28)
 
 ### Bug Fixes
