@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.59.1 (2026-11-10)
+
+### Bug Fixes
+
+- Cap the default max_parallel at 16, and log it correctly
+  ([`42bc1c9`](https://github.com/lowRISC/dvsim/commit/42bc1c9c0245782a9c560c92b002555da81017c3))
+
+### Testing
+
+- Keep the tests' git commands in their own repositories
+  ([`3b7db33`](https://github.com/lowRISC/dvsim/commit/3b7db33beede6055cba9bc25923db5749da92c24))
+
+- Share the dvsim_log fixture
+  ([`a5b1f70`](https://github.com/lowRISC/dvsim/commit/a5b1f7028bfe038b1d07e7454a46a85fd80c7321))
+
+
 ## v1.59.0 (2026-11-10)
 
 ### Features
