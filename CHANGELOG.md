@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.59.0 (2026-11-10)
+
+### Features
+
+- Let build modes, run modes and tests ask for resources
+  ([`e4a6b71`](https://github.com/lowRISC/dvsim/commit/e4a6b7129e4db1b0afe5e6f7318c3d57fed883fe))
+
+
 ## v1.58.0 (2026-11-10)
 
 ### Features
