@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.59.2 (2026-11-12)
+
+### Bug Fixes
+
+- Bump GitPython and Pillow past their advisories
+  ([`dd73c8d`](https://github.com/lowRISC/dvsim/commit/dd73c8d2215ff24c06f2e70b880e69a5ebb26054))
+
+
 ## v1.59.1 (2026-11-10)
 
 ### Bug Fixes
