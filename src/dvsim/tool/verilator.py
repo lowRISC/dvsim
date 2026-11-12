@@ -69,9 +69,11 @@ def main() -> None:
             # TODO(#10071) remove countermeasure waiver.
             (
                 "flow_warning",
-                r"^(?!WARNING: Unknown item formal in section Target)"
-                r"(?!WARNING: Countermeasure.*)"
-                r"WARNING: .*",
+                (
+                    r"^(?!WARNING: Unknown item formal in section Target)"
+                    r"(?!WARNING: Countermeasure.*)"
+                    r"WARNING: .*"
+                ),
             ),
             ("flow_warning", r"^.*Warning: .* "),
             ("flow_warning", r"^W .*"),

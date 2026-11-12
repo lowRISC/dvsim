@@ -4,7 +4,7 @@
 
 """Launcher abstract base class."""
 
-import datetime
+import datetime as dt
 import os
 import re
 import sys
@@ -233,7 +233,7 @@ class Launcher(ABC):
         """
         self.job_spec.pre_launch()
         self._make_odir()
-        self.start_time = datetime.datetime.now()
+        self.start_time = dt.datetime.now()
 
     @abstractmethod
     def _do_launch(self) -> None:

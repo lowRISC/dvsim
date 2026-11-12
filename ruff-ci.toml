@@ -114,6 +114,10 @@ ignore = [
     "UP031",
 ]
 
+[lint.flake8-copyright]
+# Our headers carry no year, which ruff's default notice-rgx requires.
+notice-rgx = "(?i)Copyright lowRISC contributors"
+
 [lint.per-file-ignores]
 # Less strict in the tests
 "tests/**.py" = [

@@ -120,33 +120,37 @@ class TestCompileSim:
             (
                 {"dry_run": True},
                 {},
-                "make -f path/to/makefile build "
-                "-n "
-                "build_cmd=path/to/build_name/build_cmd "
-                "build_dir=build/dir "
-                "build_opts='-b path/here -a \"Quoted\"' "
-                "post_build_cmds='C && D' "
-                "post_build_opts=E "
-                "pre_build_cmds='A && B' "
-                "proj_root=/project "
-                "sv_flist_gen_cmd=gen_cmd "
-                "sv_flist_gen_dir=path/to/gen "
-                "sv_flist_gen_opts=''",
+                (
+                    "make -f path/to/makefile build "
+                    "-n "
+                    "build_cmd=path/to/build_name/build_cmd "
+                    "build_dir=build/dir "
+                    "build_opts='-b path/here -a \"Quoted\"' "
+                    "post_build_cmds='C && D' "
+                    "post_build_opts=E "
+                    "pre_build_cmds='A && B' "
+                    "proj_root=/project "
+                    "sv_flist_gen_cmd=gen_cmd "
+                    "sv_flist_gen_dir=path/to/gen "
+                    "sv_flist_gen_opts=''"
+                ),
             ),
             (
                 {"dry_run": False},
                 {},
-                "make -f path/to/makefile build "
-                "build_cmd=path/to/build_name/build_cmd "
-                "build_dir=build/dir "
-                "build_opts='-b path/here -a \"Quoted\"' "
-                "post_build_cmds='C && D' "
-                "post_build_opts=E "
-                "pre_build_cmds='A && B' "
-                "proj_root=/project "
-                "sv_flist_gen_cmd=gen_cmd "
-                "sv_flist_gen_dir=path/to/gen "
-                "sv_flist_gen_opts=''",
+                (
+                    "make -f path/to/makefile build "
+                    "build_cmd=path/to/build_name/build_cmd "
+                    "build_dir=build/dir "
+                    "build_opts='-b path/here -a \"Quoted\"' "
+                    "post_build_cmds='C && D' "
+                    "post_build_opts=E "
+                    "pre_build_cmds='A && B' "
+                    "proj_root=/project "
+                    "sv_flist_gen_cmd=gen_cmd "
+                    "sv_flist_gen_dir=path/to/gen "
+                    "sv_flist_gen_opts=''"
+                ),
             ),
         ],
     )
