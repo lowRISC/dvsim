@@ -13,7 +13,7 @@ from signal import SIGINT, SIGTERM, getsignal, signal
 from types import FrameType
 from typing import Any, TypeAlias
 
-from dvsim.job.data import CompletedJobStatus, JobSpec, JobStatusInfo
+from dvsim.job.data import CompletedJobStatus, JobSpec, JobStatusInfo, is_xfail, is_xpass
 from dvsim.job.status import JobStatus
 from dvsim.logging import log
 from dvsim.runtime.backend import RuntimeBackend
@@ -69,20 +69,28 @@ OnSchedulerKillCb: TypeAlias = Callable[[], None]
 
 # Standard context messages used for killed/failed jobs in the scheduler.
 FAILED_DEP = JobStatusInfo(
-    message="Job cancelled because one of its dependencies failed or was killed."
+    message="Job cancelled because one of its dependencies failed or was killed.",
+    cancelled=True,
 )
 ALL_FAILED_DEP = JobStatusInfo(
-    message="Job cancelled because all of its dependencies failed or were killed."
+    message="Job cancelled because all of its dependencies failed or were killed.",
+    cancelled=True,
 )
 KILLED_SCHEDULED = JobStatusInfo(
-    message="Job cancelled because one of its dependencies was killed."
+    message="Job cancelled because one of its dependencies was killed.",
+    cancelled=True,
 )
-KILLED_QUEUED = JobStatusInfo(message="Job killed whilst waiting to begin execution.")
+KILLED_QUEUED = JobStatusInfo(
+    message="Job killed whilst waiting to begin execution.",
+    cancelled=True,
+)
 KILLED_RUNNING_SIGINT = JobStatusInfo(
-    message="Job killed by a SIGINT signal to the scheduler whilst executing."
+    message="Job killed by a SIGINT signal to the scheduler whilst executing.",
+    cancelled=True,
 )
 KILLED_RUNNING_SIGTERM = JobStatusInfo(
-    message="Job killed by a SIGTERM signal to the scheduler whilst executing."
+    message="Job killed by a SIGTERM signal to the scheduler whilst executing.",
+    cancelled=True,
 )
 
 
@@ -270,12 +278,23 @@ class Scheduler:
         job.status_info = info
 
         if new_status != JobStatus.RUNNING:
+            level = log.VERBOSE
+            expected = ""
+            if is_xfail(job.spec.xfail, new_status, info):
+                level = log.INFO
+                expected = f" (expected to fail: {job.spec.xfail})"
+            elif is_xpass(job.spec.xfail, new_status):
+                level = log.WARNING
+                expected = f" (but expected to fail: {job.spec.xfail})"
+            elif new_status in (JobStatus.FAILED, JobStatus.KILLED):
+                level = log.ERROR
             log.log(
-                log.ERROR if new_status in (JobStatus.FAILED, JobStatus.KILLED) else log.VERBOSE,
-                "Status change to [%s: %s] for %s",
+                level,
+                "Status change to [%s: %s] for %s%s",
                 new_status.shorthand,
                 new_status.name.capitalize(),
                 job.spec.full_name,
+                expected,
             )
 
         for cb in self._on_job_status_change:
@@ -405,6 +424,7 @@ class Scheduler:
                 else 0.0,
                 status=job.status,
                 fail_msg=job.status_info,
+                xfail=job.spec.xfail,
             )
             for job in self._jobs.values()
         ]

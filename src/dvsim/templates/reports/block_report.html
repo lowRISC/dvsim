@@ -12,6 +12,45 @@
 {% set stages = results.stages %}
 {% set coverage = results.coverage %}
 {% block content %}
+{% macro bucket_table(title, buckets) %}
+    <div class="row py-3">
+        <div class="col">
+            <h3>{{ title }}</h3>
+            <table class="table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th>&nbsp;&nbsp;</th>
+                        <th>Test</th>
+                        <th>seed</th>
+                        <th>line</th>
+                        <th>log context</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for msg, job_list in buckets.items() %}
+                    <tr class="table-primary">
+                        <td colspan=4>{{ msg }}</td>
+                        <td><b>{{ job_list|length }} test run{{ "s" if job_list|length > 1 else "" }}</b></td>
+                    </tr>
+                    {% for job in job_list %}
+                    <tr>
+                        <th scope="row"></th>
+                        <td>{{ job.name }}</td>
+                        <td>{{ job.seed }}</td>
+                        <td>{{ job.line }}</td>
+                        <td>
+                        {% for context_line in job.log_context %}
+                            <div>{{ context_line }}</div>
+                        {% endfor %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endmacro %}
 <div class="container-md">
     <div class="row">
         <div class="col">
@@ -58,6 +97,15 @@
             <span class="badge text-bg-secondary">
                 Tool: {{ tool.name }} [{{ tool.version }}]
             </span>
+            {% for ext in results.extensions %}
+            {% set rev = ext.revision %}
+            <span class="badge text-bg-secondary"
+                  title="{{ ext.path }}{% if rev and rev.origin %}&#10;{{ rev.origin }}{% endif %}{% if rev %}&#10;{{ rev.commit }}{% endif %}">
+                Extension: {{ ext.name }}
+                {%- if rev %} sha: {{ rev.commit_short }}{% endif %}
+                {%- if rev and rev.dirty %} (dirty){% endif %}
+            </span>
+            {% endfor %}
             {% if build_seed %}
             <span class="badge text-bg-secondary">
                 Build seed: {{ build_seed }}
@@ -145,6 +193,8 @@
                             <div class="w-100 text-start">{{ s_name }}</div>
                             <div class="w-100 text-center">
                                 {{ stage.passed }}/{{ stage.total }} passed
+                                {%- if stage.xfailed %}, {{ stage.xfailed }} xfail{% endif %}
+                                {%- if stage.xpassed %}, {{ stage.xpassed }} xpass{% endif %}
                             </div>
                             <div class="w-100 text-end me-3">
                                 {{ "%.2f %%" | format(stage.percent) if stage.total > 0 else "" }}
@@ -177,7 +227,14 @@
                                     {% for t_name, t in tp.tests.items() %}
                                     <tr>
                                         <td></td>
-                                        <td>{{ t_name }}</td>
+                                        <td>
+                                            {{ t_name }}
+                                            {% if t.xfail %}
+                                            <span class="badge text-bg-secondary" title="{{ t.xfail }}">
+                                                xfail
+                                            </span>
+                                            {% endif %}
+                                        </td>
                                         <td>{{ "%.3fs" | format(t.max_time) if t.max_time is not none else "" }}</td>
                                         <td>{{ "%.3fus" | format(t.sim_time) if t.sim_time is not none else "" }}</td>
                                         <td>{{ t.passed }}</td>
@@ -204,43 +261,11 @@
     {% endif %}
 
     {% if failed_jobs %}
-    <div class="row py-3">
-        <div class="col">
-            <h3>Error Messages</h3>
-            <table class="table table-sm table-hover">
-                <thead>
-                    <tr>
-                        <th>&nbsp;&nbsp;</th>
-                        <th>Test</th>
-                        <th>seed</th>
-                        <th>line</th>
-                        <th>log context</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {% for msg, job_list in failed_jobs.items() %}
-                    <tr class="table-primary">
-                        <td colspan=4>{{ msg }}</td>
-                        <td><b>{{ job_list|length }} test run{{ "s" if job_list|length > 1 else "" }}</b></td>
-                    </tr>
-                    {% for job in job_list %}
-                    <tr>
-                        <th scope="row"></th>
-                        <td>{{ job.name }}</td>
-                        <td>{{ job.seed }}</td>
-                        <td>{{ job.line }}</td>
-                        <td>
-                        {% for context_line in job.log_context %}
-                            <div>{{ context_line }}</div>
-                        {% endfor %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+    {{ bucket_table("Error Messages", failed_jobs) }}
+    {% endif %}
+
+    {% if xfailed_jobs %}
+    {{ bucket_table("Expected Failures", xfailed_jobs) }}
     {% endif %}
 </div>
 {% endblock %}

@@ -10,11 +10,13 @@ import pytest
 from git import Repo
 from hamcrest import assert_that, calling, equal_to, raises
 
+from dvsim.report.data import GitRevisionMeta
 from dvsim.utils.git import (
     git_commit_hash,
     git_https_url_with_commit,
     git_is_dirty,
     git_origin_url,
+    git_revision,
     repo_root,
 )
 
@@ -226,3 +228,50 @@ class TestGit:
             git_https_url_with_commit(tmp_path),
             equal_to(expected.format(commit=commit)),
         )
+
+    @staticmethod
+    def test_git_revision(tmp_path: Path) -> None:
+        """Test git_revision describes the checkout holding a file."""
+        ext = tmp_path / "sub" / "ext.hjson"
+        ext.parent.mkdir()
+        ext.write_text("{}")
+
+        # Not in a git repo, or in one without a commit: nothing to say.
+        assert_that(git_revision(ext), equal_to(None))
+        r = Repo.init(path=tmp_path)
+        assert_that(git_revision(ext), equal_to(None))
+
+        r.index.add([ext])
+        r.index.commit("initial commit")
+        commit = r.head.commit.hexsha
+
+        assert_that(
+            git_revision(ext),
+            equal_to(
+                GitRevisionMeta(
+                    origin=None,
+                    commit=commit,
+                    commit_short=git_commit_hash(tmp_path, short=True),
+                    dirty=False,
+                )
+            ),
+        )
+
+        # An untracked or ignored file isn't in the commit, so its checkout
+        # counts as dirty; the other files there are still clean.
+        untracked = tmp_path / "sub" / "new.hjson"
+        untracked.write_text("{}")
+        ignored = tmp_path / "sub" / "ignored.hjson"
+        ignored.write_text("{}")
+        (tmp_path / ".git" / "info" / "exclude").write_text("ignored.hjson\n")
+        assert_that(git_revision(ext).dirty, equal_to(False))
+        assert_that(git_revision(untracked).dirty, equal_to(True))
+        assert_that(git_revision(ignored).dirty, equal_to(True))
+        untracked.unlink()
+
+        r.create_remote("origin", "https://oauth2:token@example.com/org/overlay.git")
+        ext.write_text("{x: 1}")
+        revision = git_revision(ext)
+        assert revision is not None
+        assert_that(revision.origin, equal_to("https://example.com/org/overlay.git"))
+        assert_that(revision.dirty, equal_to(True))
