@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.59.4 (2026-11-12)
+
+### Bug Fixes
+
+- Bump astral-sh/setup-uv
+  ([`c17f175`](https://github.com/lowRISC/dvsim/commit/c17f175f950ac554ea19e037a1daab36410a4012))
+
+
 ## v1.59.3 (2026-11-12)
 
 ### Bug Fixes
