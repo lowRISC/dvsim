@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, ClassVar
 import hjson
 
 import dvsim.instrumentation.runtime as instrumentation
+from dvsim.flow.extension import CfgExtension, load_cfg_extension
 from dvsim.flow.hjson import set_target_attribute
 from dvsim.fusesoc import rewrite_fusesoc_opts
 from dvsim.job.data import CompletedJobStatus, JobSpec, WorkspaceConfig
@@ -147,7 +148,15 @@ class FlowCfg(ABC):
         # configuration".
         self.is_primary_cfg = "use_cfgs" in hjson_data
 
+        # The cfg extensions (--cfg-extend) merged into this cfg, and the name
+        # that they were matched against.
+        self.cfg_extensions: list[CfgExtension] = []
+        self.cfg_extend_name: str | None = None
+
         if not self.is_primary_cfg:
+            # Extensions merge after everything the cfg loads itself, and
+            # before overrides and wildcards are processed.
+            self._merge_cfg_extensions()
             self.cfgs.append(self)
         else:
             for entry in self.use_cfgs:
@@ -204,6 +213,39 @@ class FlowCfg(ABC):
         """
         for key, value in hjson_data.items():
             set_target_attribute(self.flow_cfg_file, self.__dict__, key, value)
+
+    def _merge_cfg_extensions(self) -> None:
+        """Merge in the cfg extensions (--cfg-extend) that name this cfg.
+
+        They apply in command-line order. Their list values follow the cfg's
+        own, and their overrides join the cfg's own.
+        """
+        # The name as the cfg's own files give it. Overrides could still change
+        # it, but those are processed after the extensions merge.
+        name = subst_wildcards(self.name, self.__dict__, ignore_error=True)
+        self.cfg_extend_name = name
+
+        # What load_hjson needs to resolve the names of imported files. As in
+        # the cfg's own files, {self_dir} is the cfg's directory: an extension
+        # names its own files with {file_dir}.
+        initial_values = {"proj_root": self.proj_root, "self_dir": self.self_dir}
+        if self.tool:
+            initial_values["tool"] = self.tool
+        # Only a tool given on the command line can't be changed by the files.
+        arg_keys = {"tool"} if self.args.tool is not None else set()
+
+        for ext in self.args.cfg_extend:
+            if ext.cfg_name != name:
+                continue
+            log.info("[cfg_extend]: %s: %s", name, ext.path)
+            try:
+                ext_data = load_cfg_extension(ext, initial_values, arg_keys)
+                for key, value in ext_data.items():
+                    set_target_attribute(str(ext.path), self.__dict__, key, value)
+            except RuntimeError as err:
+                log.error("Cannot extend cfg %r: %s", name, err)
+                sys.exit(1)
+            self.cfg_extensions.append(ext)
 
     def _expand(self) -> None:
         """Expand wildcards after merging hjson.
