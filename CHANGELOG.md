@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.59.3 (2026-11-12)
+
+### Bug Fixes
+
+- Upgrade ruff to 0.17
+  ([`3bbfb68`](https://github.com/lowRISC/dvsim/commit/3bbfb6831a04bb0598c457ca248edcd41fa656f1))
+
+
 ## v1.59.2 (2026-11-12)
 
 ### Bug Fixes
