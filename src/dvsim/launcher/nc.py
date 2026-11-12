@@ -4,7 +4,7 @@
 
 """Altair nc job launcher."""
 
-import datetime
+import datetime as dt
 import os
 import pathlib
 import subprocess
@@ -164,7 +164,7 @@ class NcLauncher(Launcher):
             self._close_process()
 
     def minutes_since_start(self):
-        return (datetime.datetime.now() - self.start_time).total_seconds() / 60
+        return (dt.datetime.now() - self.start_time).total_seconds() / 60
 
     def poll(self) -> JobStatus:
         """Check status of the running process.
@@ -194,7 +194,7 @@ class NcLauncher(Launcher):
                         # If the job log size is more than the threshold,
                         # declare the job to have started running
                         # capture the run start time
-                        self.start_time = datetime.datetime.now()
+                        self.start_time = dt.datetime.now()
                         self.nc_job_state = "running"
 
                 if self.nc_job_state == "waiting":  # noqa: SIM102

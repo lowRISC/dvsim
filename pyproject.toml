@@ -130,6 +130,10 @@ ignore = [
     "EM101",  # String literals in exception
 ]
 
+[tool.ruff.lint.flake8-copyright]
+# Our headers carry no year, which ruff's default notice-rgx requires.
+notice-rgx = "(?i)Copyright lowRISC contributors"
+
 [tool.ruff.lint.per-file-ignores]
 # Top-level CLIs should be allowed to print if needed
 "src/dvsim/cli/**.py" = ["T201"]

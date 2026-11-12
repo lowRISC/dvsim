@@ -21,7 +21,7 @@ by the sim tool.
 """
 
 import argparse
-import datetime
+import datetime as dt
 import os
 import random
 import shlex
@@ -1064,7 +1064,7 @@ def main(argv: list[str] | None = None) -> None:
         args.cfg = os.path.join(proj_root, cfg_path)
 
     # Add timestamp to args that all downstream objects can use.
-    curr_ts = datetime.datetime.now(datetime.timezone.utc)
+    curr_ts = dt.datetime.now(dt.timezone.utc)
     args.timestamp_long = curr_ts.strftime(TS_FORMAT_LONG)
     args.timestamp = curr_ts.strftime(TS_FORMAT)
 
