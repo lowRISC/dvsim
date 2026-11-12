@@ -187,6 +187,10 @@ If coverage is enabled, it creates additional deployable objects for merging the
 The deployable objects representing the tests are added as dependencies of the coverage object, so that the coverage merge job is run only after all tests finish.
 Thus, all [jobs](#eda-tool-flow-steps) have an associated deployable object, which manages it.
 
+The coverage merge puts the coverage of the cfg's `primary_build_mode` first.
+If no test of the run uses that build mode, dvsim uses the first of the run's builds by name instead (and warns, if coverage is enabled).
+`primary_build_mode` must still name a build mode of the cfg.
+
 ### Scheduler stage
 
 Once a dependency-encoded list of deployable objects is constructed, the entire list is passed onto the **scheduler**.

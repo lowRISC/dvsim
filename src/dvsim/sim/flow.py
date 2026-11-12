@@ -243,9 +243,9 @@ class SimCfg(FlowCfg):
 
             # Set the primary build mode. The coverage associated to this build
             # is the main coverage. Some tools need this information. This is
-            # of significance only when there are multiple builds. If there is
-            # only one build, and its not the primary_build_mode, then we
-            # update the primary_build_mode to match what is built.
+            # of significance only when there are multiple builds. If it is not
+            # among the builds of a run, _create_deploy_objects picks one that
+            # is (the only one, or the first by name).
             if not hasattr(self, "primary_build_mode"):
                 self.primary_build_mode = self.build_mode
 
@@ -540,12 +540,29 @@ class SimCfg(FlowCfg):
             log.error("Nothing to do as no matching jobs could be found.")
             sys.exit(1)
         if self.primary_build_mode not in build_mode_names:
-            log.error(
-                f'"primary_build_mode: {self.primary_build_mode}" '
-                f"in {self.name} cfg is invalid. Please pick from "
-                f"{build_mode_names}.",
+            if self.primary_build_mode not in {m.name for m in self.build_modes}:
+                log.error(
+                    f'"primary_build_mode: {self.primary_build_mode}" '
+                    f"in {self.name} cfg is not a build mode. Please pick from "
+                    f"{sorted(m.name for m in self.build_modes)}.",
+                )
+                sys.exit(1)
+
+            # The primary build mode only says whose coverage goes first in
+            # the merge, so a run whose tests all use other build modes can
+            # still go ahead: pick one of those, the same one every time.
+            # Without coverage nothing reads it, so there is nothing to warn about.
+            fallback = min(build_mode_names)
+            log.log(
+                log.WARNING if self.cov else log.VERBOSE,
+                '"primary_build_mode: %s" in %s cfg is not among the builds '
+                "of this run (%s). Using %s instead.",
+                self.primary_build_mode,
+                self.name,
+                ", ".join(sorted(build_mode_names)),
+                fallback,
             )
-            sys.exit(1)
+            self.primary_build_mode = fallback
 
         # Update all tests to use the updated (uniquified) build modes.
         for test in self.run_list:
