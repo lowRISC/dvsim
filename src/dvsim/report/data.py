@@ -4,9 +4,13 @@
 
 """Report data models."""
 
+from pathlib import Path
+
 from pydantic import BaseModel, ConfigDict
 
 __all__ = (
+    "CfgExtensionMeta",
+    "GitRevisionMeta",
     "IPMeta",
     "ToolMeta",
 )
@@ -50,3 +54,38 @@ class ToolMeta(BaseModel):
     """Name of the tool."""
     version: str
     """Version of the tool."""
+
+
+class CfgExtensionMeta(BaseModel):
+    """A cfg extension (--cfg-extend) that a flow's cfg matched: merged, or skipped."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    path: str
+    """Path of the extension file."""
+    skipped: str | None = None
+    """Why the extension was left out (--on-cfg-extend-error skip), or None if
+    it was merged."""
+    revision: "GitRevisionMeta | None" = None
+    """The git revision of the checkout that holds the extension file (not of
+    any files it imports from elsewhere), or None if it isn't in git."""
+
+    @property
+    def name(self) -> str:
+        """The name of the extension file."""
+        return Path(self.path).name
+
+
+class GitRevisionMeta(BaseModel):
+    """The git revision of a checkout, when the run started."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    origin: str | None
+    """URL of the ``origin`` remote (credentials stripped), or None."""
+    commit: str
+    """Git commit."""
+    commit_short: str
+    """Shortened git commit."""
+    dirty: bool
+    """Whether the checkout had uncommitted changes, or didn't track the file."""

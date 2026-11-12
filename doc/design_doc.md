@@ -149,6 +149,31 @@ Within any of these files, `{file_dir}` names the directory that holds that file
 `{self_dir}`, by contrast, is the directory of the configuration file that dvsim loaded, at the top of the import tree.
 `{file_dir}` is replaced as each file is loaded, so it can only be used in Hjson files, not in options given on the command line.
 
+A configuration can also be extended from outside the project tree with `--cfg-extend NAME=PATH`, for example to add tests that need a licensed verification IP that the project itself can't hold:
+
+```hjson
+// ext.hjson, merged with: dvsim top_sim_cfgs.hjson --cfg-extend foo=/path/to/ext.hjson ...
+{
+  import_cfgs: ["{file_dir}/vip_tests.hjson"]
+  build_modes: [{name: "vip", build_opts: ["-f {file_dir}/vip.f"]}]
+  overrides: [{name: "foo_setting", value: "with_vip"}]
+}
+```
+
+The Hjson file at `PATH`, with its imports, is merged into the configuration whose `name` is `NAME` once that configuration has loaded all of its own files; this works whether that configuration is run on its own or is a child of a primary configuration.
+`NAME` is matched against the name that the configuration's own files give it, before any `overrides`.
+The usual merge rules apply: the extension's list entries follow the configuration's own, and a conflicting scalar is an error, so an extension changes a scalar with `overrides` (but not one that the configuration already overrides).
+In an extension, `{self_dir}` is still the directory of the configuration file that dvsim loaded, so the extension names its own files with `{file_dir}`.
+Several extensions apply in command-line order.
+An extension whose `NAME` matches no loaded configuration is an error, as is naming one extension twice.
+With `--on-cfg-extend-error skip`, an extension that can't be loaded or merged, or whose `overrides` don't fit the configuration, is left out with a warning instead: the configuration runs as if the extension had not been named, later extensions still apply, and its reports say which extension was skipped and why.
+An extension's `overrides` can only name keys that the configuration or an earlier extension define.
+In that mode, an extension whose `NAME` matches nothing only gets a warning, as no report belongs to it.
+Errors found after the merge are not covered: for example an unknown wildcard in one of the extension's values, a test that names a build mode that doesn't exist, or a failing build.
+The sim reports and JSON results list the extensions that each configuration matched, with the git revision of the checkout that holds each extension file: its `origin` (without credentials), its commit, and whether it was dirty, which includes the extension file itself not being tracked.
+Files that an extension imports from elsewhere are not recorded.
+The JSON results of a configuration that merged no extension have no `extensions` key, as before extensions were recorded.
+
 ### Parser stage
 
 The **parser stage** parses all Hjson files in the tree and constructs a **flow manager object**.
