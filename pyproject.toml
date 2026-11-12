@@ -20,7 +20,7 @@ dependencies = [
     # Keep sorted
     "click>=8.1.7",
     "enlighten>=1.12.4",
-    "gitpython>=3.1.58",
+    "gitpython>=3.2.1",
     "hjson>=3.1.0",
     "jinja2>=3.1.6",
     "matplotlib>=3.10.9",
@@ -90,6 +90,13 @@ build-backend = "hatchling.build"
 
 [tool.hatch]
 metadata.allow-direct-references = true
+
+[tool.uv]
+# Pillow (via matplotlib) 13.0.0 fixes published advisories but requires Python
+# 3.11+. Fork the lock so 3.11+ gets the fixed release while 3.10 stays on 12.x.
+constraint-dependencies = [
+    "pillow>=13.0.0; python_version >= '3.11'",
+]
 
 [tool.pyright]
 include = ["src"]
