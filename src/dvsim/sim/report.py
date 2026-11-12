@@ -14,7 +14,7 @@ from tabulate import tabulate
 
 from dvsim.logging import log
 from dvsim.report.artifacts import ReportArtifacts, display_report, render_static_content
-from dvsim.report.data import IPMeta
+from dvsim.report.data import CfgExtensionMeta, IPMeta
 from dvsim.sim.data import SimFlowResults, SimResultsSummary
 from dvsim.templates.render import render_template
 from dvsim.utils import TS_FORMAT_LONG
@@ -159,6 +159,16 @@ class HtmlReportRenderer:
         return artifacts
 
 
+def _revision(ext: CfgExtensionMeta) -> str:
+    """Describe the git revision of a cfg extension, for the Markdown reports."""
+    rev = ext.revision
+    if rev is None:
+        return ""
+    dirty = ", dirty" if rev.dirty else ""
+    origin = f", from {rev.origin}" if rev.origin else ""
+    return f" (revision `{rev.commit_short}`{dirty}{origin})"
+
+
 class MarkdownReportRenderer:
     """Renders a Markdown report of the sim results."""
 
@@ -213,6 +223,9 @@ class MarkdownReportRenderer:
         if len(results.stages) > 0 and testplan_ref:
             report_md += f"\n### [Testplan]({testplan_ref})"
         report_md += f"\n### Simulator: {results.tool.name.upper()}"
+        if results.extensions:
+            report_md += "\n### Cfg extensions:\n"
+            report_md += "".join(f"\n* `{ext.path}`{_revision(ext)}" for ext in results.extensions)
 
         # Record a summary of the simulation results, coverage, and failure buckets, if applicable.
         result_summary = self.render_block_results(results)

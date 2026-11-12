@@ -7,10 +7,11 @@
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, SerializerFunctionWrapHandler, model_serializer
 
-from dvsim.report.data import IPMeta, ToolMeta
+from dvsim.report.data import CfgExtensionMeta, IPMeta, ToolMeta
 from dvsim.sim_results import BucketedFailures
 
 __all__ = (
@@ -169,6 +170,17 @@ class CoverageMetrics(BaseModel):
         return items
 
 
+def _without_empty_extensions(data: dict[str, Any]) -> dict[str, Any]:
+    """Leave out the extensions of a flow that has none.
+
+    A flow run without --cfg-extend then has the keys it had before extensions were recorded, so a
+    reader built for those (whose models forbid unknown keys) can still load it.
+    """
+    if not data.get("extensions"):
+        data.pop("extensions", None)
+    return data
+
+
 class SimFlowResults(BaseModel):
     """Flow results data."""
 
@@ -206,6 +218,13 @@ class SimFlowResults(BaseModel):
     """Total number of tests run."""
     percent: float
     """Percentage test pass rate."""
+
+    extensions: tuple[CfgExtensionMeta, ...] = ()
+    """The cfg extensions (--cfg-extend) named for this flow."""
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return _without_empty_extensions(handler(self))
 
     def summary(self) -> "SimFlowSummary":
         """Load results from JSON file.
@@ -246,6 +265,13 @@ class SimFlowSummary(BaseModel):
     """Total number of tests run."""
     percent: float
     """Percentage test pass rate."""
+
+    extensions: tuple[CfgExtensionMeta, ...] = ()
+    """The cfg extensions (--cfg-extend) named for this flow."""
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return _without_empty_extensions(handler(self))
 
     @staticmethod
     def load(path: Path) -> "SimFlowSummary":
