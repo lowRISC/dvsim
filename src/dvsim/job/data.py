@@ -154,6 +154,8 @@ class JobStatusInfo(BaseModel):
     """Relevant line information (in the job script or the job itself)."""
     context: Sequence[str] | None = None
     """Arbitrary context strings."""
+    cancelled: bool = False
+    """The scheduler stopped the job for a reason outside it (a failed dependency or a signal)."""
 
 
 class CompletedJobStatus(BaseModel):
