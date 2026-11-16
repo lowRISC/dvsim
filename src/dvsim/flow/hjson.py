@@ -17,7 +17,7 @@ _CMDLINE_FIELDS = {"tool"}
 _FILE_DIR_WILDCARD = "{file_dir}"
 
 
-def load_hjson(path, initial_values):
+def load_hjson(path, initial_values, arg_keys=None):
     """Load an hjson file and any includes.
 
     Combines them all into a single dictionary, which is then returned. This
@@ -29,6 +29,10 @@ def load_hjson(path, initial_values):
     is not modified). It needs to contain values for anything needed to resolve
     include files (typically, this is 'proj_root' and 'tool' (if set)).
 
+    arg_keys are the keys of initial_values that came from the command line,
+    which the files can't change. By default, that is any of them that the
+    command line can set.
+
     """
     worklist = [path]
     seen = {path}
@@ -38,7 +42,8 @@ def load_hjson(path, initial_values):
     # Figure out a list of fields that had a value from the command line. These
     # should have been passed in as part of initial_values and we need to know
     # that we can safely ignore updates.
-    arg_keys = _CMDLINE_FIELDS & initial_values.keys()
+    if arg_keys is None:
+        arg_keys = _CMDLINE_FIELDS & initial_values.keys()
 
     while worklist:
         next_path = worklist.pop()

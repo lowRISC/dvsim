@@ -58,6 +58,15 @@
             <span class="badge text-bg-secondary">
                 Tool: {{ tool.name }} [{{ tool.version }}]
             </span>
+            {% for ext in results.extensions %}
+            {% set rev = ext.revision %}
+            <span class="badge text-bg-secondary"
+                  title="{{ ext.path }}{% if rev and rev.origin %}&#10;{{ rev.origin }}{% endif %}{% if rev %}&#10;{{ rev.commit }}{% endif %}">
+                Extension: {{ ext.name }}
+                {%- if rev %} sha: {{ rev.commit_short }}{% endif %}
+                {%- if rev and rev.dirty %} (dirty){% endif %}
+            </span>
+            {% endfor %}
             {% if build_seed %}
             <span class="badge text-bg-secondary">
                 Build seed: {{ build_seed }}
