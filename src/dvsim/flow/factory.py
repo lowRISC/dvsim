@@ -7,6 +7,7 @@ import sys
 
 from dvsim.flow.base import FlowCfg
 from dvsim.flow.cdc import CdcCfg
+from dvsim.flow.extension import check_cfg_extensions_used
 from dvsim.flow.formal import FormalCfg
 from dvsim.flow.hjson import load_hjson
 from dvsim.flow.lint import LintCfg
@@ -113,6 +114,13 @@ def make_cfg(path, args, proj_root) -> FlowCfg:
     of the project.
 
     """
+    # An extension named twice would be merged twice.
+    repeated = [ext for ext in dict.fromkeys(args.cfg_extend) if args.cfg_extend.count(ext) > 1]
+    for ext in repeated:
+        log.error("Cfg extension %s=%s is given more than once.", ext.cfg_name, ext.path)
+    if repeated:
+        sys.exit(1)
+
     initial_values = {
         "proj_root": proj_root,
         "self_dir": pathlib.Path(path).parent,
@@ -131,4 +139,19 @@ def make_cfg(path, args, proj_root) -> FlowCfg:
         child_ivs["flow"] = hjson_data["flow"]
         return _make_child_cfg(child_path, args, child_ivs)
 
-    return cls(path, hjson_data, args, factory)
+    cfg = cls(path, hjson_data, args, factory)
+
+    # Every extension must have found its cfg. A name that matches nothing is
+    # a typo or a cfg that has been renamed, and would otherwise pass silently.
+    errors = check_cfg_extensions_used(
+        args.cfg_extend,
+        [ext for child in cfg.cfgs for ext in child.cfg_extensions],
+        [child.cfg_extend_name for child in cfg.cfgs],
+        cfg.name if cfg.is_primary_cfg else None,
+    )
+    for error in errors:
+        log.error("%s", error)
+    if errors:
+        sys.exit(1)
+
+    return cfg

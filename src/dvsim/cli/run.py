@@ -37,6 +37,7 @@ from dvsim.config import (
     load_config_file,
     proj_root_from_config,
 )
+from dvsim.flow.extension import CfgExtension
 from dvsim.flow.factory import make_cfg
 from dvsim.fusesoc import CONFIG_SECTION as FUSESOC_CONFIG_SECTION
 from dvsim.fusesoc import resolve_options as resolve_fusesoc_options
@@ -183,6 +184,14 @@ def parse_resource(s: str) -> tuple[str, int | None]:
     except (ValueError, KeyError, RuntimeError) as e:
         msg = f"Invalid resource format: {s}, expected RESOURCE=COUNT"
         raise argparse.ArgumentTypeError(msg) from e
+
+
+def parse_cfg_extension(s: str) -> CfgExtension:
+    """Parse a cfg extension (NAME=PATH) from the argparse CLI."""
+    try:
+        return CfgExtension.parse(s)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(str(e)) from e
 
 
 def resolve_branch(branch, cwd=None):
@@ -450,6 +459,21 @@ def parse_args(argv: list[str] | None = None):
             "the given configs from it. If this argument is "
             "not used, dvsim will process all configs listed "
             "in a primary config."
+        ),
+    )
+
+    whatg.add_argument(
+        "--cfg-extend",
+        action="append",
+        default=[],
+        type=parse_cfg_extension,
+        metavar="NAME=PATH",
+        help=(
+            "Merge the hjson file PATH (and its imports) into the cfg whose "
+            "'name' is NAME, after the cfg's own files. NAME may be a child of "
+            "a primary config. Lists are appended to; scalars are changed "
+            "with 'overrides'. PATH names its own files with {file_dir}. "
+            "Repeatable; applied in order. It is an error if NAME matches no cfg."
         ),
     )
 
