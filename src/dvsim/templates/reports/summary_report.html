@@ -124,6 +124,13 @@
                                         {{ flow.block.variant_name(sep='/') | upper }}
                                     </div>
                                 </a>
+                                {% set skipped = flow.extensions|selectattr("skipped", "ne", none)|list %}
+                                {% if skipped %}
+                                <span class="badge text-bg-warning"
+                                      title="{% for ext in skipped %}{{ ext.path }}: {{ ext.skipped }}&#10;{% endfor %}">
+                                    {{ skipped|length }} extension{{ "s" if skipped|length > 1 }} skipped
+                                </span>
+                                {% endif %}
                             </td>
                             <td>{{ flow.passed }}</td>
                             <td>{{ flow.total }}</td>

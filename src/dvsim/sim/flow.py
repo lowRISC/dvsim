@@ -877,6 +877,8 @@ class SimCfg(FlowCfg):
         if failures.buckets:
             self.errors_seen = True
 
+        extensions = self.cfg_extensions.values()
+
         # --- Final result ---
         return SimFlowResults(
             block=block,
@@ -893,6 +895,7 @@ class SimCfg(FlowCfg):
             passed=total_passed,
             total=total_runs,
             percent=100.0 * total_passed / total_runs if total_runs else 0.0,
+            extensions=tuple(extensions),
         )
 
     def _fake_policy(self, job: JobSpec) -> JobStatus:

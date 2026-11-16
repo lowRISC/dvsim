@@ -36,6 +36,18 @@
         </div>
     </div>
 
+    {% for ext in results.extensions|selectattr("skipped", "ne", none) %}
+    <div class="row">
+        <div class="col">
+            <div class="alert alert-warning py-2" role="alert">
+                {% set rev = ext.revision -%}
+                Cfg extension <code>{{ ext.path }}</code>
+                {%- if rev %} (sha: {{ rev.commit_short }}{% if rev.dirty %}, dirty{% endif %}){% endif %} skipped: {{ ext.skipped }}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
     <div class="row justify-content-between">
         <div class="col-4 col-md-3">
             <div class="text-center mb-2">&nbsp;</div>
@@ -58,6 +70,15 @@
             <span class="badge text-bg-secondary">
                 Tool: {{ tool.name }} [{{ tool.version }}]
             </span>
+            {% for ext in results.extensions|selectattr("skipped", "none") %}
+            {% set rev = ext.revision %}
+            <span class="badge text-bg-secondary"
+                  title="{{ ext.path }}{% if rev and rev.origin %}&#10;{{ rev.origin }}{% endif %}{% if rev %}&#10;{{ rev.commit }}{% endif %}">
+                Extension: {{ ext.name }}
+                {%- if rev %} sha: {{ rev.commit_short }}{% endif %}
+                {%- if rev and rev.dirty %} (dirty){% endif %}
+            </span>
+            {% endfor %}
             {% if build_seed %}
             <span class="badge text-bg-secondary">
                 Build seed: {{ build_seed }}
