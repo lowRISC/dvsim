@@ -69,20 +69,28 @@ OnSchedulerKillCb: TypeAlias = Callable[[], None]
 
 # Standard context messages used for killed/failed jobs in the scheduler.
 FAILED_DEP = JobStatusInfo(
-    message="Job cancelled because one of its dependencies failed or was killed."
+    message="Job cancelled because one of its dependencies failed or was killed.",
+    cancelled=True,
 )
 ALL_FAILED_DEP = JobStatusInfo(
-    message="Job cancelled because all of its dependencies failed or were killed."
+    message="Job cancelled because all of its dependencies failed or were killed.",
+    cancelled=True,
 )
 KILLED_SCHEDULED = JobStatusInfo(
-    message="Job cancelled because one of its dependencies was killed."
+    message="Job cancelled because one of its dependencies was killed.",
+    cancelled=True,
 )
-KILLED_QUEUED = JobStatusInfo(message="Job killed whilst waiting to begin execution.")
+KILLED_QUEUED = JobStatusInfo(
+    message="Job killed whilst waiting to begin execution.",
+    cancelled=True,
+)
 KILLED_RUNNING_SIGINT = JobStatusInfo(
-    message="Job killed by a SIGINT signal to the scheduler whilst executing."
+    message="Job killed by a SIGINT signal to the scheduler whilst executing.",
+    cancelled=True,
 )
 KILLED_RUNNING_SIGTERM = JobStatusInfo(
-    message="Job killed by a SIGTERM signal to the scheduler whilst executing."
+    message="Job killed by a SIGTERM signal to the scheduler whilst executing.",
+    cancelled=True,
 )
 
 
