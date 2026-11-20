@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.59.6 (2026-11-20)
+
+### Bug Fixes
+
+- Bump the python-deps group with 2 updates
+  ([`81ba07b`](https://github.com/lowRISC/dvsim/commit/81ba07b943df3504bc144a36ba67e1a0ad3119c1))
+
+
 ## v1.59.5 (2026-11-20)
 
 ### Bug Fixes
