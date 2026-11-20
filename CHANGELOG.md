@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.59.5 (2026-11-20)
+
+### Bug Fixes
+
+- Bump astral-sh/setup-uv from 10.3.2 to 10.3.3 in the actions group
+  ([`05c7c81`](https://github.com/lowRISC/dvsim/commit/05c7c810cd185d6e22437598bd59af98d86d2ee6))
+
+
 ## v1.59.4 (2026-11-12)
 
 ### Bug Fixes

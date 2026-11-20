@@ -8,7 +8,7 @@
 
 [project]
 name = "dvsim"
-version = "1.59.4"
+version = "1.59.5"
 description = "DV system"
 authors = [{name = "lowRISC contributors (OpenTitan project)"}]
 readme = "README.md"
